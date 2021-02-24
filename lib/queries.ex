@@ -4,16 +4,7 @@ defmodule Bonfire.Files.Queries do
 
   alias Bonfire.Files.Content
 
-  def query(Content) do
-    from(c in Content,
-      as: :content,
-      left_join: u in assoc(c, :content_upload),
-      as: :content_upload,
-      left_join: m in assoc(c, :content_mirror),
-      as: :content_mirror,
-      preload: [content_upload: u, content_mirror: m]
-    )
-  end
+  def query(Content), do: from(c in Content, as: :content)
 
   def query(q, filters), do: filter(query(q), filters)
 

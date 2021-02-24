@@ -16,9 +16,9 @@ defmodule Bonfire.Files.Content do
   pointable_schema do
     # has_one(:preview, __MODULE__)
     belongs_to(:uploader, User)
-    belongs_to(:content_mirror, ContentMirror)
-    belongs_to(:content_upload, ContentUpload)
     field(:url, :string, virtual: true)
+    field(:path, :string)
+    field(:size, :integer)
     field(:media_type, :string)
     field(:metadata, :map)
     field(:is_public, :boolean, virtual: true)
@@ -28,23 +28,13 @@ defmodule Bonfire.Files.Content do
   end
 
   @create_cast ~w(media_type metadata is_public)a
-  @create_required ~w(media_type)a
+  @create_required ~w(path size media_type)a
 
-  def mirror_changeset(%ContentMirror{} = mirror, uploader, attrs) do
-    common_changeset(uploader, attrs)
-    |> Changeset.change(content_mirror_id: mirror.id)
-  end
-
-  def upload_changeset(%ContentUpload{} = upload, uploader, attrs) do
-    common_changeset(uploader, attrs)
-    |> Changeset.change(content_upload_id: upload.id)
-  end
-
-  defp common_changeset(uploader, attrs) do
+  def changeset(%User{} = uploader, attrs) do
     %__MODULE__{}
     |> Changeset.cast(attrs, @create_cast)
     |> Changeset.validate_required(@create_required)
-    |> Changeset.validate_length(:media_type, max: 256)
+    |> Changeset.validate_length(:media_type, max: 255)
     |> Changeset.change(
       is_public: true,
       uploader_id: Bonfire.Common.Utils.maybe_get(uploader, :id)
@@ -56,7 +46,7 @@ end
 defmodule Bonfire.Files.Content.Migration do
   use Ecto.Migration
   import Pointers.Migration
-  alias Bonfire.Files.{Content, ContentUpload, ContentMirror}
+  alias Bonfire.Files.Content
 
   defp make_content_table(exprs) do
     quote do
@@ -65,10 +55,8 @@ defmodule Bonfire.Files.Content.Migration do
         # see https://stackoverflow.com/a/643772 for size
         Ecto.Migration.add(:uploader_id,
           Pointers.Migration.strong_pointer(Bonfire.Data.Identity.User))
-        Ecto.Migration.add(:content_upload_id,
-          Pointers.Migration.strong_pointer(ContentUpload))
-        Ecto.Migration.add(:content_mirror_id,
-          Pointers.Migration.strong_pointer(ContentMirror))
+        Ecto.Migration.add(:path, :text, null: false)
+        Ecto.Migration.add(:size, :integer, null: false)
         Ecto.Migration.add(:media_type, :string, null: false, size: 255)
         Ecto.Migration.add(:metadata, :jsonb)
         Ecto.Migration.add(:published_at, :utc_datetime_usec)
@@ -86,54 +74,32 @@ defmodule Bonfire.Files.Content.Migration do
   def drop_content_table(), do: drop_pointable_table(Content)
 
   # add constraint to forbid neither references set
-  defp make_content_neither_reference_constraint(_opts \\ []) do
+  defp make_content_path_index(opts \\ []) do
     quote do
       Ecto.Migration.create_if_not_exists(
-        Ecto.Migration.constraint(
-          "bonfire_content",
-          :mirror_or_upload_must_be_set,
-          check: "content_mirror_id is not null or content_upload_id is not null"
-        )
+        Ecto.Migration.index("bonfire_content", [:path], unquote(opts))
       )
     end
   end
 
-  # add constraint to forbid both references set
-  defp make_content_both_reference_constraint(_opts \\ []) do
-    quote do
-      Ecto.Migration.create_if_not_exists(
-        Ecto.Migration.constraint(
-          "bonfire_content",
-          :mirror_or_upload_must_set_only_one,
-          check: "content_mirror_id is null or content_upload_id is null"
-        )
-      )
-    end
+  def drop_content_path_index(opts \\ []) do
+    drop_if_exists(Ecto.Migration.constraint(
+          "bonfire_content", [:path], opts))
   end
 
-  def drop_content_neither_reference_constraint(_opts \\ []) do
-    drop_if_exists(Ecto.Migration.constraint(
-          "bonfire_content", :mirror_or_upload_must_be_set))
-  end
-
-  def drop_content_both_reference_constraint(_opts \\ []) do
-    drop_if_exists(Ecto.Migration.constraint(
-          "bonfire_content", :mirror_or_upload_set_only_one))
-  end
+  # TODO: path index
 
   defp mc(:up) do
     quote do
       unquote(make_content_table([]))
-      unquote(make_content_neither_reference_constraint())
-      unquote(make_content_both_reference_constraint())
+      unquote(make_content_path_index())
     end
   end
 
   defp mc(:down) do
     quote do
       __MODULE__.drop_content_table()
-      __MODULE__.drop_content_neither_reference_constraint()
-      __MODULE__.drop_content_both_reference_constraint()
+      __MODULE__.drop_content_path_index()
     end
   end
 

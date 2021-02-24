@@ -6,10 +6,6 @@ defmodule Bonfire.Files do
 
   alias Bonfire.Files.{
     Content,
-    ContentUpload,
-    ContentUploadQueries,
-    ContentMirror,
-    ContentMirrorQueries,
     FileDenied,
     Storage,
     Queries
@@ -43,34 +39,6 @@ defmodule Bonfire.Files do
   defp insert_content(upload_def, uploader, %{} = file, attrs) do
     attrs = Map.merge(file, attrs)
 
-    # FIXME: delegate to Storage
-    Repo.transact_with(fn ->
-      if is_remote_file?(file) do
-        insert_content_mirror(uploader, attrs)
-      else
-        insert_content_upload(upload_def, uploader, attrs)
-      end
-    end)
-  end
-
-  defp insert_content(_, _, nil, attrs) do
-    attrs
-  end
-
-  defp insert_content_mirror(uploader, %{url: url} = attrs) when is_binary(url) and url != "" do
-    attrs = %{attrs | url: url |> CommonsPub.Utils.File.ensure_valid_url()}
-
-    with {:ok, mirror} <- Repo.insert(ContentMirror.changeset(attrs)),
-         {:ok, content} <- Repo.insert(Content.mirror_changeset(mirror, uploader, attrs)) do
-      {:ok, %{content | content_mirror: mirror}}
-    end
-  end
-
-  defp insert_content_mirror(_, _) do
-    {:ok, nil}
-  end
-
-  defp insert_content_upload(upload_def, uploader, attrs) do
     storage_opts = [scope: uploader.id]
 
     with {:ok, file_info} <- Storage.store(upload_def, attrs, storage_opts) do
@@ -79,26 +47,25 @@ defmodule Bonfire.Files do
         |> Map.put(:path, file_info.path)
         |> Map.put(:size, file_info.info.size)
 
-      with {:ok, upload} <- Repo.insert(ContentUpload.changeset(attrs)),
-           {:ok, content} <- Repo.insert(Content.upload_changeset(upload, uploader, attrs)) do
-        {:ok, %{content | content_upload: upload}}
+      with {:ok, content} <- Repo.insert(Content.changeset(uploader, attrs)) do
+        {:ok, content}
       else
         e ->
           # rollback file changes on failure
           Storage.delete(file_info.path)
-          e
+        e
       end
     end
+  end
+
+  defp insert_content(_, _, nil, attrs) do
+    attrs
   end
 
   @doc """
   Attempt to fetch a remotely accessible URL for the associated file in an upload.
   """
-  def remote_url(%Content{content_mirror: mirror, content_mirror_id: id}) when is_binary(id),
-    do: {:ok, mirror.url}
-
-  def remote_url(%Content{content_upload: upload, content_upload_id: id}) when is_binary(id),
-    do: Storage.remote_url(upload.path)
+  def remote_url(%Content{path: path}), do: Storage.remote_url(path)
 
   def remote_url_from_id(content_id) when is_binary(content_id) do
     case __MODULE__.one(id: content_id) do
@@ -117,14 +84,6 @@ defmodule Bonfire.Files do
     Repo.update_all(Queries.query(Content, filters), set: updates)
   end
 
-  def update_by(ContentMirror, filters, updates) do
-    Repo.update_all(ContentMirrorQueries.query(ContentMirror, filters), set: updates)
-  end
-
-  def update_by(ContentUpload, filters, updates) do
-    Repo.update_all(ContentUploadQueries.query(ContentUpload, filters), set: updates)
-  end
-
   @doc """
   Delete an upload, removing it from indexing, but the files remain available.
   """
@@ -135,12 +94,6 @@ defmodule Bonfire.Files do
 
   # def soft_delete_by(filters) do
 
-  # end
-
-  # def soft_delete_by(ContentMirror, filters) do
-  # end
-
-  # def soft_delete_by(ContentUpload, filters) do
   # end
 
   @doc """
@@ -162,37 +115,12 @@ defmodule Bonfire.Files do
   # Sweep deleted content
   @doc false
   def hard_delete() do
-    {_, work} = delete_by(deleted: true)
-
-    {mirrors, uploads} =
-      Enum.reduce(work, {[], []}, fn item, {mirrors, uploads} ->
-        case item do
-          %{content_mirror_id: nil, content_upload_id: nil} -> {mirrors, uploads}
-          %{content_mirror_id: m, content_upload_id: nil} -> {[m | mirrors], uploads}
-          %{content_mirror_id: nil, content_upload_id: u} -> {mirrors, [u | uploads]}
-          %{content_mirror_id: m, content_upload_id: u} -> {[m | mirrors], [u | uploads]}
-        end
-      end)
-
-    delete_by(ContentMirror, id: mirrors)
-    delete_by(ContentUpload, id: uploads)
+    delete_by(deleted: true)
   end
 
   defp delete_by(filters) do
     Queries.query(Content)
     |> Queries.filter(filters)
-    |> Repo.delete_all()
-  end
-
-  defp delete_by(ContentMirror, filters) do
-    ContentMirrorQueries.query(ContentMirror)
-    |> ContentMirrorQueries.filter(filters)
-    |> Repo.delete_all()
-  end
-
-  defp delete_by(ContentUpload, filters) do
-    ContentUploadQueries.query(ContentUpload)
-    |> ContentUploadQueries.filter(filters)
     |> Repo.delete_all()
   end
 

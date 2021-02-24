@@ -91,7 +91,4 @@ defmodule Bonfire.Files.GraphQL.UploadResolver do
   def uploader(%Content{uploader_id: id}, _, _info), do: Users.one(id: id, preset: :character)
 
   def remote_url(%Content{} = upload, _, _info), do: Uploads.remote_url(upload)
-
-  def content_upload(%Content{content_upload: upload}, _, _info), do: {:ok, upload}
-  def content_mirror(%Content{content_mirror: mirror}, _, _info), do: {:ok, mirror}
 end
