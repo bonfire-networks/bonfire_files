@@ -9,25 +9,24 @@ defmodule Bonfire.Files.Content do
 
   alias Ecto.Changeset
   alias Bonfire.Data.Identity.User
-  alias Bonfire.Files.{ContentMirror, ContentUpload}
 
   @type t :: %__MODULE__{}
 
   pointable_schema do
     # has_one(:preview, __MODULE__)
     belongs_to(:uploader, User)
-    field(:url, :string, virtual: true)
+    field(:url, :string) # only for remote files
     field(:path, :string)
     field(:size, :integer)
     field(:media_type, :string)
-    field(:metadata, :map)
+    field(:metadata, :map) # currently unused
     field(:is_public, :boolean, virtual: true)
     field(:published_at, :utc_datetime_usec)
     field(:deleted_at, :utc_datetime_usec)
     timestamps(inserted_at: :created_at)
   end
 
-  @create_cast ~w(media_type metadata is_public)a
+  @create_cast ~w(metadata url is_public)a
   @create_required ~w(path size media_type)a
 
   def changeset(%User{} = uploader, attrs) do
@@ -56,6 +55,7 @@ defmodule Bonfire.Files.Content.Migration do
         Ecto.Migration.add(:uploader_id,
           Pointers.Migration.strong_pointer(Bonfire.Data.Identity.User))
         Ecto.Migration.add(:path, :text, null: false)
+        Ecto.Migration.add(:url, :text, null: true)
         Ecto.Migration.add(:size, :integer, null: false)
         Ecto.Migration.add(:media_type, :string, null: false, size: 255)
         Ecto.Migration.add(:metadata, :jsonb)
@@ -87,8 +87,6 @@ defmodule Bonfire.Files.Content.Migration do
           "bonfire_content", [:path], opts))
   end
 
-  # TODO: path index
-
   defp mc(:up) do
     quote do
       unquote(make_content_table([]))
@@ -103,9 +101,13 @@ defmodule Bonfire.Files.Content.Migration do
     end
   end
 
-  defmacro migrate_content(dir), do: mc(dir)
-
   defmacro migrate_content() do
-    quote do: migrate_content(Ecto.Migration.direction())
+    quote do
+      if Ecto.Migration.direction() == :up,
+        do: unquote(mc(:up)),
+        else: unquote(mc(:down))
+    end
   end
+
+  defmacro migrate_content(dir), do: mc(dir)
 end
