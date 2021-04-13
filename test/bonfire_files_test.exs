@@ -21,8 +21,6 @@ defmodule Bonfire.FilesTest do
     Files.upload(upload_def, user, file, %{})
   end
 
-  def strip(upload), do: Map.drop(upload, [:is_public, :url])
-
   # describe "list_by_parent" do
   #   test "returns a list of uploads for a parent" do
   #     uploads =
@@ -48,7 +46,7 @@ defmodule Bonfire.FilesTest do
     end
 
     test "fails when given a missing ID" do
-      assert {:error, %Pointers.NotFound{}} = Files.one(id: Simulation.ulid())
+      assert {:error, :not_found} = Files.one(id: Simulation.ulid())
     end
   end
 

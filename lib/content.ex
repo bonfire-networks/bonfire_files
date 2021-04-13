@@ -15,7 +15,6 @@ defmodule Bonfire.Files.Content do
   pointable_schema do
     # has_one(:preview, __MODULE__)
     belongs_to(:uploader, User)
-    field(:url, :string) # only for remote files
     field(:path, :string)
     field(:size, :integer)
     field(:media_type, :string)
@@ -26,7 +25,7 @@ defmodule Bonfire.Files.Content do
     timestamps(inserted_at: :created_at)
   end
 
-  @create_cast ~w(metadata url is_public)a
+  @create_cast ~w(metadata is_public)a
   @create_required ~w(path size media_type)a
 
   def changeset(%User{} = uploader, attrs) do
@@ -51,12 +50,11 @@ defmodule Bonfire.Files.Content.Migration do
     quote do
       require Pointers.Migration
       Pointers.Migration.create_pointable_table(Content) do
-        # see https://stackoverflow.com/a/643772 for size
         Ecto.Migration.add(:uploader_id,
           Pointers.Migration.strong_pointer(Bonfire.Data.Identity.User))
         Ecto.Migration.add(:path, :text, null: false)
-        Ecto.Migration.add(:url, :text, null: true)
         Ecto.Migration.add(:size, :integer, null: false)
+        # see https://stackoverflow.com/a/643772 for size
         Ecto.Migration.add(:media_type, :string, null: false, size: 255)
         Ecto.Migration.add(:metadata, :jsonb)
         Ecto.Migration.add(:published_at, :utc_datetime_usec)
