@@ -6,7 +6,8 @@ defmodule Bonfire.FilesTest do
   alias Bonfire.Files
   alias Bonfire.Files.Storage
 
-  @image_file %{path: "test/fixtures/images/150.png", filename: "150.png"}
+  # FIXME: path
+  @image_file %{path: "forks/bonfire_files/test/images/150.png", filename: "150.png"}
 
   def fake_upload(file) do
     user = fake_user!()

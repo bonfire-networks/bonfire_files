@@ -8,19 +8,13 @@ defmodule Bonfire.Files.ImageUploader do
   Does not do any type of image resizing/thumbnailing.
   """
 
-  def validate({file, _}) do
-    with {:ok, file_info} <- TwinkleStar.from_filepath(file.path) do
-      Enum.member?(extension_whitelist(), file_info.media_type)
-    end
-  end
-
   def transform(_file, _scope), do: :skip
 
   def storage_dir(_, {file, uploader_id}) when is_binary(uploader_id) do
     "uploads/#{uploader_id}/images"
   end
 
-  def extension_whitelist do
+  def allowed_media_types do
     Bonfire.Common.Config.get!([__MODULE__, :allowed_media_types])
   end
 end

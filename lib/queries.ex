@@ -2,9 +2,9 @@
 defmodule Bonfire.Files.Queries do
   import Ecto.Query
 
-  alias Bonfire.Files.Content
+  alias Bonfire.Files.Media
 
-  def query(Content), do: from(c in Content, as: :content)
+  def query(Media), do: from(c in Media, as: :content)
 
   def query(q, filters), do: filter(query(q), filters)
 

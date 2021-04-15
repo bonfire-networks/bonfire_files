@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-defmodule Bonfire.Files.Content do
+defmodule Bonfire.Files.Media do
   use Pointers.Pointable,
     otp_app: :bonfire_files,
     table_id: "B0NF1REF11ESC0NTENT1SGREAT",
-    source: "bonfire_content"
+    source: "bonfire_files_media"
 
   import Bonfire.Repo.Changeset, only: [change_public: 1]
 
@@ -41,15 +41,15 @@ defmodule Bonfire.Files.Content do
   end
 end
 
-defmodule Bonfire.Files.Content.Migration do
+defmodule Bonfire.Files.Media.Migration do
   use Ecto.Migration
   import Pointers.Migration
-  alias Bonfire.Files.Content
+  alias Bonfire.Files.Media
 
-  defp make_content_table(exprs) do
+  defp make_media_table(exprs) do
     quote do
       require Pointers.Migration
-      Pointers.Migration.create_pointable_table(Content) do
+      Pointers.Migration.create_pointable_table(Media) do
         Ecto.Migration.add(:uploader_id,
           Pointers.Migration.strong_pointer(Bonfire.Data.Identity.User))
         Ecto.Migration.add(:path, :text, null: false)
@@ -66,40 +66,39 @@ defmodule Bonfire.Files.Content.Migration do
     end
   end
 
-  defmacro create_content_table(), do: make_content_table([])
-  defmacro create_content_table([do: {_, _, body}]), do: make_content_table(body)
+  defmacro create_media_table(), do: make_media_table([])
+  defmacro create_media_table([do: {_, _, body}]), do: make_media_table(body)
 
-  def drop_content_table(), do: drop_pointable_table(Content)
+  def drop_media_table(), do: drop_pointable_table(Media)
 
   # add constraint to forbid neither references set
-  defp make_content_path_index(opts \\ []) do
+  defp make_media_path_index(opts \\ []) do
     quote do
       Ecto.Migration.create_if_not_exists(
-        Ecto.Migration.index("bonfire_content", [:path], unquote(opts))
+        Ecto.Migration.index("bonfire_files_media", [:path], unquote(opts))
       )
     end
   end
 
-  def drop_content_path_index(opts \\ []) do
-    drop_if_exists(Ecto.Migration.constraint(
-          "bonfire_content", [:path], opts))
+  def drop_media_path_index(opts \\ []) do
+    drop_if_exists(Ecto.Migration.constraint("bonfire_files_media", [:path], opts))
   end
 
   defp mc(:up) do
     quote do
-      unquote(make_content_table([]))
-      unquote(make_content_path_index())
+      unquote(make_media_table([]))
+      unquote(make_media_path_index())
     end
   end
 
   defp mc(:down) do
     quote do
-      __MODULE__.drop_content_table()
-      __MODULE__.drop_content_path_index()
+      __MODULE__.drop_media_table()
+      __MODULE__.drop_media_path_index()
     end
   end
 
-  defmacro migrate_content() do
+  defmacro migrate_media() do
     quote do
       if Ecto.Migration.direction() == :up,
         do: unquote(mc(:up)),
@@ -107,5 +106,5 @@ defmodule Bonfire.Files.Content.Migration do
     end
   end
 
-  defmacro migrate_content(dir), do: mc(dir)
+  defmacro migrate_media(dir), do: mc(dir)
 end

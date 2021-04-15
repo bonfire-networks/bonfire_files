@@ -5,14 +5,14 @@ defmodule Bonfire.Files do
   alias Bonfire.Data.Identity.User
 
   alias Bonfire.Files.{
-    Content,
+    Media,
     FileDenied,
     Queries
   }
 
-  def one(filters), do: Repo.single(Queries.query(Content, filters))
+  def one(filters), do: Repo.single(Queries.query(Media, filters))
 
-  def many(filters \\ []), do: {:ok, Repo.all(Queries.query(Content, filters))}
+  def many(filters \\ []), do: {:ok, Repo.all(Queries.query(Media, filters))}
 
   @doc """
   Attempt to store a file, returning an upload, for any parent item that
@@ -20,15 +20,12 @@ defmodule Bonfire.Files do
   the upload.
   """
   @spec upload(upload_def :: any, uploader :: User.t(), file :: any, attrs :: map) ::
-          {:ok, Content.t()} | {:error, Changeset.t()}
+          {:ok, Media.t()} | {:error, Changeset.t()}
   def upload(upload_def, uploader, file, attrs \\ %{}) do
-    file = file
-    |> Bonfire.Common.Utils.input_to_atoms()
-    |> Waffle.File.new(upload_def)
-
-    with {:ok, file_info} <- parse_file(file),
-         {:ok, file} <- upload_def.store({file, %{scope: uploader.id, file_info: file_info}}) do
-      insert_content(uploader, file, file_info, attrs)
+    with {:ok, file} <- fetch_file(upload_def, file),
+         {:ok, file_info} <- extract_metadata(file),
+         {:ok, new_path} <- upload_def.store({file.path, uploader.id}) do
+      insert_content(uploader, %{file | path: new_path}, file_info, attrs)
     else
       e ->
         # rollback file changes on failure
@@ -44,19 +41,19 @@ defmodule Bonfire.Files do
       |> Map.put(:size, file_info.size)
       |> Map.put(:media_type, file_info.media_type)
 
-    Repo.insert(Content.changeset(uploader, attrs))
+    Repo.insert(Media.changeset(uploader, attrs))
   end
 
   @doc """
   Attempt to fetch a remotely accessible URL for the associated file in an upload.
   """
-  def remote_url(upload_def, %Content{} = content),
-    do: upload_def.url({content.path, %{scope: content.uploader_id}})
+  def remote_url(upload_def, %Media{} = content),
+    do: upload_def.url({content.path, content.uploader_id})
 
   def remote_url_from_id(upload_def, content_id) when is_binary(content_id) do
     case __MODULE__.one(id: content_id) do
       {:ok, content} ->
-        {:ok, url} = remote_url(content)
+        {:ok, url} = remote_url(upload_def, content)
         url
 
       _ ->
@@ -67,26 +64,26 @@ defmodule Bonfire.Files do
   def remote_url_from_id(_, _), do: nil
 
   def update_by(filters, updates) do
-    Repo.update_all(Queries.query(Content, filters), set: updates)
+    Repo.update_all(Queries.query(Media, filters), set: updates)
   end
 
   @doc """
   Delete an upload, removing it from indexing, but the files remain available.
   """
-  @spec soft_delete(Content.t()) :: {:ok, Content.t()} | {:error, Changeset.t()}
-  def soft_delete(%Content{} = content) do
+  @spec soft_delete(Media.t()) :: {:ok, Media.t()} | {:error, Changeset.t()}
+  def soft_delete(%Media{} = content) do
     Bonfire.Repo.Delete.soft_delete(content)
   end
 
   @doc """
   Delete an upload, removing any associated files.
   """
-  @spec hard_delete(Content.t()) :: :ok | {:error, Changeset.t()}
-  def hard_delete(upload_def, %Content{} = content) do
+  @spec hard_delete(atom, Media.t()) :: :ok | {:error, Changeset.t()}
+  def hard_delete(upload_def, %Media{} = content) do
     resp =
       Repo.transaction(fn ->
         with {:ok, content} <- Repo.delete(content),
-             {:ok, _} <- upload_def.delete({content.path, %{scope: content.uploader_id}}) do
+             {:ok, _} <- upload_def.delete({content.path, content.uploader_id}) do
           :ok
         end
       end)
@@ -101,14 +98,25 @@ defmodule Bonfire.Files do
 
   # FIXME: doesn't cleanup files
   defp delete_by(filters) do
-    Queries.query(Content)
+    Queries.query(Media)
     |> Queries.filter(filters)
     |> Repo.delete_all()
   end
 
-  defp parse_file(path) when is_binary(path) do
+  defp fetch_file(upload_def, file) do
+    file
+    |> Bonfire.Common.Utils.input_to_atoms()
+    # handles downloading if remote
+    |> Waffle.File.new(upload_def)
+    |> case do
+         {:error, _} = e -> e
+         file -> {:ok, file}
+       end
+  end
+
+  defp extract_metadata(path) when is_binary(path) do
     TwinkleStar.from_filepath(path)
   end
 
-  defp parse_file(%{path: path}), do: parse_file(path)
+  defp extract_metadata(%{path: path}), do: extract_metadata(path)
 end
