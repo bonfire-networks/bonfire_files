@@ -25,8 +25,8 @@ defmodule Bonfire.Files.Media do
     timestamps(inserted_at: :created_at)
   end
 
-  @create_cast ~w(metadata is_public)a
   @create_required ~w(path size media_type)a
+  @create_cast @create_required ++ ~w(metadata is_public)a
 
   def changeset(%User{} = uploader, attrs) do
     %__MODULE__{}

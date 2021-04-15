@@ -24,17 +24,13 @@ defmodule Bonfire.Files do
   def upload(upload_def, uploader, file, attrs \\ %{}) do
     with {:ok, file} <- fetch_file(upload_def, file),
          {:ok, file_info} <- extract_metadata(file),
+         :ok <- verify_media_type(upload_def, file_info),
          {:ok, new_path} <- upload_def.store({file.path, uploader.id}) do
-      insert_content(uploader, %{file | path: new_path}, file_info, attrs)
-    else
-      e ->
-        # rollback file changes on failure
-        upload_def.delete(file.path)
-      e
+      insert_media(uploader, %{file | path: new_path}, file_info, attrs)
     end
   end
 
-  defp insert_content(uploader, file, file_info, attrs) do
+  defp insert_media(uploader, file, file_info, attrs) do
     attrs =
       attrs
       |> Map.put(:path, file.path)
@@ -45,15 +41,16 @@ defmodule Bonfire.Files do
   end
 
   @doc """
-  Attempt to fetch a remotely accessible URL for the associated file in an upload.
+  Return the URL that a local file has.
   """
-  def remote_url(upload_def, %Media{} = content),
-    do: upload_def.url({content.path, content.uploader_id})
+  @spec remote_url(atom, Media.t()) :: binary
+  def remote_url(upload_def, %Media{} = media),
+    do: upload_def.url({media.path, media.uploader_id})
 
-  def remote_url_from_id(upload_def, content_id) when is_binary(content_id) do
-    case __MODULE__.one(id: content_id) do
-      {:ok, content} ->
-        {:ok, url} = remote_url(upload_def, content)
+  def remote_url_from_id(upload_def, media_id) when is_binary(media_id) do
+    case __MODULE__.one(id: media_id) do
+      {:ok, media} ->
+        {:ok, url} = remote_url(upload_def, media)
         url
 
       _ ->
@@ -71,19 +68,19 @@ defmodule Bonfire.Files do
   Delete an upload, removing it from indexing, but the files remain available.
   """
   @spec soft_delete(Media.t()) :: {:ok, Media.t()} | {:error, Changeset.t()}
-  def soft_delete(%Media{} = content) do
-    Bonfire.Repo.Delete.soft_delete(content)
+  def soft_delete(%Media{} = media) do
+    Bonfire.Repo.Delete.soft_delete(media)
   end
 
   @doc """
   Delete an upload, removing any associated files.
   """
   @spec hard_delete(atom, Media.t()) :: :ok | {:error, Changeset.t()}
-  def hard_delete(upload_def, %Media{} = content) do
+  def hard_delete(upload_def, %Media{} = media) do
     resp =
       Repo.transaction(fn ->
-        with {:ok, content} <- Repo.delete(content),
-             {:ok, _} <- upload_def.delete({content.path, content.uploader_id}) do
+        with {:ok, media} <- Repo.delete(media),
+             {:ok, _} <- upload_def.delete({media.path, media.uploader_id}) do
           :ok
         end
       end)
@@ -115,8 +112,24 @@ defmodule Bonfire.Files do
   end
 
   defp extract_metadata(path) when is_binary(path) do
-    TwinkleStar.from_filepath(path)
+    with {:ok, info} <- TwinkleStar.from_filepath(path),
+         {:ok, stat} <- File.stat(path) do
+      {:ok, Map.put(info, :size, stat.size)}
+    end
   end
 
   defp extract_metadata(%{path: path}), do: extract_metadata(path)
+
+  defp verify_media_type(upload_def, %{media_type: media_type}) do
+    case upload_def.allowed_media_types() do
+      :all -> :ok
+
+      types ->
+        if Enum.member?(types, media_type) do
+          :ok
+        else
+          {:error, FileDenied.new(media_type)}
+        end
+    end
+  end
 end

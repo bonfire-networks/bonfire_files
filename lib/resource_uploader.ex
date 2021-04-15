@@ -1,15 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-defmodule Bonfire.Files.ResourceUploader do
+defmodule Bonfire.Files.DocumentUploader do
   @doc """
-  Uploader definition for any type of resource, allows most media types
+  Uploader definition for any type of document, allows most media types
   that support documents, archives, video and audio.
   """
 
   use Bonfire.Files.Definition
 
-  def transform(_file, _scope), do: :noaction
-
-  def storage_dir(_, {file, uploader_id}) when is_binary(uploader_id) do
+  def storage_dir(_, {_file, uploader_id}) when is_binary(uploader_id) do
     "uploads/#{uploader_id}"
   end
 

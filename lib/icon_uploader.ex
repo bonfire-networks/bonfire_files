@@ -6,21 +6,13 @@ defmodule Bonfire.Files.IconUploader do
   TODO: Support resizing.
   """
 
-  use Waffle.Definition
+  use Bonfire.Files.Definition
 
-  def validate({file, _}) do
-    with {:ok, file_info} <- TwinkleStar.from_filepath(file.path) do
-      Enum.member?(extension_whitelist(), file_info.media_type)
-    end
-  end
-
-  def transform(_file), do: :skip
-
-  def storage_dir(_, {file, uploader_id}) when is_binary(uploader_id) do
+  def storage_dir(_, {_file, uploader_id}) when is_binary(uploader_id) do
     "uploads/#{uploader_id}/icons"
   end
 
-  def extension_whitelist do
+  def allowed_media_types do
     Bonfire.Common.Config.get!([__MODULE__, :allowed_media_types])
   end
 end

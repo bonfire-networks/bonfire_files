@@ -39,4 +39,4 @@ all_media_types = image_media_types ++ [
 
 config :bonfire, Bonfire.Files.IconUploader, allowed_media_types: image_media_types
 config :bonfire, Bonfire.Files.ImageUploader, allowed_media_types: image_media_types
-config :bonfire, Bonfire.Files.ResourceUploader, allowed_media_types: all_media_types
+config :bonfire, Bonfire.Files.DocumentUploader, allowed_media_types: all_media_types
