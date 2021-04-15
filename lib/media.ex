@@ -71,7 +71,6 @@ defmodule Bonfire.Files.Media.Migration do
 
   def drop_media_table(), do: drop_pointable_table(Media)
 
-  # add constraint to forbid neither references set
   defp make_media_path_index(opts \\ []) do
     quote do
       Ecto.Migration.create_if_not_exists(
