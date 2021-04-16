@@ -1,5 +1,53 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 defmodule Bonfire.Files do
+  @moduledoc """
+  An uploader definition must be provided for each new upload.
+
+  A few uploaders exist as defaults inside of this namespace, but you can also define
+  your own.
+
+  ```elixir
+  defmodule MyUploader do
+    use Bonfire.Files.Definition
+
+    @versions [:original, :thumb]
+
+    def transform(:thumb, _) do
+      {:convert, "-thumbnail 100x100 -format png", :png}
+    end
+
+    def filename(version, _) do
+      version
+    end
+
+    def storage_dir(_, {file, user_id}) do
+      "uploads/my/#{user_id}"
+    end
+
+    def allowed_media_types do
+      ["image/png", "image/jpeg"]
+    end
+  end
+  ```
+
+  You may have noticed that this definition is very similar to what a definition
+  would look like in [waffle](https://github.com/elixir-waffle/waffle).
+  A `Bonfire.Files.Definition` is functionally the same as a `Waffle.Definition`,
+  however the `allowed_media_types/0` callback is added, forcing you to define
+  what media types are accepted for these types of uploads.
+  (You can also return `:all` to accept everything).
+
+  To use the uploader:
+
+  ```
+  iex> {:ok, media} = Bonfire.Files.upload(MyUploader, user, %{path: "./150.png"})
+  iex> media.media_type
+  "image/png"
+  iex> Bonfire.Files.remote_url(MyUploader, media)
+  "/uploads/my/01F3AY6JV30G06BY4DR9BTW5EH"
+  ```
+  """
+
   alias Ecto.Changeset
   alias Bonfire.Repo
   alias Bonfire.Data.Identity.User

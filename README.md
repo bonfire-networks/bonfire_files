@@ -1,21 +1,17 @@
-# BonfireFiles
+# Bonfire Files
 
-**TODO: Add description**
+File management for bonfire apps.  
 
-## Installation
+Bonfire Files wraps [waffle][1] a file management library, 
+adding support for media type checking using magic bytes inside of files, 
+along with creating a [pointable][2] table for storage of file data.
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `bonfire_files` to your list of dependencies in `mix.exs`:
+[1]: https://github.com/elixir-waffle/waffle 
+[2]: https://github.com/bonfire-networks/pointers
 
-```elixir
-def deps do
-  [
-    {:bonfire_files, "~> 0.1.0"}
-  ]
-end
-```
+## Configuration
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/bonfire_files](https://hexdocs.pm/bonfire_files).
+## TODO's
 
+- Generate docs
+- More tests
