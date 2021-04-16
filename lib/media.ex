@@ -14,7 +14,7 @@ defmodule Bonfire.Files.Media do
 
   pointable_schema do
     # has_one(:preview, __MODULE__)
-    belongs_to(:uploader, User)
+    belongs_to(:user, User)
     field(:path, :string)
     field(:size, :integer)
     field(:media_type, :string)
@@ -28,14 +28,14 @@ defmodule Bonfire.Files.Media do
   @create_required ~w(path size media_type)a
   @create_cast @create_required ++ ~w(metadata is_public)a
 
-  def changeset(%User{} = uploader, attrs) do
+  def changeset(%User{} = user, attrs) do
     %__MODULE__{}
     |> Changeset.cast(attrs, @create_cast)
     |> Changeset.validate_required(@create_required)
     |> Changeset.validate_length(:media_type, max: 255)
     |> Changeset.change(
       is_public: true,
-      uploader_id: Bonfire.Common.Utils.maybe_get(uploader, :id)
+      user_id: Bonfire.Common.Utils.maybe_get(user, :id)
     )
     |> change_public()
   end
@@ -50,7 +50,7 @@ defmodule Bonfire.Files.Media.Migration do
     quote do
       require Pointers.Migration
       Pointers.Migration.create_pointable_table(Media) do
-        Ecto.Migration.add(:uploader_id,
+        Ecto.Migration.add(:user_id,
           Pointers.Migration.strong_pointer(Bonfire.Data.Identity.User))
         Ecto.Migration.add(:path, :text, null: false)
         Ecto.Migration.add(:size, :integer, null: false)

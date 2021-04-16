@@ -34,9 +34,9 @@ defmodule Bonfire.Files.Queries do
   def filter(q, {:id, id}) when is_binary(id), do: where(q, [content: c], c.id == ^id)
   def filter(q, {:id, ids}) when is_list(ids), do: where(q, [content: c], c.id in ^ids)
 
-  def filter(q, {:uploader, id}) when is_binary(id),
-    do: where(q, [content: c], c.uploader_id == ^id)
+  def filter(q, {:user, id}) when is_binary(id),
+    do: where(q, [content: c], c.user_id == ^id)
 
-  def filter(q, {:uploader, ids}) when is_list(ids),
-    do: where(q, [content: c], c.uploader_id in ^ids)
+  def filter(q, {:user, ids}) when is_list(ids),
+    do: where(q, [content: c], c.user_id in ^ids)
 end

@@ -21,7 +21,7 @@ defmodule Bonfire.Files do
     end
 
     def storage_dir(_, {file, user_id}) do
-      "uploads/my/#{user_id}"
+      "uploads/my/" <> user_id
     end
 
     def allowed_media_types do
@@ -67,25 +67,25 @@ defmodule Bonfire.Files do
   participates in the meta abstraction, providing the actor responsible for
   the upload.
   """
-  @spec upload(upload_def :: any, uploader :: User.t(), file :: any, attrs :: map) ::
+  @spec upload(upload_def :: any, user :: User.t(), file :: any, attrs :: map) ::
           {:ok, Media.t()} | {:error, Changeset.t()}
-  def upload(upload_def, uploader, file, attrs \\ %{}) do
+  def upload(upload_def, user, file, attrs \\ %{}) do
     with {:ok, file} <- fetch_file(upload_def, file),
          {:ok, file_info} <- extract_metadata(file),
          :ok <- verify_media_type(upload_def, file_info),
-         {:ok, new_path} <- upload_def.store({file.path, uploader.id}) do
-      insert_media(uploader, %{file | path: new_path}, file_info, attrs)
+         {:ok, new_path} <- upload_def.store({file.path, user.id}) do
+      insert_media(user, %{file | path: new_path}, file_info, attrs)
     end
   end
 
-  defp insert_media(uploader, file, file_info, attrs) do
+  defp insert_media(user, file, file_info, attrs) do
     attrs =
       attrs
       |> Map.put(:path, file.path)
       |> Map.put(:size, file_info.size)
       |> Map.put(:media_type, file_info.media_type)
 
-    Repo.insert(Media.changeset(uploader, attrs))
+    Repo.insert(Media.changeset(user, attrs))
   end
 
   @doc """
@@ -93,7 +93,7 @@ defmodule Bonfire.Files do
   """
   @spec remote_url(atom, Media.t()) :: binary
   def remote_url(upload_def, %Media{} = media),
-    do: upload_def.url({media.path, media.uploader_id})
+    do: upload_def.url({media.path, media.user_id})
 
   def remote_url_from_id(upload_def, media_id) when is_binary(media_id) do
     case __MODULE__.one(id: media_id) do
@@ -128,7 +128,7 @@ defmodule Bonfire.Files do
     resp =
       Repo.transaction(fn ->
         with {:ok, media} <- Repo.delete(media),
-             {:ok, _} <- upload_def.delete({media.path, media.uploader_id}) do
+             {:ok, _} <- upload_def.delete({media.path, media.user_id}) do
           :ok
         end
       end)
