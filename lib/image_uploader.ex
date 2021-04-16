@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 defmodule Bonfire.Files.ImageUploader do
   @moduledoc """
-  User for larger images, for example, a profile page banner.
+  Uploader for larger images, for example, a profile page banner.
 
   Does not do any type of image resizing/thumbnailing.
   """

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 defmodule Bonfire.Files.DocumentUploader do
   @doc """
-  User definition for any type of document, allows most media types
+  Definition for any type of document, allows most media types
   that support documents, archives, video and audio.
   """
 

@@ -50,7 +50,6 @@ defmodule Bonfire.Files do
 
   alias Ecto.Changeset
   alias Bonfire.Repo
-  alias Bonfire.Data.Identity.User
 
   alias Bonfire.Files.{
     Media,
@@ -67,8 +66,6 @@ defmodule Bonfire.Files do
   participates in the meta abstraction, providing the actor responsible for
   the upload.
   """
-  @spec upload(upload_def :: any, user :: User.t(), file :: any, attrs :: map) ::
-          {:ok, Media.t()} | {:error, Changeset.t()}
   def upload(upload_def, user, file, attrs \\ %{}) do
     with {:ok, file} <- fetch_file(upload_def, file),
          {:ok, file_info} <- extract_metadata(file),

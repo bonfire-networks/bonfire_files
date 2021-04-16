@@ -8,13 +8,12 @@ defmodule Bonfire.Files.Media do
   import Bonfire.Repo.Changeset, only: [change_public: 1]
 
   alias Ecto.Changeset
-  alias Bonfire.Data.Identity.User
 
   @type t :: %__MODULE__{}
 
   pointable_schema do
     # has_one(:preview, __MODULE__)
-    belongs_to(:user, User)
+    belongs_to(:user, Pointers.Pointer)
     field(:path, :string)
     field(:size, :integer)
     field(:media_type, :string)
@@ -28,14 +27,14 @@ defmodule Bonfire.Files.Media do
   @create_required ~w(path size media_type)a
   @create_cast @create_required ++ ~w(metadata is_public)a
 
-  def changeset(%User{} = user, attrs) do
+  def changeset(%{id: user_id}, attrs) do
     %__MODULE__{}
     |> Changeset.cast(attrs, @create_cast)
     |> Changeset.validate_required(@create_required)
     |> Changeset.validate_length(:media_type, max: 255)
     |> Changeset.change(
       is_public: true,
-      user_id: Bonfire.Common.Utils.maybe_get(user, :id)
+      user_id: user_id
     )
     |> change_public()
   end
@@ -50,8 +49,7 @@ defmodule Bonfire.Files.Media.Migration do
     quote do
       require Pointers.Migration
       Pointers.Migration.create_pointable_table(Media) do
-        Ecto.Migration.add(:user_id,
-          Pointers.Migration.strong_pointer(Bonfire.Data.Identity.User))
+        Ecto.Migration.add(:user_id, Pointers.Migration.strong_pointer(), null: false)
         Ecto.Migration.add(:path, :text, null: false)
         Ecto.Migration.add(:size, :integer, null: false)
         # see https://stackoverflow.com/a/643772 for size

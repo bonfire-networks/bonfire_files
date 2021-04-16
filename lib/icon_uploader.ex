@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 defmodule Bonfire.Files.IconUploader do
   @doc """
-  User for smaller image icons, usually used as avatars.
+  Uploader for smaller image icons, usually used as avatars.
 
   TODO: Support resizing.
   """
