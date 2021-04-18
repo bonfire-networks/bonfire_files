@@ -8,10 +8,15 @@ defmodule Bonfire.Files.DocumentUploader do
   use Bonfire.Files.Definition
 
   def storage_dir(_, {_file, user_id}) when is_binary(user_id) do
-    "uploads/#{user_id}"
+    "data/uploads/#{user_id}"
   end
 
   def allowed_media_types do
     Bonfire.Common.Config.get!([__MODULE__, :allowed_media_types])
   end
+
+  def upload(user, file, attrs \\ %{}) do
+    Bonfire.Files.upload(__MODULE__, user, file, attrs)
+  end
+
 end

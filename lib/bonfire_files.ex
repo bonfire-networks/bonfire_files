@@ -92,18 +92,17 @@ defmodule Bonfire.Files do
   def remote_url(upload_def, %Media{} = media),
     do: upload_def.url({media.path, media.user_id})
 
-  def remote_url_from_id(upload_def, media_id) when is_binary(media_id) do
+  def remote_url(upload_def, media_id) when is_binary(media_id) do
     case __MODULE__.one(id: media_id) do
       {:ok, media} ->
-        {:ok, url} = remote_url(upload_def, media)
-        url
+        remote_url(upload_def, media)
 
       _ ->
         nil
     end
   end
 
-  def remote_url_from_id(_, _), do: nil
+  def remote_url(_, _), do: nil
 
   def update_by(filters, updates) do
     Repo.update_all(Queries.query(Media, filters), set: updates)

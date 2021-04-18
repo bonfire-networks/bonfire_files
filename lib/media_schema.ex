@@ -78,7 +78,7 @@ defmodule Bonfire.Files.Media.Migration do
   end
 
   def drop_media_path_index(opts \\ []) do
-    drop_if_exists(Ecto.Migration.constraint("bonfire_files_media", [:path], opts))
+    drop_if_exists(Ecto.Migration.constraint("bonfire_files_media", :path, opts))
   end
 
   defp mc(:up) do
@@ -90,8 +90,8 @@ defmodule Bonfire.Files.Media.Migration do
 
   defp mc(:down) do
     quote do
-      __MODULE__.drop_media_table()
-      __MODULE__.drop_media_path_index()
+      Bonfire.Files.Media.Migration.drop_media_path_index()
+      Bonfire.Files.Media.Migration.drop_media_table()
     end
   end
 

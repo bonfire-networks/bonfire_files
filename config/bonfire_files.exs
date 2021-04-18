@@ -1,5 +1,11 @@
 use Mix.Config
 
+# where do you want to store files? supports local storage, s3-compatible services, and more
+# see https://hexdocs.pm/waffle/Waffle.html#module-setup-a-storage-provider
+config :waffle,
+  storage: Waffle.Storage.Local,
+  asset_host: "http://static.example.com" # or {:system, "ASSET_HOST"}
+
 image_media_types = ["image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/tiff"]
 
 all_media_types = image_media_types ++ [
