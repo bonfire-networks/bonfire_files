@@ -16,10 +16,4 @@ defmodule Bonfire.Files.IconUploader do
     Bonfire.Common.Config.get([__MODULE__, :allowed_media_types], ["image/png", "image/jpeg", "image/gif"])
   end
 
-  def upload(user, file, attrs \\ %{}) do
-    Bonfire.Files.upload(__MODULE__, user, file, attrs)
-  end
-
-  def remote_url(media), do: Bonfire.Files.remote_url(__MODULE__, media)
-
 end

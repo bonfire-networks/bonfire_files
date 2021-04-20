@@ -15,8 +15,4 @@ defmodule Bonfire.Files.DocumentUploader do
     Bonfire.Common.Config.get!([__MODULE__, :allowed_media_types])
   end
 
-  def upload(user, file, attrs \\ %{}) do
-    Bonfire.Files.upload(__MODULE__, user, file, attrs)
-  end
-
 end
