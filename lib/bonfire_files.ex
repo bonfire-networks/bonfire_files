@@ -156,13 +156,21 @@ defmodule Bonfire.Files do
   end
 
   defp extract_metadata(path) when is_binary(path) do
-    with {:ok, info} <- TwinkleStar.from_filepath(path),
+    with {:ok, info} <- maybe_get_metadata(path),
          {:ok, stat} <- File.stat(path) do
       {:ok, Map.put(info, :size, stat.size)}
     end
   end
 
   defp extract_metadata(%{path: path}), do: extract_metadata(path)
+
+  defp maybe_get_metadata(path) do
+    if(Code.ensure_loaded?(TwinkleStar)) do
+      TwinkleStar.from_filepath(path)
+    else
+      %{}
+    end
+  end
 
   defp verify_media_type(upload_def, %{media_type: media_type}) do
     case upload_def.allowed_media_types() do
