@@ -2,7 +2,7 @@
 defmodule Bonfire.Files.Media do
   use Pointers.Pointable,
     otp_app: :bonfire_files,
-    table_id: "B0NF1REF11ESC0NTENT1SGREAT",
+    table_id: "30NF1REF11ESC0NTENT1SGREAT",
     source: "bonfire_files_media"
 
   import Bonfire.Repo.Changeset, only: [change_public: 1]
