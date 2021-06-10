@@ -12,7 +12,7 @@ defmodule Bonfire.FilesTest do
   }
 
   # FIXME: path
-  @image_file %{path: "fixtures/150.png" |> Path.expand(__DIR__), filename: "150.png"} |> IO.inspect
+  @image_file %{path: "fixtures/150.png" |> Path.expand(__DIR__), filename: "150.png"}
 
   def fake_upload(file) do
     user = fake_user!()
