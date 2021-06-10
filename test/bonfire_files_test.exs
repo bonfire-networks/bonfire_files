@@ -12,7 +12,7 @@ defmodule Bonfire.FilesTest do
   }
 
   # FIXME: path
-  @image_file %{path: "forks/bonfire_files/test/fixtures/150.png", filename: "150.png"}
+  @image_file %{path: "fixtures/150.png" |> Path.expand(__DIR__), filename: "150.png"} |> IO.inspect
 
   def fake_upload(file) do
     user = fake_user!()
@@ -60,7 +60,7 @@ defmodule Bonfire.FilesTest do
 
     test "fails when the file has a disallowed extension" do
       # FIXME: path
-      file = %{path: "forks/bonfire_files/test/fixtures/not-a-virus.exe", filename: "not-a-virus.exe"}
+      file = %{path: "fixtures/not-a-virus.exe" |> Path.expand(__DIR__), filename: "not-a-virus.exe"}
       assert {:error, %FileDenied{}} = Files.upload(IconUploader, fake_user!(), file)
     end
 
