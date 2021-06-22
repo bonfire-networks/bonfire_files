@@ -5,6 +5,7 @@ defmodule Bonfire.Files.Queries do
   alias Bonfire.Files.Media
 
   def query(Media), do: from(c in Media, as: :content)
+  def query(filters), do: filter(Media, filters)
 
   def query(q, filters), do: filter(query(q), filters)
 
