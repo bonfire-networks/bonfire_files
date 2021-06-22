@@ -59,7 +59,7 @@ defmodule Bonfire.Files do
 
   def one(filters), do: Repo.single(Queries.query(Media, filters))
 
-  def many(filters \\ []), do: {:ok, Repo.all(Queries.query(Media, filters))}
+  def many(filters \\ []), do: {:ok, Repo.many(Queries.query(Media, filters))}
 
   @doc """
   Attempt to store a file, returning an upload, for any parent item that
