@@ -1,4 +1,4 @@
-# Bonfire Files
+# Bonfire.Files
 
 File management for bonfire apps.  
 
