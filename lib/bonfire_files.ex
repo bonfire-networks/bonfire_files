@@ -63,7 +63,7 @@ defmodule Bonfire.Files do
 
   @doc """
   Attempt to store a file, returning an upload, for any parent item that
-  participates in the meta abstraction, providing the actor responsible for
+  participates in the meta abstraction, providing the user responsible for
   the upload.
   """
   def upload(upload_def, user, file, attrs \\ %{}) do
