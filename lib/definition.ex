@@ -14,8 +14,8 @@ defmodule Bonfire.Files.Definition do
       @behaviour Bonfire.Files.Definition
       use Waffle.Definition
 
-      def upload(user, file, attrs \\ %{}) do
-        Bonfire.Files.upload(__MODULE__, user, file, attrs)
+      def upload(user, file, attrs \\ %{}, opts \\ []) do
+        Bonfire.Files.upload(__MODULE__, user, file, attrs, opts)
       end
 
       def remote_url(media), do: Bonfire.Files.remote_url(__MODULE__, media)

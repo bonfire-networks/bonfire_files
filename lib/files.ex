@@ -47,7 +47,7 @@ defmodule Bonfire.Files do
   "/uploads/my/01F3AY6JV30G06BY4DR9BTW5EH"
   ```
   """
-
+  require Logger
   alias Ecto.Changeset
   alias Bonfire.Repo
 
@@ -66,23 +66,36 @@ defmodule Bonfire.Files do
   participates in the meta abstraction, providing the user responsible for
   the upload.
   """
-  def upload(upload_def, user, file, attrs \\ %{}) do
+
+  def upload(upload_def, user, file, attrs \\ %{}, opts \\ [])
+
+  def upload(upload_def, user, file, attrs, opts) when is_binary(file) do
+    if opts[:skip_fetching_remote]==true or Bonfire.Common.Config.get!(:env) == :test do
+      Logger.info("Files - skip file handling and just insert url or path in DB")
+      insert_media(user, %{path: file}, %{size: 0, media_type: "remote"}, attrs)
+    else
+      do_upload(upload_def, user, file, attrs, opts)
+    end
+  end
+  def upload(upload_def, user, file, attrs, opts), do: do_upload(upload_def, user, file, attrs, opts)
+
+  def do_upload(upload_def, user, file, attrs, opts) do
     with {:ok, file} <- fetch_file(upload_def, file),
-         {:ok, file_info} <- extract_metadata(file),
-         :ok <- verify_media_type(upload_def, file_info),
-         {:ok, new_path} <- upload_def.store({file.path, user.id}) do
+          {:ok, file_info} <- extract_metadata(file),
+          :ok <- verify_media_type(upload_def, file_info),
+          {:ok, new_path} <- upload_def.store({file.path, user.id}) do
       insert_media(user, %{file | path: new_path}, file_info, attrs)
     end
   end
 
-  defp insert_media(user, file, file_info, attrs) do
+  defp insert_media(user, %{path: path} = _file, file_info, attrs) do
     attrs =
       attrs
-      |> Map.put(:path, file.path)
-      |> Map.put(:size, file_info.size)
-      |> Map.put(:media_type, file_info.media_type)
+      |> Map.put(:path, path)
+      |> Map.put(:size, file_info[:size])
+      |> Map.put(:media_type, file_info[:media_type])
 
-    Repo.insert(Media.changeset(user, attrs))
+    Repo.insert(Media.changeset(user, attrs)) #|> IO.inspect
   end
 
   @doc """
@@ -147,7 +160,7 @@ defmodule Bonfire.Files do
   defp fetch_file(upload_def, file) do
     file
     |> Bonfire.Common.Utils.input_to_atoms()
-    # handles downloading if remote
+    # handles downloading if remote URL
     |> Waffle.File.new(upload_def)
     |> case do
          {:error, _} = e -> e
