@@ -1,6 +1,5 @@
 if Code.ensure_loaded?(Bonfire.GraphQL) do
 defmodule Bonfire.Files.GraphQL do
-
   require Logger
 
   @uploader_fields %{
@@ -20,7 +19,7 @@ defmodule Bonfire.Files.GraphQL do
   end
 
   defp do_upload(user, {field_name, %Absinthe.Blueprint.Input.String{value: url}}, acc) when is_binary(url) do
-    # if we are getting a string rather than an object, assume its a URL
+    Logger.debug("Bonfire.Files.GraphQL.upload - we are getting a string rather than an object, so assume its a URL")
     do_upload(user, {field_name, url}, acc)
   end
 
@@ -28,6 +27,7 @@ defmodule Bonfire.Files.GraphQL do
     uploader = @uploader_fields[field_name]
 
     if uploader do
+      Logger.debug("Bonfire.Files.GraphQL.upload - attempt to upload: #{inspect field_name} - #{inspect content_input}")
       case Bonfire.Files.upload(uploader, user, content_input, %{}) do
         {:ok, media} ->
           field_id_name = String.to_existing_atom("#{field_name}_id")
