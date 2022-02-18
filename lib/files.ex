@@ -70,7 +70,7 @@ defmodule Bonfire.Files do
   def upload(upload_def, user, file, attrs \\ %{}, opts \\ [])
 
   def upload(upload_def, user, file, attrs, opts) when is_binary(file) do
-    if opts[:skip_fetching_remote]==true or Bonfire.Common.Config.get!(:env) == :test do
+    if opts[:skip_fetching_remote]==true or ( Bonfire.Common.Config.get!(:env) == :test and String.starts_with?(file, "http") ) do
       Logger.info("Files - skip file handling and just insert url or path in DB")
       insert_media(user, %{path: file}, %{size: 0, media_type: "remote"}, attrs)
     else
@@ -85,6 +85,10 @@ defmodule Bonfire.Files do
           :ok <- verify_media_type(upload_def, file_info),
           {:ok, new_path} <- upload_def.store({file.path, user.id}) do
       insert_media(user, %{file | path: new_path}, file_info, attrs)
+
+    else other ->
+      IO.inspect(do_upload: other)
+      {:error, other}
     end
   end
 
