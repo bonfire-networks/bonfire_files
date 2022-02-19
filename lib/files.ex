@@ -47,7 +47,7 @@ defmodule Bonfire.Files do
   "/uploads/my/01F3AY6JV30G06BY4DR9BTW5EH"
   ```
   """
-  require Logger
+  import Where
   alias Ecto.Changeset
   alias Bonfire.Repo
 
@@ -71,7 +71,7 @@ defmodule Bonfire.Files do
 
   def upload(upload_def, user, file, attrs, opts) when is_binary(file) do
     if opts[:skip_fetching_remote]==true or ( Bonfire.Common.Config.get!(:env) == :test and String.starts_with?(file, "http") ) do
-      Logger.info("Files - skip file handling and just insert url or path in DB")
+      debug("Files - skip file handling and just insert url or path in DB")
       insert_media(user, %{path: file}, %{size: 0, media_type: "remote"}, attrs)
     else
       do_upload(upload_def, user, file, attrs, opts)
