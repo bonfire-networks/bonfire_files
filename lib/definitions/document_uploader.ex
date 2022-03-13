@@ -8,7 +8,7 @@ defmodule Bonfire.Files.DocumentUploader do
   use Bonfire.Files.Definition
 
   def storage_dir(_, {_file, user_id}) when is_binary(user_id) do
-    "data/uploads/#{user_id}"
+    "data/uploads/#{user_id}/docs"
   end
 
   def allowed_media_types do

@@ -87,7 +87,7 @@ defmodule Bonfire.Files do
       insert_media(user, %{file | path: new_path}, file_info, attrs)
 
     else other ->
-      IO.inspect(do_upload: other)
+      # IO.inspect(do_upload: other)
       {:error, other}
     end
   end
@@ -201,4 +201,43 @@ defmodule Bonfire.Files do
         end
     end
   end
+
+  def blurred(%Media{path: path} = _media), do: blurred(path)
+  def blurred(path) when is_binary(path) do
+
+    path = String.trim_leading(path, "/")
+    final_path = path<>".jpg"
+
+    if String.starts_with?(path, "http") do
+      debug(path, "it's an external image, skip")
+      path
+    else
+      if File.exists?(final_path) do
+        debug(final_path, "jpeg already exists :)")
+        final_path
+      else
+        debug(final_path, "first time trying to get this jpeg?")
+        width = 32
+        height = 32
+        format = "jpg"
+
+        with %{path: final_path} <- Mogrify.open(path)
+          |> Mogrify.resize("#{width}x#{height}")
+          |> Mogrify.custom("depth", "8")
+          |> Mogrify.custom("blur", "2x2")
+          |> Mogrify.format(format)
+          # |> IO.inspect
+          |> Mogrify.save(path: final_path) do
+
+            debug("saved jpeg")
+
+            final_path
+          else e ->
+            error(e)
+            path
+        end
+      end
+    end
+  end
+
 end
