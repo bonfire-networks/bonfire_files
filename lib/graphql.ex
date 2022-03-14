@@ -1,4 +1,4 @@
-if Code.ensure_loaded?(Bonfire.GraphQL) do
+if Code.ensure_loaded?(Bonfire.API.GraphQL) do
 defmodule Bonfire.Files.GraphQL do
   import Where
 
@@ -16,6 +16,10 @@ defmodule Bonfire.Files.GraphQL do
       {:error, _} = e -> e
       val -> {:ok, Enum.into(val, %{})}
     end
+  end
+
+  def upload(user, _params, _info) do
+    {:ok, %{}}
   end
 
   defp do_upload(user, {field_name, %Absinthe.Blueprint.Input.String{value: url}}, acc) when is_binary(url) do
