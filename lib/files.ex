@@ -67,59 +67,72 @@ defmodule Bonfire.Files do
   the upload.
   """
 
-  def upload(upload_def, user, file, attrs \\ %{}, opts \\ [])
+  def upload(module, user, file, attrs \\ %{}, opts \\ [])
 
-  def upload(upload_def, user, file, attrs, opts) when is_binary(file) do
+  def upload(module, user, file, attrs, opts) when is_binary(file) do
     if opts[:skip_fetching_remote]==true or ( Bonfire.Common.Config.get!(:env) == :test and String.starts_with?(file, "http") ) do
       debug("Files - skip file handling and just insert url or path in DB")
       insert_media(user, %{path: file}, %{size: 0, media_type: "remote"}, attrs)
     else
-      do_upload(upload_def, user, file, attrs, opts)
+      do_upload(module, user, file, attrs, opts)
     end
   end
-  def upload(upload_def, user, file, attrs, opts), do: do_upload(upload_def, user, file, attrs, opts)
+  def upload(module, user, file, attrs, opts), do: do_upload(module, user, file, attrs, opts)
 
-  def do_upload(upload_def, user, file, attrs, opts) do
-    with {:ok, file} <- fetch_file(upload_def, file),
+  def do_upload(module, user, file, attrs, opts) do
+    with {:ok, file} <- fetch_file(module, file),
           {:ok, file_info} <- extract_metadata(file),
-          :ok <- verify_media_type(upload_def, file_info),
-          {:ok, new_path} <- upload_def.store({file.path, user.id}) do
+          :ok <- verify_media_type(module, file_info),
+          {:ok, new_path} <- module.store({file.path, user.id}) do
       insert_media(user, %{file | path: new_path}, file_info, attrs)
 
-    else other ->
-      # IO.inspect(do_upload: other)
-      {:error, other}
+    else
+      {:error, error} ->
+        error(error)
+        {:error, error}
+      other ->
+        error(other)
+        {:error, other}
     end
   end
 
-  defp insert_media(user, %{path: path} = _file, file_info, attrs) do
+  defp insert_media(user, %{path: path} = file, file_info, attrs) do
     attrs =
       attrs
       |> Map.put(:path, path)
       |> Map.put(:size, file_info[:size])
       |> Map.put(:media_type, file_info[:media_type])
 
-    Repo.insert(Media.changeset(user, attrs)) #|> IO.inspect
+    with {:ok, media} <- Repo.insert(Media.changeset(user, attrs)) do
+      {:ok,
+        media
+        |> Map.put(:user, user)
+        |> Map.put(:file, file)
+      }
+    end
+    #|> debug
   end
 
   @doc """
   Return the URL that a local file has.
   """
   @spec remote_url(atom, Media.t()) :: binary
-  def remote_url(upload_def, %Media{} = media),
-    do: upload_def.url({media.path, media.user_id})
+  def remote_url(module, media, version \\ nil)
 
-  def remote_url(upload_def, media_id) when is_binary(media_id) do
+  def remote_url(module, %Media{} = media, version),
+    do: module.url({media.path, media.user_id}, version)
+
+  def remote_url(module, media_id, version) when is_binary(media_id) do
     case __MODULE__.one(id: media_id) do
       {:ok, media} ->
-        remote_url(upload_def, media)
+        remote_url(module, media, version)
 
       _ ->
         nil
     end
   end
 
-  def remote_url(_, _), do: nil
+  def remote_url(_, _, _), do: nil
 
   def update_by(filters, updates) do
     Repo.update_all(Queries.query(Media, filters), set: updates)
@@ -137,11 +150,11 @@ defmodule Bonfire.Files do
   Delete an upload, removing any associated files.
   """
   @spec hard_delete(atom, Media.t()) :: :ok | {:error, Changeset.t()}
-  def hard_delete(upload_def, %Media{} = media) do
+  def hard_delete(module, %Media{} = media) do
     resp =
       Repo.transaction(fn ->
         with {:ok, media} <- Repo.delete(media),
-             {:ok, _} <- upload_def.delete({media.path, media.user_id}) do
+             {:ok, _} <- module.delete({media.path, media.user_id}) do
           :ok
         end
       end)
@@ -161,11 +174,11 @@ defmodule Bonfire.Files do
     |> Repo.delete_all()
   end
 
-  defp fetch_file(upload_def, file) do
+  defp fetch_file(module, file) do
     file
     |> Bonfire.Common.Utils.input_to_atoms()
     # handles downloading if remote URL
-    |> Waffle.File.new(upload_def)
+    |> Waffle.File.new(module)
     |> case do
          {:error, _} = e -> e
          file -> {:ok, file}
@@ -189,8 +202,8 @@ defmodule Bonfire.Files do
     end
   end
 
-  defp verify_media_type(upload_def, %{media_type: media_type}) do
-    case upload_def.allowed_media_types() do
+  defp verify_media_type(definition, %{media_type: media_type}) do
+    case definition.allowed_media_types() do
       :all -> :ok
 
       types ->
@@ -202,8 +215,9 @@ defmodule Bonfire.Files do
     end
   end
 
-  def blurred(%Media{path: path} = _media), do: blurred(path)
-  def blurred(path) when is_binary(path) do
+  def blurred(definition \\ nil, media)
+  def blurred(definition, %Media{path: path} = _media), do: blurred(definition, path)
+  def blurred(_definition, path) when is_binary(path) do
 
     path = String.trim_leading(path, "/")
     final_path = path<>".jpg"
@@ -213,18 +227,21 @@ defmodule Bonfire.Files do
       path
     else
       if File.exists?(final_path) do
-        debug(final_path, "jpeg already exists :)")
+        debug(final_path, "blurred jpeg already exists :)")
         final_path
       else
-        debug(final_path, "first time trying to get this jpeg?")
+        debug(final_path, "first time trying to get this blurred jpeg?")
         width = 32
         height = 32
         format = "jpg"
 
         with %{path: final_path} <- Mogrify.open(path)
+          # NOTE: since we're resizing an already resized thumnail, don't worry about cropping, stripping, etc
           |> Mogrify.resize("#{width}x#{height}")
+          |> Mogrify.custom("colors", "16")
           |> Mogrify.custom("depth", "8")
           |> Mogrify.custom("blur", "2x2")
+          |> Mogrify.quality("50")
           |> Mogrify.format(format)
           # |> IO.inspect
           |> Mogrify.save(path: final_path) do

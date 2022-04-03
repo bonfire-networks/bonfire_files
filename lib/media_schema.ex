@@ -18,6 +18,7 @@ defmodule Bonfire.Files.Media do
     field(:size, :integer)
     field(:media_type, :string)
     field(:metadata, :map) # currently unused
+    field(:file, :map, virtual: true)
     field(:is_public, :boolean, virtual: true)
     field(:published_at, :utc_datetime_usec)
     field(:deleted_at, :utc_datetime_usec)
