@@ -1,4 +1,4 @@
-if Code.ensure_loaded?(Bonfire.API.GraphQL) do
+if Bonfire.Common.Extend.module_enabled?(Bonfire.API.GraphQL) do
 defmodule Bonfire.Files.GraphQL do
   import Where
 
