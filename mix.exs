@@ -9,7 +9,8 @@ defmodule BonfireFiles.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: Mess.deps [
-        {:tree_magic, git: "https://github.com/bonfire-networks/tree_magic.ex", optional: true}
+        {:tree_magic, git: "https://github.com/bonfire-networks/tree_magic.ex", optional: true},
+        {:bonfire_api_graphql, git: "https://github.com/bonfire-networks/bonfire_api_graphql", branch: "main", optional: true}
       ]
     ]
   end
