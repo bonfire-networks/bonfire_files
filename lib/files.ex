@@ -50,6 +50,7 @@ defmodule Bonfire.Files do
   import Where
   alias Ecto.Changeset
   alias Bonfire.Repo
+  alias Bonfire.Common.Utils
 
   alias Bonfire.Files.{
     Media,
@@ -69,7 +70,7 @@ defmodule Bonfire.Files do
 
   def upload(module, user, file, attrs \\ %{}, opts \\ [])
 
-  def upload(module, user, file, attrs, opts) when is_binary(file) do
+  def upload(module, user, file, attrs, opts) when is_binary(file) and is_atom(module) and not is_nil(module) do
     if opts[:skip_fetching_remote]==true or ( Bonfire.Common.Config.get!(:env) == :test and String.starts_with?(file, "http") ) do
       debug("Files - skip file handling and just insert url or path in DB")
       insert_media(user, %{path: file}, %{size: 0, media_type: "remote"}, attrs)
@@ -77,22 +78,18 @@ defmodule Bonfire.Files do
       do_upload(module, user, file, attrs, opts)
     end
   end
-  def upload(module, user, file, attrs, opts), do: do_upload(module, user, file, attrs, opts)
+  def upload(module, user, file, attrs, opts) when is_atom(module) and not is_nil(module), do: do_upload(module, user, file, attrs, opts)
 
   def do_upload(module, user, file, attrs, opts) do
     with {:ok, file} <- fetch_file(module, file),
           {:ok, file_info} <- extract_metadata(file),
           :ok <- verify_media_type(module, file_info),
-          {:ok, new_path} <- module.store({file.path, user.id}) do
+          {:ok, new_path} <- module.store({file.path, Utils.ulid(user)}) do
       insert_media(user, %{file | path: new_path}, file_info, attrs)
 
     else
-      {:error, error} ->
-        error(error)
-        {:error, error}
       other ->
         error(other)
-        {:error, other}
     end
   end
 
@@ -185,14 +182,14 @@ defmodule Bonfire.Files do
        end
   end
 
-  defp extract_metadata(path) when is_binary(path) do
+  def extract_metadata(path) when is_binary(path) do
     with {:ok, info} <- maybe_get_metadata(path),
          {:ok, stat} <- File.stat(path) do
       {:ok, Map.put(info, :size, stat.size)}
     end
   end
 
-  defp extract_metadata(%{path: path}), do: extract_metadata(path)
+  def extract_metadata(%{path: path}), do: extract_metadata(path)
 
   defp maybe_get_metadata(path) do
     if(Code.ensure_loaded?(TwinkleStar)) do
@@ -202,7 +199,7 @@ defmodule Bonfire.Files do
     end
   end
 
-  defp verify_media_type(definition, %{media_type: media_type}) do
+  def verify_media_type(definition, %{media_type: media_type}) do
     case definition.allowed_media_types() do
       :all -> :ok
 
@@ -257,4 +254,8 @@ defmodule Bonfire.Files do
     end
   end
 
+  def data_url(content, mime_type) do
+    image_base64 = Base.encode64(content)
+    ["data:", mime_type, ";base64,", image_base64]
+  end
 end

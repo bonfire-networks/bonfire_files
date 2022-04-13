@@ -13,14 +13,15 @@ defmodule Bonfire.Files.Definition do
     quote do
       @behaviour Bonfire.Files.Definition
       use Waffle.Definition
+      alias Bonfire.Files
 
       def upload(user, file, attrs \\ %{}, opts \\ []) do
-        Bonfire.Files.upload(__MODULE__, user, file, attrs, opts)
+        Files.upload(__MODULE__, user, file, attrs, opts)
       end
 
-      def remote_url(media, version \\ nil), do: Bonfire.Files.remote_url(__MODULE__, media, version)
+      def remote_url(media, version \\ nil), do: Files.remote_url(__MODULE__, media, version)
 
-      def blurred(media), do: Bonfire.Files.blurred(__MODULE__, media)
+      def blurred(media), do: Files.blurred(__MODULE__, media)
 
     end
   end
