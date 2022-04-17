@@ -14,6 +14,7 @@ defmodule Bonfire.FilesTest do
   # FIXME: path
   @icon_file %{path: "fixtures/150.png" |> Path.expand(__DIR__), filename: "150.png"}
   @image_file %{path: "fixtures/600x800.png" |> Path.expand(__DIR__), filename: "600x800.png"}
+  @text_file %{path: "fixtures/text.txt" |> Path.expand(__DIR__), filename: "text.txt"}
 
   def fake_upload(file, upload_def \\ nil) do
     user = fake_user!()
@@ -101,8 +102,8 @@ defmodule Bonfire.FilesTest do
   end
 
   describe "remote_url" do
-    test "returns the remote URL for an existing upload" do
-      assert {:ok, upload} = Files.upload(DocumentUploader, fake_user!(), @icon_file)
+    test "returns the remote URL for an upload" do
+      assert {:ok, upload} = Files.upload(DocumentUploader, fake_user!(), @text_file)
       assert url = Files.remote_url(DocumentUploader, upload)
 
       uri = URI.parse(url)
