@@ -219,7 +219,7 @@ defmodule Bonfire.Files do
     path = String.trim_leading(path, "/")
     final_path = path<>".jpg"
 
-    if String.starts_with?(path, "http") or is_nil(path) or path =="" or not File.exists?(path) do
+    ret_path = if String.starts_with?(path, "http") or is_nil(path) or path =="" or not File.exists?(path) do
       debug(path, "it's an external or invalid image, skip")
       path
     else
@@ -252,6 +252,8 @@ defmodule Bonfire.Files do
         end
       end
     end
+
+    "/#{ret_path}"
   end
 
   def data_url(content, mime_type) do
