@@ -21,7 +21,7 @@ defmodule Bonfire.Files.Definition do
 
       def remote_url(media, version \\ nil), do: Files.remote_url(__MODULE__, media, version)
 
-      def blurred(media), do: Files.blurred(__MODULE__, media)
+      def blurred(media), do: Files.Blurred.blurred(__MODULE__, media)
 
     end
   end

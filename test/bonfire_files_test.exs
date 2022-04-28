@@ -51,12 +51,12 @@ defmodule Bonfire.FilesTest do
   describe "one" do
     test "returns an upload for an existing ID" do
       assert {:ok, original_upload} = fake_upload(@icon_file)
-      assert {:ok, fetched_upload} = Files.one(id: original_upload.id)
+      assert {:ok, fetched_upload} = Media.one(id: original_upload.id)
       assert original_upload.id == fetched_upload.id
     end
 
     test "fails when given a missing ID" do
-      assert {:error, :not_found} = Files.one(id: Simulation.ulid())
+      assert {:error, :not_found} = Media.one(id: Simulation.ulid())
     end
   end
 
@@ -117,7 +117,7 @@ defmodule Bonfire.FilesTest do
     test "updates the deletion date of the upload" do
       assert {:ok, upload} = Files.upload(IconUploader, fake_user!(), @icon_file)
       refute upload.deleted_at
-      assert {:ok, deleted_upload} = Files.soft_delete(upload)
+      assert {:ok, deleted_upload} = Media.soft_delete(upload)
       assert deleted_upload.deleted_at
     end
   end
@@ -125,7 +125,7 @@ defmodule Bonfire.FilesTest do
   describe "hard_delete" do
     test "removes the upload, including files" do
       assert {:ok, upload} = Files.upload(ImageUploader, fake_user!(), @icon_file)
-      assert :ok = Files.hard_delete(ImageUploader, upload)
+      assert :ok = Media.hard_delete(ImageUploader, upload)
     end
   end
 end

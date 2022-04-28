@@ -1,38 +1,12 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 defmodule Bonfire.Files do
   @moduledoc """
-  An uploader definition must be provided for each new upload.
+  This module contains general functions for handling files, and also an Ecto schema which is a multimixin for storing one or more media attached to a Pointable object.
 
-  A few uploaders exist as defaults inside of this namespace, but you can also define
-  your own.
+  An uploader definition must be provided for each new upload, or will be automatically chosen based on the file type.
 
-  ```elixir
-  defmodule MyUploader do
-    use Bonfire.Files.Definition
-
-    @versions [:original, :thumb]
-
-    def transform(:thumb, _) do
-      {:convert, "-thumbnail 100x100 -format png", :png}
-    end
-
-    def filename(version, _) do
-      version
-    end
-
-    def storage_dir(_, {file, user_id}) do
-      "uploads/my/" <> user_id
-    end
-
-    def allowed_media_types do
-      ["image/png", "image/jpeg"]
-    end
-  end
-  ```
-
-  You may have noticed that this definition is very similar to what a definition
-  would look like in [waffle](https://github.com/elixir-waffle/waffle).
-  A `Bonfire.Files.Definition` is functionally the same as a `Waffle.Definition`,
+  A few definitions exist as defaults inside of this namespace, but you can also define
+  your own - a `Bonfire.Files.Definition` is an extension of `Waffle.Definition`,
   however the `allowed_media_types/0` callback is added, forcing you to define
   what media types are accepted for these types of uploads.
   (You can also return `:all` to accept everything).
@@ -40,52 +14,70 @@ defmodule Bonfire.Files do
   To use the uploader:
 
   ```
-  iex> {:ok, media} = Bonfire.Files.upload(MyUploader, user, %{path: "./150.png"})
+  iex> {:ok, media} = Bonfire.Files.upload(MyUploader, context, %{path: "./150.png"})
   iex> media.media_type
   "image/png"
   iex> Bonfire.Files.remote_url(MyUploader, media)
   "/uploads/my/01F3AY6JV30G06BY4DR9BTW5EH"
   ```
   """
-  import Where
-  alias Ecto.Changeset
-  alias Bonfire.Repo
-  alias Bonfire.Common.Utils
 
+  use Pointers.Mixin,
+    otp_app: :bonfire_files,
+    source: "bonfire_files"
+  require Pointers.Changesets
+  use Arrows
+  import Where
+
+  alias Bonfire.Files
   alias Bonfire.Files.{
     Media,
     FileDenied,
-    Queries
   }
 
-  def one(filters), do: Repo.single(Queries.query(Media, filters))
+  alias Bonfire.Common.Utils
+  alias Pointers.Pointer
+  alias Ecto.Changeset
+  alias Bonfire.Repo
 
-  def many(filters \\ []), do: {:ok, Repo.many(Queries.query(Media, filters))}
+  mixin_schema do
+    belongs_to :media, Media, primary_key: true
+  end
+
+  @cast     [:media_id]
+  @required [:media_id]
 
   @doc """
   Attempt to store a file, returning an upload, for any parent item that
-  participates in the meta abstraction, providing the user responsible for
+  participates in the meta abstraction, providing the user/context of
   the upload.
   """
-
-  def upload(module, user, file, attrs \\ %{}, opts \\ [])
-
-  def upload(module, user, file, attrs, opts) when is_binary(file) and is_atom(module) and not is_nil(module) do
-    if opts[:skip_fetching_remote]==true or ( Bonfire.Common.Config.get!(:env) == :test and String.starts_with?(file, "http") ) do
+  def upload(module, context, file, attrs \\ %{}, opts \\ [])
+  def upload(module, context, "http"<>_ = file, attrs, opts) do
+    if opts[:skip_fetching_remote]==true or Bonfire.Common.Config.get!(:env) == :test do
       debug("Files - skip file handling and just insert url or path in DB")
-      insert_media(user, %{path: file}, %{size: 0, media_type: "remote"}, attrs)
+      insert(context, %{path: file}, %{size: 0, media_type: "remote"}, attrs)
     else
-      do_upload(module, user, file, attrs, opts)
+      maybe_do_upload(module, context, file, attrs, opts)
     end
   end
-  def upload(module, user, file, attrs, opts) when is_atom(module) and not is_nil(module), do: do_upload(module, user, file, attrs, opts)
+  def upload(module, context, file, attrs, opts), do: maybe_do_upload(module, context, file, attrs, opts)
 
-  def do_upload(module, user, file, attrs, opts) do
-    with {:ok, file} <- fetch_file(module, file),
+  defp maybe_do_upload(module, context, files, attrs, opts) when is_list(files) do
+    files
+    |> Enum.map(files, fn file ->
+      maybe_do_upload(module, context, file, attrs, opts)
+    end)
+  end
+
+  defp maybe_do_upload(module, context, file, attrs, opts) do
+    with  {:ok, file} <- fetch_file(module, file),
           {:ok, file_info} <- extract_metadata(file),
+          module when is_atom(module) and not is_nil(module) <- definition_module(module, file_info),
           :ok <- verify_media_type(module, file_info),
-          {:ok, new_path} <- module.store({file.path, Utils.ulid(user)}) do
-      insert_media(user, %{file | path: new_path}, file_info, attrs)
+          {:ok, new_path} <- module.store({file.path, context_id(context)}) do
+
+      insert(context, %{file | path: new_path}, file_info, attrs)
 
     else
       other ->
@@ -93,21 +85,59 @@ defmodule Bonfire.Files do
     end
   end
 
-  defp insert_media(user, %{path: path} = file, file_info, attrs) do
-    attrs =
-      attrs
-      |> Map.put(:path, path)
-      |> Map.put(:size, file_info[:size])
-      |> Map.put(:media_type, file_info[:media_type])
+  defp insert({user, object}, file, file_info, attrs) do
+    insert(user, file, file_info, attrs)
+    ~> Repo.insert(files_changeset(%{id: Utils.ulid(object), media: ...}))
+  end
 
-    with {:ok, media} <- Repo.insert(Media.changeset(user, attrs)) do
-      {:ok,
-        media
-        |> Map.put(:user, user)
-        |> Map.put(:file, file)
-      }
+  defp insert(user, file, file_info, attrs) do
+    Media.insert(user, file, file_info, attrs)
+  end
+
+  defp context_id({user, _object}) do
+    Utils.ulid(user)
+  end
+  defp context_id(user) do
+    Utils.ulid(user)
+  end
+
+  defp definition_module(nil, %{media_type: media_type}) do
+    image_types = Bonfire.Common.Config.get(
+      [__MODULE__, :image_media_types], # allowed types of images
+      ["image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/tiff"] # fallback
+    )
+
+    all_allowed_types = Bonfire.Common.Config.get(
+      [__MODULE__, :all_allowed_media_types], # all other
+      ["application/pdf"] # fallback
+    )
+
+    if Enum.member?(image_types, media_type) do
+      debug(media_type, "using ImageUploader definition based on file type")
+      Bonfire.Files.ImageUploader
+    else
+      if Enum.member?(all_allowed_types, media_type) do
+        debug(media_type, "using DocumentUploader definition based on file type")
+        Bonfire.Files.DocumentUploader
+      else
+        {:error, FileDenied.new(media_type)}
+      end
     end
-    #|> debug
+  end
+  defp definition_module(module, _file_info) do
+    module
+  end
+
+  # defp insert_files(context, %Media{} = media, object) when is_binary(object) or is_map(object) do
+  #   Repo.insert_all(Files, conflict_target: :media) do
+  # end
+
+  defp files_changeset(pub \\ %Files{}, params) do
+    pub
+    |> Changeset.cast(params, @cast)
+    |> Changeset.validate_required(@required)
+    |> Changeset.assoc_constraint(:media)
+    |> Changeset.unique_constraint(@cast)
   end
 
   @doc """
@@ -120,7 +150,7 @@ defmodule Bonfire.Files do
     do: module.url({media.path, media.user_id}, version)
 
   def remote_url(module, media_id, version) when is_binary(media_id) do
-    case __MODULE__.one(id: media_id) do
+    case Media.one(id: media_id) do
       {:ok, media} ->
         remote_url(module, media, version)
 
@@ -130,46 +160,6 @@ defmodule Bonfire.Files do
   end
 
   def remote_url(_, _, _), do: nil
-
-  def update_by(filters, updates) do
-    Repo.update_all(Queries.query(Media, filters), set: updates)
-  end
-
-  @doc """
-  Delete an upload, removing it from indexing, but the files remain available.
-  """
-  @spec soft_delete(Media.t()) :: {:ok, Media.t()} | {:error, Changeset.t()}
-  def soft_delete(%Media{} = media) do
-    Bonfire.Repo.Delete.soft_delete(media)
-  end
-
-  @doc """
-  Delete an upload, removing any associated files.
-  """
-  @spec hard_delete(atom, Media.t()) :: :ok | {:error, Changeset.t()}
-  def hard_delete(module, %Media{} = media) do
-    resp =
-      Repo.transaction(fn ->
-        with {:ok, media} <- Repo.delete(media),
-             {:ok, _} <- module.delete({media.path, media.user_id}) do
-          :ok
-        end
-      end)
-
-    with {:ok, v} <- resp, do: v
-  end
-
-  @doc false
-  def hard_delete() do
-    delete_by(deleted: true)
-  end
-
-  # FIXME: doesn't cleanup files
-  defp delete_by(filters) do
-    Queries.query(Media)
-    |> Queries.filter(filters)
-    |> Repo.delete_all()
-  end
 
   defp fetch_file(module, file) do
     file
@@ -210,50 +200,6 @@ defmodule Bonfire.Files do
           {:error, FileDenied.new(media_type)}
         end
     end
-  end
-
-  def blurred(definition \\ nil, media)
-  def blurred(definition, %Media{path: path} = _media), do: blurred(definition, path)
-  def blurred(_definition, path) when is_binary(path) do
-
-    path = String.trim_leading(path, "/")
-    final_path = path<>".jpg"
-
-    ret_path = if String.starts_with?(path, "http") or is_nil(path) or path =="" or not File.exists?(path) do
-      debug(path, "it's an external or invalid image, skip")
-      path
-    else
-      if File.exists?(final_path) do
-        debug(final_path, "blurred jpeg already exists :)")
-        final_path
-      else
-        debug(final_path, "first time trying to get this blurred jpeg?")
-        width = 32
-        height = 32
-        format = "jpg"
-
-        with %{path: final_path} <- Mogrify.open(path)
-          # NOTE: since we're resizing an already resized thumnail, don't worry about cropping, stripping, etc
-          |> Mogrify.resize("#{width}x#{height}")
-          |> Mogrify.custom("colors", "16")
-          |> Mogrify.custom("depth", "8")
-          |> Mogrify.custom("blur", "2x2")
-          |> Mogrify.quality("50")
-          |> Mogrify.format(format)
-          # |> IO.inspect
-          |> Mogrify.save(path: final_path) do
-
-            debug("saved jpeg")
-
-            final_path
-          else e ->
-            error(e)
-            path
-        end
-      end
-    end
-
-    "/#{ret_path}"
   end
 
   def data_url(content, mime_type) do

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-defmodule Bonfire.Files.Queries do
+defmodule Bonfire.Files.Media.Queries do
   import Ecto.Query
 
   alias Bonfire.Files.Media

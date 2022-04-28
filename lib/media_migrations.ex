@@ -1,47 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
-defmodule Bonfire.Files.Media do
-  use Pointers.Pointable,
-    otp_app: :bonfire_files,
-    table_id: "30NF1REF11ESC0NTENT1SGREAT",
-    source: "bonfire_files_media"
-
-  import Bonfire.Repo.Common, only: [change_public: 1]
-
-  alias Ecto.Changeset
-
-  @type t :: %__MODULE__{}
-
-  pointable_schema do
-    # has_one(:preview, __MODULE__)
-    belongs_to(:user, Pointers.Pointer)
-    field(:path, :string)
-    field(:size, :integer)
-    field(:media_type, :string)
-    field(:metadata, :map) # currently unused
-    field(:file, :map, virtual: true)
-    field(:is_public, :boolean, virtual: true)
-    field(:published_at, :utc_datetime_usec)
-    field(:deleted_at, :utc_datetime_usec)
-    timestamps(inserted_at: :created_at)
-  end
-
-  @create_required ~w(path size media_type)a
-  @create_cast @create_required ++ ~w(metadata is_public)a
-
-  def changeset(%{id: user_id}, attrs) do
-    %__MODULE__{}
-    |> Changeset.cast(attrs, @create_cast)
-    |> Changeset.validate_required(@create_required)
-    |> Changeset.validate_length(:media_type, max: 255)
-    |> Changeset.change(
-      is_public: true,
-      user_id: user_id
-    )
-    |> change_public()
-  end
-end
-
-defmodule Bonfire.Files.Media.Migration do
+defmodule Bonfire.Files.Media.Migrations do
   use Ecto.Migration
   import Pointers.Migration
   alias Bonfire.Files.Media
@@ -56,9 +13,7 @@ defmodule Bonfire.Files.Media.Migration do
         # see https://stackoverflow.com/a/643772 for size
         Ecto.Migration.add(:media_type, :string, null: false, size: 255)
         Ecto.Migration.add(:metadata, :jsonb)
-        Ecto.Migration.add(:published_at, :utc_datetime_usec)
         Ecto.Migration.add(:deleted_at, :utc_datetime_usec)
-        Ecto.Migration.timestamps(inserted_at: :created_at, type: :utc_datetime_usec)
 
         unquote_splicing(exprs)
       end
@@ -91,8 +46,8 @@ defmodule Bonfire.Files.Media.Migration do
 
   defp mc(:down) do
     quote do
-      Bonfire.Files.Media.Migration.drop_media_path_index()
-      Bonfire.Files.Media.Migration.drop_media_table()
+      Bonfire.Files.Media.Migrations.drop_media_path_index()
+      Bonfire.Files.Media.Migrations.drop_media_table()
     end
   end
 
