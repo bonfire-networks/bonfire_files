@@ -264,7 +264,13 @@ defmodule Bonfire.Files do
   # TODO: put somewhere more reusable
   def ap_receive_attachments(creator, attachments) when is_list(attachments), do: Enum.map(attachments, &ap_receive_attachments(creator, &1)) |> Utils.filter_empty([])
   def ap_receive_attachments(creator, %{"url"=>url} = attachment) do
-    with {:ok, uploaded} <- upload(definition_module(%{media_type: attachment["mediaType"]}), creator, url, %{client_name: url, metadata: %{"label"=>attachment["name"]}}) # TODO: don't save empty label
+    with {:ok, uploaded} <- upload(
+      definition_module(%{media_type: attachment["mediaType"]}),
+      creator,
+      url,
+      %{client_name: url, metadata: %{"label"=>attachment["name"]}},
+      skip_fetching_remote: true
+      ) # TODO: don't save empty label
     |> debug("uploaded") do
       uploaded
     else e ->
