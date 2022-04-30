@@ -25,7 +25,7 @@ defmodule Bonfire.Files.ImageUploader do
   end
 
   def allowed_media_types do
-    Bonfire.Common.Config.get(
+    Bonfire.Common.Config.get_ext(:bonfire_files,
       [__MODULE__, :allowed_media_types], # allowed types for this definition
       ["image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/tiff"] # fallback
     )

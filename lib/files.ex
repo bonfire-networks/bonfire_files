@@ -107,14 +107,15 @@ defmodule Bonfire.Files do
     Utils.ulid(user)
   end
 
+  defp definition_module(module \\ nil, file_info)
   defp definition_module(nil, %{media_type: media_type}) do
-    image_types = Bonfire.Common.Config.get(
-      [__MODULE__, :image_media_types], # allowed types of images
+    image_types = Bonfire.Common.Config.get_ext(:bonfire_files,
+      :image_media_types, # allowed types of images
       ["image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/tiff"] # fallback
     )
 
-    all_allowed_types = Bonfire.Common.Config.get(
-      [__MODULE__, :all_allowed_media_types], # all other
+    all_allowed_types = Bonfire.Common.Config.get_ext(:bonfire_files,
+      :all_allowed_media_types, # all other
       ["application/pdf"] # fallback
     )
 
@@ -212,4 +213,69 @@ defmodule Bonfire.Files do
     image_base64 = Base.encode64(content)
     ["data:", mime_type, ";base64,", image_base64]
   end
+
+  def full_url(module, media) do
+    case module.remote_url(media) do
+      "/"<>_ = path -> Bonfire.Common.URIs.base_url()<>path
+      url -> url
+    end
+  end
+
+  def ap_publish_activity(medias) when is_list(medias) do
+    Enum.map(medias, &ap_publish_activity/1)
+  end
+
+  def ap_publish_activity(%Media{media_type: "image"<>_} = media) do
+    %{
+        "type"=> "Image",
+        "mediaType"=> media.media_type,
+        "url"=> full_url(Bonfire.Files.ImageUploader, media),
+        "name"=> media.metadata["label"]
+    }
+  end
+
+  def ap_publish_activity(%Media{media_type: "audio"<>_} = media) do
+    %{
+        "type"=> "Audio",
+        "mediaType"=> media.media_type,
+        "url"=> full_url(Bonfire.Files.DocumentUploader, media),
+        "name"=> media.metadata["label"]
+    }
+  end
+
+  def ap_publish_activity(%Media{media_type: "video"<>_} = media) do
+    %{
+        "type"=> "Video",
+        "mediaType"=> media.media_type,
+        "url"=> full_url(Bonfire.Files.DocumentUploader, media),
+        "name"=> media.metadata["label"]
+    }
+  end
+
+  def ap_publish_activity(%Media{} = media) do
+    %{
+        "type"=> "Document",
+        "mediaType"=> media.media_type,
+        "url"=> full_url(Bonfire.Files.DocumentUploader, media),
+        "name"=> media.metadata["label"]
+    }
+  end
+
+  # TODO: put somewhere more reusable
+  def ap_receive_attachments(creator, attachments) when is_list(attachments), do: Enum.map(attachments, &ap_receive_attachments(creator, &1)) |> Utils.filter_empty([])
+  def ap_receive_attachments(creator, %{"url"=>url} = attachment) do
+    with {:ok, uploaded} <- upload(definition_module(%{media_type: attachment["mediaType"]}), creator, url, %{client_name: url, metadata: %{"label"=>attachment["name"]}}) # TODO: don't save empty label
+    |> debug("uploaded") do
+      uploaded
+    else e ->
+      error(e, "Could not upload #{url}")
+      nil
+    end
+  end
+  def ap_receive_attachments(_creator, attachment) do
+    error(attachment, "Dunno how to handle this")
+    nil
+  end
+
+
 end

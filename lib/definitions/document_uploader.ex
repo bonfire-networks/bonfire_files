@@ -12,7 +12,7 @@ defmodule Bonfire.Files.DocumentUploader do
   end
 
   def allowed_media_types do
-    Bonfire.Common.Config.get(
+    Bonfire.Common.Config.get_ext(:bonfire_files,
       [__MODULE__, :allowed_media_types], # allowed types for this definition
       ["application/pdf"] # fallback
     )
