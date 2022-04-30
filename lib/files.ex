@@ -71,13 +71,19 @@ defmodule Bonfire.Files do
   end
 
   defp maybe_do_upload(module, context, file, attrs, opts) do
+
+    file_extension = if attrs[:client_name], do: attrs[:client_name] |> Path.extname() |> String.downcase() |> String.pad_leading(1, ".")
+
     with  {:ok, file} <- fetch_file(module, file),
           {:ok, file_info} <- extract_metadata(file),
           module when is_atom(module) and not is_nil(module) <- definition_module(module, file_info),
           :ok <- verify_media_type(module, file_info),
-          {:ok, new_path} <- module.store({file.path, context_id(context)}) do
+          id <- Pointers.ULID.generate(),
+          {:ok, new_path} <- module.store({
+            %Plug.Upload{filename: "#{id}#{file_extension}", path: file.path},
+            context_id(context)}) do
 
-      insert(context, %{file | path: new_path}, file_info, attrs)
+      insert(context, %{file | path: new_path}, file_info, Map.put(attrs, :id, id))
 
     else
       other ->

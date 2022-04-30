@@ -24,7 +24,7 @@ defmodule Bonfire.Files.Media do
   end
 
   @create_required ~w(path size media_type)a
-  @create_cast @create_required ++ ~w(metadata)a
+  @create_cast @create_required ++ ~w(id metadata)a
 
   def changeset(%{id: user_id}, attrs) do
     %__MODULE__{}
