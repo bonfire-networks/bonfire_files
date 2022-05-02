@@ -261,6 +261,11 @@ defmodule Bonfire.Files do
     }
   end
 
+  def ap_publish_activity(other) do
+    debug(other, "Skip unrecognised media")
+    nil
+  end
+
   # TODO: put somewhere more reusable
   def ap_receive_attachments(creator, attachments) when is_list(attachments), do: Enum.map(attachments, &ap_receive_attachments(creator, &1)) |> Utils.filter_empty([])
   def ap_receive_attachments(creator, %{"url"=>url} = attachment) do
