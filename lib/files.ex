@@ -38,7 +38,7 @@ defmodule Bonfire.Files do
   alias Bonfire.Common.Utils
   alias Pointers.Pointer
   alias Ecto.Changeset
-  alias Bonfire.Repo
+  alias Bonfire.Common.Repo
 
   mixin_schema do
     belongs_to :media, Media, primary_key: true

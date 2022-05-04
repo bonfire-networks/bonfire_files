@@ -8,7 +8,7 @@ defmodule Bonfire.Files.Media do
   alias Ecto.Changeset
   alias Bonfire.Files.Media
   alias Bonfire.Files.Media.Queries
-  alias Bonfire.Repo
+  alias Bonfire.Common.Repo
 
   @type t :: %__MODULE__{}
 
@@ -73,7 +73,7 @@ defmodule Bonfire.Files.Media do
   """
   @spec soft_delete(Media.t()) :: {:ok, Media.t()} | {:error, Changeset.t()}
   def soft_delete(%Media{} = media) do
-    Bonfire.Repo.Delete.soft_delete(media)
+    Bonfire.Common.Repo.Delete.soft_delete(media)
   end
 
   @doc """
@@ -83,8 +83,8 @@ defmodule Bonfire.Files.Media do
   def hard_delete(module, %Media{} = media) do
       Repo.transaction(fn ->
         with {:ok, media} <- Repo.delete(media),
-             {:ok, _} <- module.delete({media.path, media.user_id}) do
-          :ok
+             {:ok, deleted} <- module.delete({media.path, media.user_id}) do
+          {:ok, deleted}
         end
       end)
   end

@@ -9,6 +9,7 @@ defmodule Bonfire.FilesTest do
     FileDenied,
     IconUploader,
     ImageUploader,
+    Media
   }
 
   # FIXME: path
@@ -125,7 +126,7 @@ defmodule Bonfire.FilesTest do
   describe "hard_delete" do
     test "removes the upload, including files" do
       assert {:ok, upload} = Files.upload(ImageUploader, fake_user!(), @icon_file)
-      assert :ok = Media.hard_delete(ImageUploader, upload)
+      assert {:ok, _} = Media.hard_delete(ImageUploader, upload)
     end
   end
 end
