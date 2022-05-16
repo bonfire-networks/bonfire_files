@@ -62,20 +62,29 @@ defmodule Bonfire.Files.Image.Edit do
     end
   end
 
-  def maybe_blur(path, final_path, width \\ 32, height \\ 32) do
+  def blur(path, final_path) do
     format = "jpg"
 
-    if System.find_executable("convert"), do: Mogrify.open(path)
-    # NOTE: since we're resizing an already resized thumnail, don't worry about cropping, stripping, etc
-    |> Mogrify.resize("#{width}x#{height}")
-    |> Mogrify.custom("colors", "16")
-    |> Mogrify.custom("depth", "8")
-    |> Mogrify.custom("blur", "2x2")
-    |> Mogrify.quality("50")
-    |> Mogrify.format(format)
-    # |> IO.inspect
-    |> Mogrify.save(path: final_path)
-    |> Map.get(:path)
+    cond do
+      System.find_executable("convert") ->
+        Mogrify.open(path)
+        # NOTE: since we're resizing an already resized thumnail, don't worry about cropping, stripping, etc
+        |> Mogrify.resize("10%")
+        |> Mogrify.custom("colors", "8")
+        |> Mogrify.custom("depth", "8")
+        |> Mogrify.custom("blur", "2x2")
+        |> Mogrify.quality("20")
+        |> Mogrify.format(format)
+        # |> IO.inspect
+        |> Mogrify.save(path: final_path)
+        |> Map.get(:path)
+
+      System.find_executable("vips") ->
+        with {_, 0} <- System.cmd("vips", ["resize", path, "#{final_path}", "0.10"]) do
+          final_path
+        end
+      true -> nil
+    end
   end
 
 end
