@@ -73,8 +73,8 @@ defmodule Bonfire.Files do
   defp maybe_do_upload(module, context, file, attrs, opts) do
     debug(attrs, "uploads attrs")
     id = Pointers.ULID.generate()
-    dot_extension = dot_extension(attrs[:client_name] || file)
-    filename = "#{id}#{dot_extension}"
+    file_extension = file_extension(attrs[:client_name] || file)
+    filename = "#{id}#{file_extension}"
     |> debug("filename")
 
     with  {:ok, file} <- fetch_file(module, file),
@@ -96,11 +96,8 @@ defmodule Bonfire.Files do
   def file_extension(path) do
     path |> Path.extname() |> String.downcase()
   end
-  def dot_extension(path) do
-    case file_extension(path) do
-      "" -> ""
-      ext -> String.pad_leading(ext, 1, ".")
-    end
+  def file_extension_only(path) do
+    file_extension(path) |> String.trim_leading(".")
   end
 
   defp insert({user, object}, file, file_info, attrs) do

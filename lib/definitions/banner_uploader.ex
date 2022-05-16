@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-defmodule Bonfire.Files.ImageUploader do
+defmodule Bonfire.Files.BannerUploader do
   @moduledoc """
   Uploader for larger images, for example, a profile page banner.
 
@@ -14,12 +14,12 @@ defmodule Bonfire.Files.ImageUploader do
 
   def transform(:default, {%{file_name: filename}, _scope}) do
     max_width = 580
-    max_height = 700
-    Bonfire.Files.Image.Edit.image(filename, max_width, max_height) || :noaction
+    max_height = 200
+    Bonfire.Files.Image.Edit.banner(filename, max_width, max_height) || :noaction
   end
 
   def storage_dir(_, {_file, user_id}) when is_binary(user_id) do
-    "data/uploads/#{user_id}/images"
+    "data/uploads/#{user_id}/banners"
   end
 
   def allowed_media_types do

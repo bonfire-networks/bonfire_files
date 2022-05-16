@@ -6,7 +6,7 @@ defmodule Bonfire.Files.Blurred do
   def blurred(_definition, path) when is_binary(path) do
 
     path = String.trim_leading(path, "/")
-    final_path = path<>".jpg"
+    final_path = path<>"_preview.jpg"
 
     ret_path = if String.starts_with?(path, "http") or is_nil(path) or path =="" or not File.exists?(path) or System.get_env("CI") do
       debug(path, "it's an external or invalid image, skip")
