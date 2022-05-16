@@ -12,10 +12,9 @@ defmodule Bonfire.Files.IconUploader do
 
   # def transform(:original, _), do: :noaction
 
-  def transform(:default, _) do
-    max_size = 142 # TODO: configurable
-    if System.find_executable("convert"), do: {:convert, "-strip -thumbnail #{max_size}x#{max_size}^ -gravity center -crop #{max_size}x#{max_size}+0+0 -limit area 50MB -limit disk 1MB"},
-    else: :noaction
+  def transform(:default, {%{file_name: filename}, _scope}) do
+    debug(filename)
+    Bonfire.Files.Image.Edit.thumbnail(filename) || :noaction
   end
 
   # def transform(:small, _) do

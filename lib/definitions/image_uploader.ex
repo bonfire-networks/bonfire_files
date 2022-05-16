@@ -12,12 +12,8 @@ defmodule Bonfire.Files.ImageUploader do
 
   # def transform(:original, _), do: :noaction
 
-  def transform(:default, _) do
-    # TODO: configurable
-    max_width = 580
-    max_height = 700
-    if System.find_executable("convert"), do: {:convert, "-strip -thumbnail #{max_width}x#{max_height}> -limit area 3MB -limit disk 20MB"},
-    else: :noaction
+  def transform(:default, {%{file_name: filename}, _scope}) do
+    Bonfire.Files.Image.Edit.banner(filename) || :noaction
   end
 
   def storage_dir(_, {_file, user_id}) when is_binary(user_id) do

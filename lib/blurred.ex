@@ -17,24 +17,12 @@ defmodule Bonfire.Files.Blurred do
         final_path
       else
         debug(final_path, "first time trying to get this blurred jpeg?")
-        width = 32
-        height = 32
-        format = "jpg"
 
-        with %{path: final_path} <- Mogrify.open(path)
-          # NOTE: since we're resizing an already resized thumnail, don't worry about cropping, stripping, etc
-          |> Mogrify.resize("#{width}x#{height}")
-          |> Mogrify.custom("colors", "16")
-          |> Mogrify.custom("depth", "8")
-          |> Mogrify.custom("blur", "2x2")
-          |> Mogrify.quality("50")
-          |> Mogrify.format(format)
-          # |> IO.inspect
-          |> Mogrify.save(path: final_path) do
+        with saved_path when is_binary(saved_path) <- Bonfire.Files.Image.Edit.maybe_blur(path, final_path) do
 
-            debug("saved jpeg")
+            debug(saved_path, "saved blurred jpeg")
 
-            final_path
+            saved_path
           else e ->
             error(e)
             path
@@ -44,5 +32,6 @@ defmodule Bonfire.Files.Blurred do
 
     "/#{ret_path}"
   end
+
 
 end

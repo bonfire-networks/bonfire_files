@@ -39,7 +39,7 @@ defmodule Bonfire.Files.Media do
   def insert(user, %{path: path} = file, file_info, attrs) do
 
     metadata = Map.merge(
-      Map.get(attrs, :metadata, %{}),
+      Map.get(attrs, :metadata) || %{},
       Map.drop(file_info, [:size, :media_type])
     )
 

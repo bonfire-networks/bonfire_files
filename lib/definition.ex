@@ -13,6 +13,7 @@ defmodule Bonfire.Files.Definition do
     quote do
       @behaviour Bonfire.Files.Definition
       use Waffle.Definition
+      import Where
       alias Bonfire.Files
 
       def upload(user, file, attrs \\ %{}, opts \\ []) do
