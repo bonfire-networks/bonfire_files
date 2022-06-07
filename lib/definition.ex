@@ -16,6 +16,8 @@ defmodule Bonfire.Files.Definition do
       import Where
       alias Bonfire.Files
 
+      @acl :public_read
+
       def upload(user, file, attrs \\ %{}, opts \\ []) do
         Files.upload(__MODULE__, user, file, attrs, opts)
       end
