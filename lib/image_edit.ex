@@ -85,6 +85,9 @@ defmodule Bonfire.Files.Image.Edit do
         end
       true -> nil
     end
+  rescue e in File.CopyError -> # catch an issue when trying to blur gifs
+    error(e)
+    nil
   end
 
 end
