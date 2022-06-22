@@ -19,20 +19,21 @@ defmodule Bonfire.Files.FaviconStore do
   def favicon_url(_), do: nil
 
   def cached_or_fetch("http"<>_ = url) do
+    info(url, "url")
     host = URI.parse(url).host
     if host && host !="" do
       filename = :crypto.hash(:sha256, host) |> Base.encode16
       path = "#{storage_dir()}/#{filename}"
 
       if File.exists?(path) do
-        debug(host, "favicon already cached :)")
+        info(host, "favicon already cached :)")
         {:ok, "/"<>path}
       else
         if File.exists?("#{storage_dir()}/#{filename}_none") do
-          debug(host, "no favicon previously found")
+          info(host, "no favicon previously found")
           nil
         else
-          debug(host, "first time, try finding a favicon for")
+          info(host, "first time, try finding a favicon for")
           fetch(url, filename, path)
         end
       end

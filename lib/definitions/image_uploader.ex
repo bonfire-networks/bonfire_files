@@ -13,9 +13,12 @@ defmodule Bonfire.Files.ImageUploader do
   # def transform(:original, _), do: :noaction
 
   def transform(:default, {%{file_name: filename}, _scope}) do
-    max_width = 580
-    max_height = 700
-    Bonfire.Files.Image.Edit.image(filename, max_width, max_height) || :noaction
+    if not String.ends_with?(filename, ".gif") do
+      max_width = 580
+      max_height = 700
+      Bonfire.Files.Image.Edit.image(filename, max_width, max_height)
+    end
+    || :noaction
   end
 
   def storage_dir(_, {_file, user_id}) when is_binary(user_id) do
