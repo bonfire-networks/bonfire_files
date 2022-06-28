@@ -38,6 +38,17 @@ defmodule Bonfire.Files.Media do
 
   def insert(user, %{path: path} = file, file_info, attrs) do
 
+    with {:ok, media} <- insert(user, path, file_info, attrs) do
+      {:ok,
+        media
+        |> Map.put(:file, file)
+      }
+    end
+    #|> debug
+  end
+
+  def insert(user, url_or_path, file_info, attrs) do
+
     metadata = Map.merge(
       Map.get(attrs, :metadata) || %{},
       Map.drop(file_info, [:size, :media_type])
@@ -45,7 +56,7 @@ defmodule Bonfire.Files.Media do
 
     attrs =
       attrs
-      |> Map.put(:path, path)
+      |> Map.put(:path, url_or_path)
       |> Map.put(:size, file_info[:size])
       |> Map.put(:media_type, file_info[:media_type])
       |> Map.put(:metadata, metadata)
@@ -54,7 +65,6 @@ defmodule Bonfire.Files.Media do
       {:ok,
         media
         |> Map.put(:user, user)
-        |> Map.put(:file, file)
       }
     end
     #|> debug

@@ -7,8 +7,8 @@ defmodule Bonfire.Files.FaviconStore do
   use Bonfire.Files.Definition
   import Where
 
-  def favicon_url(url) when is_binary(url) and url !="" do
-    with {:ok, path} <- cached_or_fetch(url) do
+  def favicon_url(url, opts \\ []) when is_binary(url) and url !="" do
+    with {:ok, path} <- cached_or_fetch(url, opts) do
       # Files.data_url(image, meta.media_type)
       path
     else e ->
@@ -16,9 +16,9 @@ defmodule Bonfire.Files.FaviconStore do
       nil
     end
   end
-  def favicon_url(_), do: nil
+  def favicon_url(_, _), do: nil
 
-  def cached_or_fetch("http"<>_ = url) do
+  def cached_or_fetch("http"<>_ = url, opts \\ []) do
     info(url, "url")
     host = URI.parse(url).host
     if host && host !="" do
@@ -34,16 +34,16 @@ defmodule Bonfire.Files.FaviconStore do
           nil
         else
           info(host, "first time, try finding a favicon for")
-          fetch(url, filename, path)
+          fetch(url, filename, path, opts)
         end
       end
     else
       {:error, "Invalid URL"}
     end
   end
-  def cached_or_fetch(url), do: cached_or_fetch("https://"<>url)
+  def cached_or_fetch(url, opts), do: cached_or_fetch("https://"<>url, opts)
 
-  defp fetch(url, filename, path) do
+  defp fetch(url, filename, path, opts) do
     with {:ok, image} <- FetchFavicon.fetch(url),
          {:ok, filename} <- store(%{filename: filename, binary: image}),
          path <- ("#{storage_dir()}/#{filename}"),

@@ -73,7 +73,7 @@ defmodule Bonfire.Files do
   defp maybe_do_upload(module, context, file, attrs, opts) do
     debug(attrs, "uploads attrs")
     id = Pointers.ULID.generate()
-    file_extension = file_extension(attrs[:client_name] || file[:filename] || file)
+    file_extension = file_extension(attrs[:client_name] || Utils.e(file, :filename, nil) || file)
     filename = "#{id}#{file_extension}"
     |> debug("filename")
 
