@@ -88,10 +88,14 @@ defmodule Bonfire.Files.RuntimeConfig do
     config :bonfire_files, image_media_types: image_media_types
     config :bonfire_files, all_allowed_media_types: all_allowed_media_types
 
-    config :bonfire_files, Bonfire.Files.IconUploader, allowed_media_types: image_media_types
-    config :bonfire_files, Bonfire.Files.ImageUploader, allowed_media_types: image_media_types
     config :bonfire_files, Bonfire.Files.DocumentUploader, allowed_media_types: all_allowed_media_types
 
+    config :bonfire_files, Bonfire.Files.IconUploader, allowed_media_types: image_media_types
+
+    config :bonfire_files, Bonfire.Files.ImageUploader,
+      allowed_media_types: image_media_types,
+      max_width: System.get_env("IMAGE_MAX_W", "700"),
+      max_height: System.get_env("IMAGE_MAX_H", "700")
 
   end
 end

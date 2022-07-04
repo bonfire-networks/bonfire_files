@@ -14,9 +14,7 @@ defmodule Bonfire.Files.ImageUploader do
 
   def transform(:default, {%{file_name: filename}, _scope}) do
     if not String.ends_with?(filename, ".gif") do
-      max_width = 580
-      max_height = 700
-      Bonfire.Files.Image.Edit.image(filename, max_width, max_height)
+      Bonfire.Files.Image.Edit.image(filename, Bonfire.Common.Config.get_ext(:bonfire_files, [__MODULE__, :max_width], 580) |> debug(), Bonfire.Common.Config.get_ext(:bonfire_files, [__MODULE__, :max_height], 700))
     end
     || :noaction
   end
@@ -26,8 +24,7 @@ defmodule Bonfire.Files.ImageUploader do
   end
 
   def allowed_media_types do
-    Bonfire.Common.Config.get_ext(:bonfire_files,
-      [__MODULE__, :allowed_media_types], # allowed types for this definition
+    Bonfire.Common.Config.get_ext(:bonfire_files, [__MODULE__, :allowed_media_types], # allowed types for this definition
       ["image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/tiff"] # fallback
     )
   end
