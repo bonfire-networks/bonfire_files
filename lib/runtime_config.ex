@@ -10,9 +10,6 @@ defmodule Bonfire.Files.RuntimeConfig do
     # The default is local storage.
 
     if config_env() != :test and System.get_env("UPLOADS_S3_BUCKET") && System.get_env("UPLOADS_S3_ACCESS_KEY_ID") && System.get_env("UPLOADS_S3_SECRET_ACCESS_KEY") do
-      IO.puts(
-        "Note: uploads will be stored in s3: #{System.get_env("UPLOADS_S3_BUCKET")}"
-      )
       # Use s3-compatible cloud storage
 
       bucket = System.get_env("UPLOADS_S3_BUCKET")
@@ -23,6 +20,10 @@ defmodule Bonfire.Files.RuntimeConfig do
       region = System.get_env("UPLOADS_S3_REGION", "fr-par")
       host = System.get_env("UPLOADS_S3_HOST", "s3.#{region}.scw.cloud")
       scheme = System.get_env("UPLOADS_S3_SCHEME", "https://")
+
+      IO.puts(
+        "Note: uploads will be stored in s3: #{bucket} at #{host}"
+      )
 
       config :waffle,
         storage: Waffle.Storage.S3,
