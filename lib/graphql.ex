@@ -1,6 +1,6 @@
 if Bonfire.Common.Extend.module_enabled?(Bonfire.API.GraphQL) do
 defmodule Bonfire.Files.GraphQL do
-  import Where
+  import Untangle
 
   @uploader_fields %{
     image: Bonfire.Files.ImageUploader,

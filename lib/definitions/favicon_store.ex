@@ -5,7 +5,7 @@ defmodule Bonfire.Files.FaviconStore do
   """
 
   use Bonfire.Files.Definition
-  import Where
+  import Untangle
 
   def favicon_url(url, opts \\ []) when is_binary(url) and url !="" do
     with {:ok, path} <- cached_or_fetch(url, opts) do

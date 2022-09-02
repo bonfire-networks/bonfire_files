@@ -1,5 +1,5 @@
 defmodule Bonfire.Files.Blurred do
-  import Where
+  import Untangle
 
   def blurred(definition \\ nil, media_or_path)
   def blurred(definition, %{path: path} = _media), do: blurred(definition, path)

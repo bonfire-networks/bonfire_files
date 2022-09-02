@@ -27,7 +27,7 @@ defmodule Bonfire.Files do
     source: "bonfire_files"
   require Pointers.Changesets
   use Arrows
-  import Where
+  import Untangle
 
   alias Bonfire.Files
   alias Bonfire.Files.{

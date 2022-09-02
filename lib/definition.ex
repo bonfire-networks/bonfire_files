@@ -13,7 +13,7 @@ defmodule Bonfire.Files.Definition do
     quote do
       @behaviour Bonfire.Files.Definition
       use Waffle.Definition
-      import Where
+      import Untangle
       alias Bonfire.Files
 
       @acl :public_read

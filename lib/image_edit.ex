@@ -1,5 +1,5 @@
 defmodule Bonfire.Files.Image.Edit do
-  import Where
+  import Untangle
 
   def image(filename, max_width, max_height) do
     cond do
