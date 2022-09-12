@@ -10,9 +10,9 @@ defmodule Bonfire.Files.Migrations do
   defp make_files_table(exprs) do
     quote do
       require Pointers.Migration
-      Pointers.Migration.create_mixin_table(Bonfire.Files) do
 
-        Ecto.Migration.add :media_id, Pointers.Migration.strong_pointer(), primary_key: true
+      Pointers.Migration.create_mixin_table Bonfire.Files do
+        Ecto.Migration.add(:media_id, Pointers.Migration.strong_pointer(), primary_key: true)
 
         unquote_splicing(exprs)
       end
@@ -20,14 +20,15 @@ defmodule Bonfire.Files.Migrations do
   end
 
   defmacro create_files_table(), do: make_files_table([])
-  defmacro create_files_table([do: {_, _, body}]), do: make_files_table(body)
+  defmacro create_files_table(do: {_, _, body}), do: make_files_table(body)
 
   def drop_files_table(), do: drop_mixin_table(Files)
 
-
   def migrate_files_media_index(dir \\ direction(), opts \\ [])
+
   def migrate_files_media_index(:up, opts),
     do: create_if_not_exists(index(@files_table, [:media_id], opts))
+
   def migrate_files_media_index(:down, opts),
     do: drop_if_exists(index(@files_table, [:media_id], opts))
 
@@ -54,5 +55,4 @@ defmodule Bonfire.Files.Migrations do
   end
 
   defmacro migrate_files(dir), do: mf(dir)
-
 end

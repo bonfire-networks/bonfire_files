@@ -12,12 +12,20 @@ defmodule Bonfire.Files.Media.Queries do
   @doc "Filter the query according to arbitrary criteria"
   def filter(query, filter_or_filters)
 
-  def filter(q, filters) when is_list(filters), do: Enum.reduce(filters, q, &filter(&2, &1))
+  def filter(q, filters) when is_list(filters),
+    do: Enum.reduce(filters, q, &filter(&2, &1))
 
-  def filter(q, {:deleted, nil}), do: where(q, [content: c], is_nil(c.deleted_at))
-  def filter(q, {:deleted, :not_nil}), do: where(q, [content: c], not is_nil(c.deleted_at))
-  def filter(q, {:deleted, false}), do: where(q, [content: c], is_nil(c.deleted_at))
-  def filter(q, {:deleted, true}), do: where(q, [content: c], not is_nil(c.deleted_at))
+  def filter(q, {:deleted, nil}),
+    do: where(q, [content: c], is_nil(c.deleted_at))
+
+  def filter(q, {:deleted, :not_nil}),
+    do: where(q, [content: c], not is_nil(c.deleted_at))
+
+  def filter(q, {:deleted, false}),
+    do: where(q, [content: c], is_nil(c.deleted_at))
+
+  def filter(q, {:deleted, true}),
+    do: where(q, [content: c], not is_nil(c.deleted_at))
 
   def filter(q, {:deleted, {:gte, %DateTime{} = time}}),
     do: where(q, [content: c], c.deleted_at >= ^time)
@@ -25,15 +33,25 @@ defmodule Bonfire.Files.Media.Queries do
   def filter(q, {:deleted, {:lte, %DateTime{} = time}}),
     do: where(q, [content: c], c.deleted_at <= ^time)
 
-  def filter(q, {:published, nil}), do: where(q, [content: c], is_nil(c.published_at))
-  def filter(q, {:published, :not_nil}), do: where(q, [content: c], not is_nil(c.published_at))
-  def filter(q, {:published, false}), do: where(q, [content: c], is_nil(c.published_at))
-  def filter(q, {:published, true}), do: where(q, [content: c], not is_nil(c.published_at))
+  def filter(q, {:published, nil}),
+    do: where(q, [content: c], is_nil(c.published_at))
+
+  def filter(q, {:published, :not_nil}),
+    do: where(q, [content: c], not is_nil(c.published_at))
+
+  def filter(q, {:published, false}),
+    do: where(q, [content: c], is_nil(c.published_at))
+
+  def filter(q, {:published, true}),
+    do: where(q, [content: c], not is_nil(c.published_at))
 
   # by field values
 
-  def filter(q, {:id, id}) when is_binary(id), do: where(q, [content: c], c.id == ^id)
-  def filter(q, {:id, ids}) when is_list(ids), do: where(q, [content: c], c.id in ^ids)
+  def filter(q, {:id, id}) when is_binary(id),
+    do: where(q, [content: c], c.id == ^id)
+
+  def filter(q, {:id, ids}) when is_list(ids),
+    do: where(q, [content: c], c.id in ^ids)
 
   def filter(q, {:user, id}) when is_binary(id),
     do: where(q, [content: c], c.user_id == ^id)

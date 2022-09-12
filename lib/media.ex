@@ -31,28 +31,23 @@ defmodule Bonfire.Files.Media do
     |> Changeset.cast(attrs, @create_cast)
     |> Changeset.validate_required(@create_required)
     |> Changeset.validate_length(:media_type, max: 255)
-    |> Changeset.change(
-      user_id: user_id
-    )
+    |> Changeset.change(user_id: user_id)
   end
 
   def insert(user, %{path: path} = file, file_info, attrs) do
-
     with {:ok, media} <- insert(user, path, file_info, attrs) do
-      {:ok,
-        media
-        |> Map.put(:file, file)
-      }
+      {:ok, Map.put(media, :file, file)}
     end
-    #|> debug
+
+    # |> debug
   end
 
   def insert(user, url_or_path, file_info, attrs) do
-
-    metadata = Map.merge(
-      Map.get(attrs, :metadata) || %{},
-      Map.drop(file_info, [:size, :media_type])
-    )
+    metadata =
+      Map.merge(
+        Map.get(attrs, :metadata) || %{},
+        Map.drop(file_info, [:size, :media_type])
+      )
 
     attrs =
       attrs
@@ -62,12 +57,10 @@ defmodule Bonfire.Files.Media do
       |> Map.put(:metadata, metadata)
 
     with {:ok, media} <- Repo.insert(Media.changeset(user, attrs)) do
-      {:ok,
-        media
-        |> Map.put(:user, user)
-      }
+      {:ok, Map.put(media, :user, user)}
     end
-    #|> debug
+
+    # |> debug
   end
 
   def one(filters), do: Repo.single(Queries.query(Media, filters))
@@ -91,12 +84,12 @@ defmodule Bonfire.Files.Media do
   """
   @spec hard_delete(atom, Media.t()) :: :ok | {:error, Changeset.t()}
   def hard_delete(module, %Media{} = media) do
-      Repo.transaction(fn ->
-        with {:ok, media} <- Repo.delete(media),
-             {:ok, deleted} <- module.delete({media.path, media.user_id}) do
-          {:ok, deleted}
-        end
-      end)
+    Repo.transaction(fn ->
+      with {:ok, media} <- Repo.delete(media),
+           {:ok, deleted} <- module.delete({media.path, media.user_id}) do
+        {:ok, deleted}
+      end
+    end)
   end
 
   @doc false
@@ -120,8 +113,10 @@ defmodule Bonfire.Files.Media.Migrations do
   defp make_media_table(exprs) do
     quote do
       require Pointers.Migration
-      Pointers.Migration.create_pointable_table(Media) do
+
+      Pointers.Migration.create_pointable_table Media do
         Ecto.Migration.add(:user_id, Pointers.Migration.strong_pointer(), null: false)
+
         Ecto.Migration.add(:path, :text, null: false)
         Ecto.Migration.add(:size, :integer, null: false)
         # see https://stackoverflow.com/a/643772 for size
@@ -135,7 +130,7 @@ defmodule Bonfire.Files.Media.Migrations do
   end
 
   defmacro create_media_table(), do: make_media_table([])
-  defmacro create_media_table([do: {_, _, body}]), do: make_media_table(body)
+  defmacro create_media_table(do: {_, _, body}), do: make_media_table(body)
 
   def drop_media_table(), do: drop_pointable_table(Media)
 

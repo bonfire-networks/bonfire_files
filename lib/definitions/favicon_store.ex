@@ -7,27 +7,30 @@ defmodule Bonfire.Files.FaviconStore do
   use Bonfire.Files.Definition
   import Untangle
 
-  def favicon_url(url, opts \\ []) when is_binary(url) and url !="" do
+  def favicon_url(url, opts \\ []) when is_binary(url) and url != "" do
     with {:ok, path} <- cached_or_fetch(url, opts) do
       # Files.data_url(image, meta.media_type)
       path
-    else e ->
-      error(e)
-      nil
+    else
+      e ->
+        error(e)
+        nil
     end
   end
+
   def favicon_url(_, _), do: nil
 
-  def cached_or_fetch("http"<>_ = url, opts \\ []) do
+  def cached_or_fetch("http" <> _ = url, opts \\ []) do
     info(url, "url")
     host = URI.parse(url).host
-    if host && host !="" do
-      filename = :crypto.hash(:sha256, host) |> Base.encode16
+
+    if host && host != "" do
+      filename = :crypto.hash(:sha256, host) |> Base.encode16()
       path = "#{storage_dir()}/#{filename}"
 
       if File.exists?(path) do
         info(host, "favicon already cached :)")
-        {:ok, "/"<>path}
+        {:ok, "/" <> path}
       else
         if File.exists?("#{storage_dir()}/#{filename}_none") do
           info(host, "no favicon previously found")
@@ -41,18 +44,19 @@ defmodule Bonfire.Files.FaviconStore do
       {:error, "Invalid URL"}
     end
   end
-  def cached_or_fetch(url, opts), do: cached_or_fetch("https://"<>url, opts)
+
+  def cached_or_fetch(url, opts), do: cached_or_fetch("https://" <> url, opts)
 
   defp fetch(url, filename, path, opts) do
     with {:ok, image} <- FetchFavicon.fetch(url),
          {:ok, filename} <- store(%{filename: filename, binary: image}),
-         path <- ("#{storage_dir()}/#{filename}"),
+         path <- "#{storage_dir()}/#{filename}",
          {:ok, file_info} <- Files.extract_metadata(path),
          :ok <- Files.verify_media_type(__MODULE__, file_info) do
-          # Files.data_url(image, meta.media_type)
-        {:ok, path}
-
-      else e ->
+      # Files.data_url(image, meta.media_type)
+      {:ok, path}
+    else
+      e ->
         File.write("#{path}_none", "")
         e
     end
@@ -63,10 +67,19 @@ defmodule Bonfire.Files.FaviconStore do
   end
 
   def allowed_media_types do
-    Bonfire.Common.Config.get_ext(:bonfire_files,
-      [__MODULE__, :allowed_media_types], # allowed types for this definition
-      ["image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/tiff", "image/vnd.microsoft.icon"] # fallback
+    Bonfire.Common.Config.get_ext(
+      :bonfire_files,
+      # allowed types for this definition
+      [__MODULE__, :allowed_media_types],
+      # fallback
+      [
+        "image/png",
+        "image/jpeg",
+        "image/gif",
+        "image/svg+xml",
+        "image/tiff",
+        "image/vnd.microsoft.icon"
+      ]
     )
   end
-
 end

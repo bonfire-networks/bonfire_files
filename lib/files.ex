@@ -25,15 +25,15 @@ defmodule Bonfire.Files do
   use Pointers.Mixin,
     otp_app: :bonfire_files,
     source: "bonfire_files"
+
   require Pointers.Changesets
   use Arrows
   import Untangle
 
   alias Bonfire.Files
-  alias Bonfire.Files.{
-    Media,
-    FileDenied,
-  }
+
+  alias Bonfire.Files.Media
+  alias Bonfire.Files.FileDenied
 
   alias Bonfire.Common.Utils
   alias Pointers.Pointer
@@ -41,10 +41,10 @@ defmodule Bonfire.Files do
   alias Bonfire.Common.Repo
 
   mixin_schema do
-    belongs_to :media, Media, primary_key: true
+    belongs_to(:media, Media, primary_key: true)
   end
 
-  @cast     [:media_id]
+  @cast [:media_id]
   @required [:media_id]
 
   @doc """
@@ -53,19 +53,23 @@ defmodule Bonfire.Files do
   the upload.
   """
   def upload(module, context, file, attrs \\ %{}, opts \\ [])
-  def upload(module, context, "http"<>_ = file, attrs, opts) do
-    if opts[:skip_fetching_remote]==true or Bonfire.Common.Config.get!(:env) == :test do
+
+  def upload(module, context, "http" <> _ = file, attrs, opts) do
+    if opts[:skip_fetching_remote] == true or
+         Bonfire.Common.Config.get!(:env) == :test do
       debug("Files - skip file handling and just insert url or path in DB")
       insert(context, %{path: file}, %{size: 0, media_type: "remote"}, attrs)
     else
       maybe_do_upload(module, context, file, attrs, opts)
     end
   end
-  def upload(module, context, file, attrs, opts), do: maybe_do_upload(module, context, file, attrs, opts)
 
-  defp maybe_do_upload(module, context, files, attrs, opts) when is_list(files) do
-    files
-    |> Enum.map(files, fn file ->
+  def upload(module, context, file, attrs, opts),
+    do: maybe_do_upload(module, context, file, attrs, opts)
+
+  defp maybe_do_upload(module, context, files, attrs, opts)
+       when is_list(files) do
+    Enum.map(files, files, fn file ->
       maybe_do_upload(module, context, file, attrs, opts)
     end)
   end
@@ -73,20 +77,33 @@ defmodule Bonfire.Files do
   defp maybe_do_upload(module, context, file, attrs, opts) do
     debug(attrs, "uploads attrs")
     id = Pointers.ULID.generate()
-    file_extension = file_extension( Utils.e(attrs, :client_name, nil) || Utils.e(file, :filename, nil) || file)
-    filename = "#{id}#{file_extension}"
-    |> debug("filename")
 
-    with  {:ok, file} <- fetch_file(module, file),
-          {:ok, file_info} <- extract_metadata(file),
-          module when is_atom(module) and not is_nil(module) <- definition_module(module, file_info),
-          :ok <- verify_media_type(module, file_info),
-          {:ok, new_path} <- module.store({
-            %Plug.Upload{filename: filename, path: file.path},
-            context_id(context)}) do
+    file_extension =
+      file_extension(
+        Utils.e(attrs, :client_name, nil) || Utils.e(file, :filename, nil) ||
+          file
+      )
 
-      insert(context, %{file | path: new_path}, file_info, Map.put(attrs, :id, id))
+    filename =
+      "#{id}#{file_extension}"
+      |> debug("filename")
 
+    with {:ok, file} <- fetch_file(module, file),
+         {:ok, file_info} <- extract_metadata(file),
+         module when is_atom(module) and not is_nil(module) <-
+           definition_module(module, file_info),
+         :ok <- verify_media_type(module, file_info),
+         {:ok, new_path} <-
+           module.store({
+             %Plug.Upload{filename: filename, path: file.path},
+             context_id(context)
+           }) do
+      insert(
+        context,
+        %{file | path: new_path},
+        file_info,
+        Map.put(attrs, :id, id)
+      )
     else
       other ->
         error(other)
@@ -96,6 +113,7 @@ defmodule Bonfire.Files do
   def file_extension(path) do
     path |> Path.extname() |> String.downcase()
   end
+
   def file_extension_only(path) do
     file_extension(path) |> String.trim_leading(".")
   end
@@ -112,34 +130,49 @@ defmodule Bonfire.Files do
   defp context_id({user, _object}) do
     Utils.ulid(user)
   end
+
   defp context_id(user) do
     Utils.ulid(user)
   end
 
   defp definition_module(module \\ nil, file_info)
-  defp definition_module(nil, %{media_type: media_type}) do
-    image_types = Bonfire.Common.Config.get_ext(:bonfire_files,
-      :image_media_types, # allowed types of images
-      ["image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/tiff"] # fallback
-    )
 
-    all_allowed_types = Bonfire.Common.Config.get_ext(:bonfire_files,
-      :all_allowed_media_types, # all other
-      ["application/pdf"] # fallback
-    )
+  defp definition_module(nil, %{media_type: media_type}) do
+    image_types =
+      Bonfire.Common.Config.get_ext(
+        :bonfire_files,
+        # allowed types of images
+        :image_media_types,
+        # fallback
+        ["image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/tiff"]
+      )
+
+    all_allowed_types =
+      Bonfire.Common.Config.get_ext(
+        :bonfire_files,
+        # all other
+        :all_allowed_media_types,
+        # fallback
+        ["application/pdf"]
+      )
 
     if Enum.member?(image_types, media_type) do
       debug(media_type, "using ImageUploader definition based on file type")
       Bonfire.Files.ImageUploader
     else
       if Enum.member?(all_allowed_types, media_type) do
-        debug(media_type, "using DocumentUploader definition based on file type")
+        debug(
+          media_type,
+          "using DocumentUploader definition based on file type"
+        )
+
         Bonfire.Files.DocumentUploader
       else
         {:error, FileDenied.new(media_type)}
       end
     end
   end
+
   defp definition_module(module, _file_info) do
     module
   end
@@ -183,9 +216,9 @@ defmodule Bonfire.Files do
     # handles downloading if remote URL
     |> Waffle.File.new(module)
     |> case do
-         {:error, _} = e -> e
-         file -> {:ok, file}
-       end
+      {:error, _} = e -> e
+      file -> {:ok, file}
+    end
   end
 
   def extract_metadata(path) when is_binary(path) do
@@ -207,7 +240,8 @@ defmodule Bonfire.Files do
 
   def verify_media_type(definition, %{media_type: media_type}) do
     case definition.allowed_media_types() do
-      :all -> :ok
+      :all ->
+        :ok
 
       types ->
         if Enum.member?(types, media_type) do
@@ -225,7 +259,7 @@ defmodule Bonfire.Files do
 
   def full_url(module, media) do
     case module.remote_url(media) do
-      "/"<>_ = path -> Bonfire.Common.URIs.base_url()<>path
+      "/" <> _ = path -> Bonfire.Common.URIs.base_url() <> path
       url -> url
     end
   end
@@ -234,39 +268,39 @@ defmodule Bonfire.Files do
     Enum.map(medias, &ap_publish_activity/1)
   end
 
-  def ap_publish_activity(%Media{media_type: "image"<>_} = media) do
+  def ap_publish_activity(%Media{media_type: "image" <> _} = media) do
     %{
-        "type"=> "Image",
-        "mediaType"=> media.media_type,
-        "url"=> full_url(Bonfire.Files.ImageUploader, media),
-        "name"=> media.metadata["label"]
+      "type" => "Image",
+      "mediaType" => media.media_type,
+      "url" => full_url(Bonfire.Files.ImageUploader, media),
+      "name" => media.metadata["label"]
     }
   end
 
-  def ap_publish_activity(%Media{media_type: "audio"<>_} = media) do
+  def ap_publish_activity(%Media{media_type: "audio" <> _} = media) do
     %{
-        "type"=> "Audio",
-        "mediaType"=> media.media_type,
-        "url"=> full_url(Bonfire.Files.DocumentUploader, media),
-        "name"=> media.metadata["label"]
+      "type" => "Audio",
+      "mediaType" => media.media_type,
+      "url" => full_url(Bonfire.Files.DocumentUploader, media),
+      "name" => media.metadata["label"]
     }
   end
 
-  def ap_publish_activity(%Media{media_type: "video"<>_} = media) do
+  def ap_publish_activity(%Media{media_type: "video" <> _} = media) do
     %{
-        "type"=> "Video",
-        "mediaType"=> media.media_type,
-        "url"=> full_url(Bonfire.Files.DocumentUploader, media),
-        "name"=> media.metadata["label"]
+      "type" => "Video",
+      "mediaType" => media.media_type,
+      "url" => full_url(Bonfire.Files.DocumentUploader, media),
+      "name" => media.metadata["label"]
     }
   end
 
   def ap_publish_activity(%Media{} = media) do
     %{
-        "type"=> "Document",
-        "mediaType"=> media.media_type,
-        "url"=> full_url(Bonfire.Files.DocumentUploader, media),
-        "name"=> media.metadata["label"]
+      "type" => "Document",
+      "mediaType" => media.media_type,
+      "url" => full_url(Bonfire.Files.DocumentUploader, media),
+      "name" => media.metadata["label"]
     }
   end
 
@@ -276,26 +310,33 @@ defmodule Bonfire.Files do
   end
 
   # TODO: put somewhere more reusable
-  def ap_receive_attachments(creator, attachments) when is_list(attachments), do: Enum.map(attachments, &ap_receive_attachments(creator, &1)) |> Utils.filter_empty([])
-  def ap_receive_attachments(creator, %{"url"=>url} = attachment) do
-    with {:ok, uploaded} <- upload(
-      definition_module(%{media_type: attachment["mediaType"]}),
-      creator,
-      url,
-      %{client_name: url, metadata: %{"label"=>attachment["name"]}},
-      skip_fetching_remote: true
-      ) # TODO: don't save empty label
-    |> debug("uploaded") do
+  def ap_receive_attachments(creator, attachments) when is_list(attachments),
+    do:
+      Enum.map(attachments, &ap_receive_attachments(creator, &1))
+      |> Utils.filter_empty([])
+
+  def ap_receive_attachments(creator, %{"url" => url} = attachment) do
+    with {:ok, uploaded} <-
+           upload(
+             definition_module(%{media_type: attachment["mediaType"]}),
+             creator,
+             url,
+             %{client_name: url, metadata: %{"label" => attachment["name"]}},
+             skip_fetching_remote: true
+           )
+
+           # TODO: don't save empty label
+           |> debug("uploaded") do
       uploaded
-    else e ->
-      error(e, "Could not upload #{url}")
-      nil
+    else
+      e ->
+        error(e, "Could not upload #{url}")
+        nil
     end
   end
+
   def ap_receive_attachments(_creator, attachment) do
     error(attachment, "Dunno how to handle this")
     nil
   end
-
-
 end

@@ -4,22 +4,33 @@ defmodule Bonfire.Files.Test do
 
   alias Bonfire.Common.Simulation
   alias Bonfire.Files
-  alias Bonfire.Files.{
-    DocumentUploader,
-    FileDenied,
-    IconUploader,
-    ImageUploader,
-    Media
-  }
+
+  alias Bonfire.Files.DocumentUploader
+  alias Bonfire.Files.FileDenied
+  alias Bonfire.Files.IconUploader
+  alias Bonfire.Files.ImageUploader
+  alias Bonfire.Files.Media
 
   # FIXME: path
-  @icon_file %{path: "fixtures/150.png" |> Path.expand(__DIR__), filename: "150.png"}
-  @image_file %{path: "fixtures/600x800.png" |> Path.expand(__DIR__), filename: "600x800.png"}
-  @text_file %{path: "fixtures/text.txt" |> Path.expand(__DIR__), filename: "text.txt"}
+  @icon_file %{
+    path: Path.expand("fixtures/150.png", __DIR__),
+    filename: "150.png"
+  }
+  @image_file %{
+    path: Path.expand("fixtures/600x800.png", __DIR__),
+    filename: "600x800.png"
+  }
+  @text_file %{
+    path: Path.expand("fixtures/text.txt", __DIR__),
+    filename: "text.txt"
+  }
 
   def fake_upload(file, upload_def \\ nil) do
     user = fake_user!()
-    upload_def = upload_def || Faker.Util.pick([IconUploader, ImageUploader, DocumentUploader])
+
+    upload_def =
+      upload_def ||
+        Faker.Util.pick([IconUploader, ImageUploader, DocumentUploader])
 
     Files.upload(upload_def, user, file, %{})
   end
@@ -66,7 +77,11 @@ defmodule Bonfire.Files.Test do
 
     test "fails when the file is a disallowed type" do
       # FIXME: path
-      file = %{path: "fixtures/not-a-virus.exe" |> Path.expand(__DIR__), filename: "not-a-virus.exe"}
+      file = %{
+        path: Path.expand("fixtures/not-a-virus.exe", __DIR__),
+        filename: "not-a-virus.exe"
+      }
+
       assert {:error, %FileDenied{}} = Files.upload(IconUploader, fake_user!(), file)
     end
 
@@ -79,6 +94,7 @@ defmodule Bonfire.Files.Test do
   describe "remote_url" do
     test "returns the remote URL for an upload" do
       assert {:ok, upload} = Files.upload(DocumentUploader, fake_user!(), @text_file)
+
       assert url = Files.remote_url(DocumentUploader, upload)
 
       uri = URI.parse(url)
@@ -91,6 +107,7 @@ defmodule Bonfire.Files.Test do
   describe "soft_delete" do
     test "updates the deletion date of the upload" do
       assert {:ok, upload} = Files.upload(IconUploader, fake_user!(), @icon_file)
+
       refute upload.deleted_at
       assert {:ok, deleted_upload} = Media.soft_delete(upload)
       assert deleted_upload.deleted_at
@@ -100,6 +117,7 @@ defmodule Bonfire.Files.Test do
   describe "hard_delete" do
     test "removes the upload, including files" do
       assert {:ok, upload} = Files.upload(ImageUploader, fake_user!(), @icon_file)
+
       assert {:ok, _} = Media.hard_delete(ImageUploader, upload)
     end
   end

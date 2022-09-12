@@ -15,7 +15,9 @@ defmodule Bonfire.Files.BannerUploader do
   def transform(:default, {%{file_name: filename}, _scope}) do
     max_width = 580
     max_height = 200
-    Bonfire.Files.Image.Edit.banner(filename, max_width, max_height) || :noaction
+
+    Bonfire.Files.Image.Edit.banner(filename, max_width, max_height) ||
+      :noaction
   end
 
   def storage_dir(_, {_file, user_id}) when is_binary(user_id) do
@@ -23,10 +25,12 @@ defmodule Bonfire.Files.BannerUploader do
   end
 
   def allowed_media_types do
-    Bonfire.Common.Config.get_ext(:bonfire_files,
-      [__MODULE__, :allowed_media_types], # allowed types for this definition
-      ["image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/tiff"] # fallback
+    Bonfire.Common.Config.get_ext(
+      :bonfire_files,
+      # allowed types for this definition
+      [__MODULE__, :allowed_media_types],
+      # fallback
+      ["image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/tiff"]
     )
   end
-
 end
