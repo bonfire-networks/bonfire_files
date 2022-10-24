@@ -26,6 +26,7 @@ defmodule Bonfire.Files do
     otp_app: :bonfire_files,
     source: "bonfire_files"
 
+  import Bonfire.Common.Config, only: [repo: 0]
   require Pointers.Changesets
   use Arrows
   import Untangle
@@ -38,7 +39,6 @@ defmodule Bonfire.Files do
   alias Bonfire.Common.Utils
   alias Pointers.Pointer
   alias Ecto.Changeset
-  alias Bonfire.Common.Repo
 
   mixin_schema do
     belongs_to(:media, Media, primary_key: true)
@@ -120,7 +120,7 @@ defmodule Bonfire.Files do
 
   defp insert({user, object}, file, file_info, attrs) do
     insert(user, file, file_info, attrs)
-    ~> Repo.insert(files_changeset(%{id: Utils.ulid(object), media: ...}))
+    ~> repo().insert(files_changeset(%{id: Utils.ulid(object), media: ...}))
   end
 
   defp insert(user, file, file_info, attrs) do
@@ -178,7 +178,7 @@ defmodule Bonfire.Files do
   end
 
   # defp insert_files(context, %Media{} = media, object) when is_binary(object) or is_map(object) do
-  #   Repo.insert_all(Files, conflict_target: :media) do
+  #   repo().insert_all(Files, conflict_target: :media) do
   # end
 
   defp files_changeset(pub \\ %Files{}, params) do

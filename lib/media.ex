@@ -5,10 +5,11 @@ defmodule Bonfire.Files.Media do
     table_id: "30NF1REF11ESC0NTENT1SGREAT",
     source: "bonfire_files_media"
 
+  import Bonfire.Common.Config, only: [repo: 0]
+
   alias Ecto.Changeset
   alias Bonfire.Files.Media
   alias Bonfire.Files.Media.Queries
-  alias Bonfire.Common.Repo
 
   @type t :: %__MODULE__{}
 
@@ -56,19 +57,19 @@ defmodule Bonfire.Files.Media do
       |> Map.put(:media_type, file_info[:media_type])
       |> Map.put(:metadata, metadata)
 
-    with {:ok, media} <- Repo.insert(Media.changeset(user, attrs)) do
+    with {:ok, media} <- repo().insert(Media.changeset(user, attrs)) do
       {:ok, Map.put(media, :user, user)}
     end
 
     # |> debug
   end
 
-  def one(filters), do: Repo.single(Queries.query(Media, filters))
+  def one(filters), do: repo().single(Queries.query(Media, filters))
 
-  def many(filters \\ []), do: {:ok, Repo.many(Queries.query(Media, filters))}
+  def many(filters \\ []), do: {:ok, repo().many(Queries.query(Media, filters))}
 
   def update_by(filters, updates) do
-    Repo.update_all(Queries.query(Media, filters), set: updates)
+    repo().update_all(Queries.query(Media, filters), set: updates)
   end
 
   @doc """
@@ -84,8 +85,8 @@ defmodule Bonfire.Files.Media do
   """
   @spec hard_delete(atom, Media.t()) :: :ok | {:error, Changeset.t()}
   def hard_delete(module, %Media{} = media) do
-    Repo.transaction(fn ->
-      with {:ok, media} <- Repo.delete(media),
+    repo().transaction(fn ->
+      with {:ok, media} <- repo().delete(media),
            {:ok, deleted} <- module.delete({media.path, media.user_id}) do
         {:ok, deleted}
       end
@@ -101,7 +102,7 @@ defmodule Bonfire.Files.Media do
   defp delete_by(filters) do
     Queries.query(Media)
     |> Queries.filter(filters)
-    |> Repo.delete_all()
+    |> repo().delete_all()
   end
 end
 
