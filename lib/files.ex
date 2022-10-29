@@ -335,6 +335,10 @@ defmodule Bonfire.Files do
     end
   end
 
+  def ap_receive_attachments(_creator, nil) do
+    nil
+  end
+
   def ap_receive_attachments(_creator, attachment) do
     error(attachment, "Dunno how to handle this")
     nil
