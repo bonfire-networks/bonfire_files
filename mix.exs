@@ -2,6 +2,17 @@ defmodule BonfireFiles.MixProject do
   use Mix.Project
 
   def project do
+    if File.exists?("../../.is_umbrella.exs") do
+      [
+        build_path: "../../_build",
+        config_path: "../../config/config.exs",
+        deps_path: "../../deps",
+        lockfile: "../../mix.lock"
+      ]
+    else
+      []
+    end
+    ++
     [
       app: :bonfire_files,
       version: "0.1.0",
@@ -10,9 +21,6 @@ defmodule BonfireFiles.MixProject do
       start_permanent: Mix.env() == :prod,
       deps:
         Mess.deps([
-          {:tree_magic,
-           git: "https://github.com/bonfire-networks/tree_magic.ex",
-           optional: true},
           {:bonfire_api_graphql,
            git: "https://github.com/bonfire-networks/bonfire_api_graphql",
            branch: "main",

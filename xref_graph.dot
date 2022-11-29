@@ -1,0 +1,51 @@
+digraph "xref graph" {
+  "lib/blurred.ex"
+  "lib/blurred.ex" -> "lib/image_edit.ex"
+  "lib/image_edit.ex" -> "lib/files.ex"
+  "lib/files.ex" -> "lib/definitions/document_uploader.ex"
+  "lib/definitions/document_uploader.ex" -> "lib/blurred.ex"
+  "lib/definitions/document_uploader.ex" -> "lib/definition.ex" [label="(compile)"]
+  "lib/definitions/document_uploader.ex" -> "lib/files.ex"
+  "lib/files.ex" -> "lib/definitions/image_uploader.ex"
+  "lib/definitions/image_uploader.ex" -> "lib/blurred.ex"
+  "lib/definitions/image_uploader.ex" -> "lib/definition.ex" [label="(compile)"]
+  "lib/definitions/image_uploader.ex" -> "lib/files.ex"
+  "lib/definitions/image_uploader.ex" -> "lib/image_edit.ex"
+  "lib/files.ex" -> "lib/file_denied.ex"
+  "lib/files.ex" -> "lib/media.ex" [label="(export)"]
+  "lib/media.ex" -> "lib/media_queries.ex"
+  "lib/media_queries.ex" -> "lib/media.ex"
+  "lib/definition.ex"
+  "lib/definitions/banner_uploader.ex"
+  "lib/definitions/banner_uploader.ex" -> "lib/blurred.ex"
+  "lib/definitions/banner_uploader.ex" -> "lib/definition.ex" [label="(compile)"]
+  "lib/definitions/banner_uploader.ex" -> "lib/files.ex"
+  "lib/definitions/banner_uploader.ex" -> "lib/image_edit.ex"
+  "lib/definitions/document_uploader.ex"
+  "lib/definitions/favicon_store.ex"
+  "lib/definitions/favicon_store.ex" -> "lib/blurred.ex"
+  "lib/definitions/favicon_store.ex" -> "lib/definition.ex" [label="(compile)"]
+  "lib/definitions/favicon_store.ex" -> "lib/files.ex"
+  "lib/definitions/icon_uploader.ex"
+  "lib/definitions/icon_uploader.ex" -> "lib/blurred.ex"
+  "lib/definitions/icon_uploader.ex" -> "lib/definition.ex" [label="(compile)"]
+  "lib/definitions/icon_uploader.ex" -> "lib/files.ex"
+  "lib/definitions/icon_uploader.ex" -> "lib/image_edit.ex"
+  "lib/definitions/image_uploader.ex"
+  "lib/file_denied.ex"
+  "lib/files.ex"
+  "lib/files_migrations.ex"
+  "lib/files_migrations.ex" -> "lib/files.ex" [label="(compile)"]
+  "lib/graphql.ex"
+  "lib/graphql.ex" -> "lib/definitions/document_uploader.ex"
+  "lib/graphql.ex" -> "lib/definitions/icon_uploader.ex"
+  "lib/graphql.ex" -> "lib/definitions/image_uploader.ex"
+  "lib/graphql.ex" -> "lib/files.ex"
+  "lib/image_edit.ex"
+  "lib/media.ex"
+  "lib/media_queries.ex"
+  "lib/runtime_config.ex"
+  "lib/runtime_config.ex" -> "lib/definitions/document_uploader.ex"
+  "lib/runtime_config.ex" -> "lib/definitions/icon_uploader.ex"
+  "lib/runtime_config.ex" -> "lib/definitions/image_uploader.ex"
+}
