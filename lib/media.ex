@@ -27,6 +27,8 @@ defmodule Bonfire.Files.Media do
   @create_required ~w(path size media_type)a
   @create_cast @create_required ++ ~w(id metadata)a
 
+  def changeset(user_id, attrs) when is_binary(user_id), do: changeset(%{id: user_id}, attrs)
+
   def changeset(%{id: user_id}, attrs) do
     %__MODULE__{}
     |> Changeset.cast(attrs, @create_cast)
