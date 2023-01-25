@@ -39,6 +39,8 @@ defmodule Bonfire.Files do
   alias Bonfire.Common.Utils
   alias Pointers.Pointer
   alias Ecto.Changeset
+  alias Bonfire.Common
+  alias Common.Types
 
   mixin_schema do
     belongs_to(:media, Media, primary_key: true)
@@ -120,7 +122,7 @@ defmodule Bonfire.Files do
 
   defp insert({user, object}, file, file_info, attrs) do
     insert(user, file, file_info, attrs)
-    ~> repo().insert(files_changeset(%{id: Utils.ulid(object), media: ...}))
+    ~> repo().insert(files_changeset(%{id: Types.ulid(object), media: ...}))
   end
 
   defp insert(user, file, file_info, attrs) do
@@ -128,11 +130,11 @@ defmodule Bonfire.Files do
   end
 
   defp context_id({user, _object}) do
-    Utils.ulid(user)
+    Types.ulid(user)
   end
 
   defp context_id(user) do
-    Utils.ulid(user)
+    Types.ulid(user)
   end
 
   defp definition_module(module \\ nil, file_info)
@@ -212,7 +214,7 @@ defmodule Bonfire.Files do
 
   defp fetch_file(module, file) do
     file
-    |> Bonfire.Common.Utils.input_to_atoms()
+    |> Bonfire.Common.Enums.input_to_atoms()
     # handles downloading if remote URL
     |> Waffle.File.new(module)
     |> case do
@@ -313,7 +315,7 @@ defmodule Bonfire.Files do
   def ap_receive_attachments(creator, attachments) when is_list(attachments),
     do:
       Enum.map(attachments, &ap_receive_attachments(creator, &1))
-      |> Utils.filter_empty([])
+      |> Enums.filter_empty([])
 
   def ap_receive_attachments(creator, %{"url" => url} = attachment) do
     with {:ok, uploaded} <-
