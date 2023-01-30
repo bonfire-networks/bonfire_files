@@ -59,7 +59,7 @@ defmodule Bonfire.Files.Image.Edit do
   end
 
   # catch an issue when trying to blur gifs
-  def blur(path, final_path) do
+  def blur(path, final_path) when not is_nil(path) do
     format = "jpg"
 
     cond do
