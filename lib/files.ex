@@ -41,6 +41,7 @@ defmodule Bonfire.Files do
   alias Ecto.Changeset
   alias Bonfire.Common
   alias Common.Types
+  alias Common.Enums
 
   mixin_schema do
     belongs_to(:media, Media, primary_key: true)
@@ -66,15 +67,16 @@ defmodule Bonfire.Files do
     end
   end
 
-  def upload(module, context, file, attrs, opts),
-    do: maybe_do_upload(module, context, file, attrs, opts)
-
-  defp maybe_do_upload(module, context, files, attrs, opts)
-       when is_list(files) do
-    Enum.map(files, files, fn file ->
-      maybe_do_upload(module, context, file, attrs, opts)
+  def upload(module, context, files, attrs, opts)
+      when is_list(files) do
+    Enum.map(files, fn
+      %{"href" => file} -> upload(module, context, file, attrs, opts)
+      file -> upload(module, context, file, attrs, opts)
     end)
   end
+
+  def upload(module, context, file, attrs, opts),
+    do: maybe_do_upload(module, context, file, attrs, opts)
 
   defp maybe_do_upload(module, context, file, attrs, opts) do
     debug(attrs, "uploads attrs")
@@ -314,7 +316,9 @@ defmodule Bonfire.Files do
   # TODO: put somewhere more reusable
   def ap_receive_attachments(creator, attachments) when is_list(attachments),
     do:
-      Enum.map(attachments, &ap_receive_attachments(creator, &1))
+      attachments
+      |> Enum.map(&ap_receive_attachments(creator, &1))
+      |> List.flatten()
       |> Enums.filter_empty([])
 
   def ap_receive_attachments(creator, %{"url" => url} = attachment) do
@@ -331,8 +335,20 @@ defmodule Bonfire.Files do
            |> debug("uploaded") do
       uploaded
     else
+      list when is_list(list) ->
+        list
+        |> Enum.map(fn
+          {:ok, uploaded} ->
+            uploaded
+
+          e ->
+            warn("Could not upload one of the files")
+            nil
+        end)
+
       e ->
-        error(e, "Could not upload #{url}")
+        error(e, "Could not upload file")
+        debug(url)
         nil
     end
   end
