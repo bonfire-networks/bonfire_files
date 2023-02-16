@@ -37,7 +37,7 @@ defmodule Bonfire.Files do
   alias Bonfire.Files.FileDenied
 
   alias Bonfire.Common.Utils
-  alias Pointers.Pointer
+  # alias Pointers.Pointer
   alias Ecto.Changeset
   alias Bonfire.Common
   alias Common.Types
@@ -78,7 +78,7 @@ defmodule Bonfire.Files do
   def upload(module, context, file, attrs, opts),
     do: maybe_do_upload(module, context, file, attrs, opts)
 
-  defp maybe_do_upload(module, context, file, attrs, opts) do
+  defp maybe_do_upload(module, context, file, attrs, _opts) do
     debug(attrs, "uploads attrs")
     id = Pointers.ULID.generate()
 
@@ -341,7 +341,7 @@ defmodule Bonfire.Files do
           {:ok, uploaded} ->
             uploaded
 
-          e ->
+          _e ->
             warn("Could not upload one of the files")
             nil
         end)

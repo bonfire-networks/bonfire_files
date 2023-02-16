@@ -47,7 +47,7 @@ defmodule Bonfire.Files.FaviconStore do
 
   def cached_or_fetch(url, opts), do: cached_or_fetch("https://" <> url, opts)
 
-  defp fetch(url, filename, path, opts) do
+  defp fetch(url, filename, path, _opts) do
     with {:ok, image} <- FetchFavicon.fetch(url),
          {:ok, filename} <- store(%{filename: filename, binary: image}),
          path <- "#{storage_dir()}/#{filename}",

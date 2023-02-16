@@ -13,10 +13,10 @@ defmodule Bonfire.Files.Acts.URLPreviews do
 
   # alias Bonfire.Files
   alias Ecto.Changeset
-  alias Pointers.Changesets
-  import Bonfire.Common.Config, only: [repo: 0]
+  # alias Pointers.Changesets
+  # import Bonfire.Common.Config, only: [repo: 0]
   import Epics
-  import Untangle, only: [error: 2, warn: 1]
+  # import Untangle, only: [error: 2, warn: 1]
 
   def run(epic, act) do
     cond do
@@ -48,7 +48,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
             maybe_debug(epic, act, changeset, "invalid changeset")
             epic
 
-          other ->
+          _other ->
             maybe_debug(epic, act, changeset, "Skipping :#{on} due to changeset")
             epic
         end
@@ -74,8 +74,8 @@ defmodule Bonfire.Files.Acts.URLPreviews do
     end
   end
 
-  defp assign_medias(epic, act, on, meta_key, data) do
-    smart(epic, act, data, "found #{meta_key}")
-    Epic.assign(epic, meta_key, data)
-  end
+  # defp assign_medias(epic, act, _on, meta_key, data) do
+  #   smart(epic, act, data, "found #{meta_key}")
+  #   Epic.assign(epic, meta_key, data)
+  # end
 end
