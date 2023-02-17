@@ -7,7 +7,9 @@ defmodule Bonfire.Files.FaviconStore do
   use Bonfire.Files.Definition
   import Untangle
 
-  def favicon_url(url, opts \\ []) when is_binary(url) and url != "" do
+  def favicon_url(url, opts \\ [])
+
+  def favicon_url(url, opts) when is_binary(url) and url != "" do
     with {:ok, path} <- cached_or_fetch(url, opts) do
       # Files.data_url(image, meta.media_type)
       path
@@ -20,7 +22,9 @@ defmodule Bonfire.Files.FaviconStore do
 
   def favicon_url(_, _), do: nil
 
-  def cached_or_fetch("http" <> _ = url, opts \\ []) do
+  def cached_or_fetch(url, opts \\ [])
+
+  def cached_or_fetch("http" <> _ = url, opts) do
     info(url, "url")
     host = URI.parse(url).host
 
