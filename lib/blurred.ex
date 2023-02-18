@@ -13,7 +13,7 @@ defmodule Bonfire.Files.Blurred do
          path == "" or not File.exists?(path) or System.get_env("CI") do
       debug(
         path,
-        "it's an external, invalid image, or a gif (currently not supported), so just use the original"
+        "it's either an external media, invalid file, or a gif (currently not supported), so just use the original"
       )
 
       original_path

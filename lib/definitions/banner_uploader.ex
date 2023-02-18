@@ -12,6 +12,11 @@ defmodule Bonfire.Files.BannerUploader do
 
   # def transform(:original, _), do: :noaction
 
+  def transform(:default, {%{file_name: "http" <> _ = filename}, _scope}) do
+    debug(filename, "do not transform")
+    :noaction
+  end
+
   def transform(:default, {%{file_name: filename}, _scope}) do
     max_width = 580
     max_height = 200
