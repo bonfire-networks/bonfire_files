@@ -1,4 +1,5 @@
 defmodule Bonfire.Files.Migrations do
+  @moduledoc false
   import Ecto.Migration
   import Pointers.Migration
   alias Bonfire.Files

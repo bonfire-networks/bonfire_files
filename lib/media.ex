@@ -109,6 +109,7 @@ defmodule Bonfire.Files.Media do
 end
 
 defmodule Bonfire.Files.Media.Migrations do
+  @moduledoc false
   use Ecto.Migration
   import Pointers.Migration
   alias Bonfire.Files.Media
