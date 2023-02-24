@@ -26,11 +26,10 @@ defmodule Bonfire.Files.Blurred do
         debug(path, "first time trying to get this blurred image?")
 
         make_blurred_jpeg(path, blurred_path, original_path)
-
       end
     end
   end
-  
+
   def blurhash(path, fallback \\ nil) do
     Cache.maybe_apply_cached(&make_blurhash/2, [path, fallback])
   end
@@ -39,7 +38,7 @@ defmodule Bonfire.Files.Blurred do
     path = String.trim_leading(path, "/")
 
     with false <- String.starts_with?(path, "http"),
-    {:ok, blurhash} <- Blurhash.downscale_and_encode(path, 4, 3) do
+         {:ok, blurhash} <- Blurhash.downscale_and_encode(path, 4, 3) do
       debug(blurhash, path)
 
       # TODO: save it in DB or cache
@@ -53,9 +52,9 @@ defmodule Bonfire.Files.Blurred do
   end
 
   defp make_blurred_jpeg(path, blurred_path, fallback \\ nil) do
-        with saved_path when is_binary(saved_path) <-
-            Bonfire.Files.Image.Edit.blur(path, blurred_path),
-          true <- File.exists?(saved_path) do
+    with saved_path when is_binary(saved_path) <-
+           Bonfire.Files.Image.Edit.blur(path, blurred_path),
+         true <- File.exists?(saved_path) do
       debug(saved_path, "saved blurred jpeg")
 
       "/#{saved_path}"
