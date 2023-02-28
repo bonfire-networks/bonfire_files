@@ -59,7 +59,7 @@ defmodule Bonfire.Files do
 
   def upload(module, context, "http" <> _ = file, attrs, opts) do
     if opts[:skip_fetching_remote] == true or
-         Bonfire.Common.Config.get!(:env) == :test do
+         Bonfire.Common.Config.env() == :test do
       debug("Files - skip file handling and just insert url or path in DB")
       insert(context, %{path: file}, %{size: 0, media_type: "remote"}, attrs)
     else
