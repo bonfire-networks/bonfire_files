@@ -56,22 +56,40 @@ defmodule Bonfire.Files.Acts.URLPreviews do
   end
 
   def maybe_fetch_and_save(current_user, url) do
-    with {:ok, meta} <- Furlex.unfurl(url),
+    with {:error, :not_found} <- maybe_exists(url),
+         {:ok, meta} <- Furlex.unfurl(url),
+         # note: canonical url is only set if different from original url, so we only check each unique url once
+         {:error, :not_found} <- maybe_exists(meta.canonical_url),
          media_type <-
-           e(meta, :oembed, "type", nil) || e(meta, :facebook, "og:type", nil),
+           e(meta, :facebook, "og:type", nil) || e(meta, :oembed, "type", nil) || "link",
          {:ok, media} <-
            Bonfire.Files.Media.insert(
              current_user,
-             url,
+             meta.canonical_url || url,
              %{media_type: media_type, size: 0},
-             %{metadata: Map.from_struct(meta)}
+             %{
+               metadata:
+                 Map.from_struct(meta) |> Map.drop([:canonical_url]) |> Enums.filter_empty(nil)
+             }
            ) do
       # |> debug
       media
     else
+      {:ok, media} ->
+        # already exists
+        media
+
       _ ->
         nil
     end
+  end
+
+  defp maybe_exists(url) when is_binary(url) do
+    Bonfire.Files.Media.one(path: url)
+  end
+
+  defp maybe_exists(_) do
+    {:error, :not_found}
   end
 
   # defp assign_medias(epic, act, _on, meta_key, data) do

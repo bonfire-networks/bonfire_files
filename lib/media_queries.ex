@@ -50,6 +50,9 @@ defmodule Bonfire.Files.Media.Queries do
   def filter(q, {:id, id}) when is_binary(id),
     do: where(q, [content: c], c.id == ^id)
 
+  def filter(q, {:path, path}) when is_binary(path),
+    do: where(q, [content: c], c.path == ^path)
+
   def filter(q, {:id, ids}) when is_list(ids),
     do: where(q, [content: c], c.id in ^ids)
 

@@ -8,6 +8,7 @@ defmodule Bonfire.Files.Media do
   import Bonfire.Common.Config, only: [repo: 0]
 
   alias Ecto.Changeset
+  alias Bonfire.Common.Types
   alias Bonfire.Files.Media
   alias Bonfire.Files.Media.Queries
 
@@ -27,14 +28,12 @@ defmodule Bonfire.Files.Media do
   @create_required ~w(path size media_type)a
   @create_cast @create_required ++ ~w(id metadata)a
 
-  def changeset(user_id, attrs) when is_binary(user_id), do: changeset(%{id: user_id}, attrs)
-
-  def changeset(%{id: user_id}, attrs) do
+  def changeset(user, attrs) do
     %__MODULE__{}
     |> Changeset.cast(attrs, @create_cast)
     |> Changeset.validate_required(@create_required)
     |> Changeset.validate_length(:media_type, max: 255)
-    |> Changeset.change(user_id: user_id)
+    |> Changeset.change(user_id: Types.ulid(user) || "0AND0MSTRANGERS0FF1NTERNET")
   end
 
   def insert(user, %{path: path} = file, file_info, attrs) do
