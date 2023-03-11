@@ -1,8 +1,8 @@
 <form
   data-id="upload_icon"
   phx-drop-target={@uploads.icon.ref}
-  phx-change="Bonfire.File:validate"
-  phx-submit="Bonfire.File:save"
+  phx-change="Bonfire.Files:validate"
+  phx-submit="Bonfire.Files:save"
   phx-target={@myself}
   class="flex"
 >
