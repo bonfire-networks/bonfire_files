@@ -1,0 +1,30 @@
+<form phx-change="Bonfire.File:validate" phx-submit="Bonfire.File:save" phx-target={@myself}>
+  <div
+    data-id="upload_banner"
+    phx-drop-target={@uploads.banner.ref}
+    class={@container_class}
+    style={"background-image: url('#{@src || Media.banner_url(@object)}')"}
+  >
+    <div class="space-y-1 text-center">
+      <div class="flex text-sm text-primary-content-600">
+        <label for={@uploads.banner.ref} class={@label_class}>
+          {live_file_input(@uploads.banner, class: "sr-only")}
+
+          <div class="text-center">
+            <span>{l("Upload a background image")}</span>
+            <p class="pl-1">{l("or drag and drop")}</p>
+          </div>
+          <p class="block mt-2 text-xs text-center text-primary-content-200">
+            {#if length(@uploads.banner.entries) > 0}
+              {#for entry <- @uploads.banner.entries}
+                {entry.client_name} - {entry.progress}%
+              {/for}
+            {#else}
+              {l("PNG, JPG, GIF up to 10MB")}
+            {/if}
+          </p>
+        </label>
+      </div>
+    </div>
+  </div>
+</form>

@@ -1,4 +1,5 @@
 bonfire_common = "https://github.com/bonfire-networks/bonfire_common#main"
+bonfire_ui_common = "https://github.com/bonfire-networks/bonfire_ui_common#main"
 bonfire_epics = "https://github.com/bonfire-networks/bonfire_epics#main"
 pointers = "https://github.com/bonfire-networks/pointers#main"
 twinkle_star = "https://github.com/bonfire-networks/twinkle_star"

@@ -1,0 +1,38 @@
+<form
+  data-id="upload_icon"
+  phx-drop-target={@uploads.icon.ref}
+  phx-change="Bonfire.File:validate"
+  phx-submit="Bonfire.File:save"
+  phx-target={@myself}
+  class="flex"
+>
+  <div class={@container_class}>
+    {#case @src}
+      {#match nil}
+        <Bonfire.UI.Common.AvatarLive
+          class={@class}
+          bg_class={@bg_class}
+          user={@object}
+          src={@src}
+          opts={%{"data-id" => "preview_icon"}}
+        />
+      {#match _}
+        <span class={@class}>
+          <img class="object-contain w-full h-full" src={@src}>
+        </span>
+    {/case}
+    <label for={@uploads.icon.ref} class={@label_class}>
+      {#if @label_on_hover}
+        <span>{l("Upload or drop")}</span>
+        <span class="sr-only">{@label || l("avatar")}</span>
+      {/if}
+      {live_file_input(@uploads.icon, class: "sr-only")}
+    </label>
+  </div>
+
+  {#if !@label_on_hover}
+    <label for={@uploads.icon.ref} class="ml-3 normal-case btn btn-sm btn-outline">
+      {l("Upload %{image}", image: @label || l("avatar"))}
+    </label>
+  {/if}
+</form>
