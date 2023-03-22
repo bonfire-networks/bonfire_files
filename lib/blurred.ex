@@ -1,11 +1,57 @@
 defmodule Bonfire.Files.Blurred do
   import Untangle
+  alias Bonfire.Files.Media
   alias Bonfire.Common.Cache
 
-  def blurred(definition \\ nil, media_or_path)
-  def blurred(definition, %{path: path} = _media), do: blurred(definition, path)
+  def blurhash(media, opts \\ [])
 
-  def blurred(_definition, original_path) when is_binary(original_path) do
+  def blurhash(%{metadata: %{blurhash: hash}}, _opts) when is_binary(hash) do
+    hash
+  end
+
+  def blurhash(%{metadata: metadata, path: path, id: media_id} = _media, opts) do
+    case Cache.maybe_apply_cached(&make_blurhash/1, [
+           opts[:src] || path
+         ]) do
+      nil ->
+        "L6Pj0^jE.AyE_3t7t7R**0o#DgR4"
+
+      # TODO: make fallback configurable
+      hash ->
+        # save it in DB 
+        Media.update_by([id: media_id], metadata: Map.merge(metadata, %{blurhash: hash}))
+        |> debug()
+
+        hash
+    end
+  end
+
+  def blurhash(media_or_path, opts) do
+    Cache.maybe_apply_cached(&make_blurhash/1, [opts[:src] || media_or_path])
+  end
+
+  def make_blurhash(path) when is_binary(path) do
+    path =
+      path
+      |> String.trim_leading("/")
+
+    with false <- String.starts_with?(path, "http"),
+         {:ok, blurhash} <- Blurhash.downscale_and_encode(path, 4, 3) do
+      # debug(blurhash, path)
+
+      blurhash
+    else
+      e ->
+        error(e, path)
+        nil
+    end
+  end
+
+  @doc "Create a blurred JPEG (deprecate in favour of blurhash)"
+  def blurred(media_or_path, opts \\ [])
+  def blurred(%{path: path} = _media, opts), do: blurred(path, opts)
+
+  def blurred(original_path, opts) when is_binary(original_path) do
     path = String.trim_leading(original_path, "/")
     blurred_path = path <> "_preview.jpg"
 
@@ -25,33 +71,12 @@ defmodule Bonfire.Files.Blurred do
       else
         debug(path, "first time trying to get this blurred image?")
 
-        make_blurred_jpeg(path, blurred_path, original_path)
+        if !opts[:skip_creation], do: make_blurred_jpeg(path, blurred_path, original_path)
       end
     end
   end
 
-  def blurhash(path, fallback \\ nil) do
-    Cache.maybe_apply_cached(&make_blurhash/2, [path, fallback])
-  end
-
-  def make_blurhash(path, fallback \\ nil) do
-    path = String.trim_leading(path, "/")
-
-    with false <- String.starts_with?(path, "http"),
-         {:ok, blurhash} <- Blurhash.downscale_and_encode(path, 4, 3) do
-      debug(blurhash, path)
-
-      # TODO: save it in DB or cache
-
-      blurhash
-    else
-      e ->
-        error(e, path)
-        fallback
-    end
-  end
-
-  defp make_blurred_jpeg(path, blurred_path, fallback \\ nil) do
+  defp make_blurred_jpeg(path, blurred_path, fallback) do
     with saved_path when is_binary(saved_path) <-
            Bonfire.Files.Image.Edit.blur(path, blurred_path),
          true <- File.exists?(saved_path) do
