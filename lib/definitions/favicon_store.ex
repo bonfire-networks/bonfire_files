@@ -5,6 +5,7 @@ defmodule Bonfire.Files.FaviconStore do
   """
 
   use Bonfire.Files.Definition
+  alias Bonfire.Common.Text
   import Untangle
 
   def favicon_url(url, opts \\ [])
@@ -29,7 +30,7 @@ defmodule Bonfire.Files.FaviconStore do
     host = URI.parse(url).host
 
     if host && host != "" do
-      filename = :crypto.hash(:sha256, host) |> Base.encode16()
+      filename = Text.hash(host, algorithm: :sha)
       path = "#{storage_dir()}/#{filename}"
 
       if File.exists?(path) do
