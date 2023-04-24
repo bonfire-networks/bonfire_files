@@ -6,7 +6,7 @@ defmodule Bonfire.Files.Web.UploadBannerLive do
   prop boundary_verb, :atom, default: :edit
   prop set_field, :any, default: nil
   prop set_fn, :any, default: nil
-  prop uploads, :any, default: nil
+  # prop uploads, :any, default: nil
 
   prop container_class, :css_class,
     default: ["relative flex justify-center px-6 py-10 bg-center bg-cover h-[200px]"]

@@ -3,7 +3,7 @@ defmodule Bonfire.Files.Web.UploadIconLive do
 
   prop src, :string, default: nil
   prop object, :any, default: nil
-  prop uploads, :any, default: nil
+  # prop uploads, :any, default: nil
   prop boundary_verb, :atom, default: :edit
   prop set_field, :any, default: nil
   prop set_fn, :any, default: nil
