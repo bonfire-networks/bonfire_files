@@ -105,8 +105,10 @@ defmodule Bonfire.Files do
       insert(
         context,
         %{file | path: new_path},
-        file_info,
-        Map.put(attrs, :id, id)
+        file_info
+        |> Map.put(:module, module),
+        attrs
+        |> Map.put(:id, id)
       )
     else
       other ->
@@ -197,15 +199,36 @@ defmodule Bonfire.Files do
   Return the URL that a local file has.
   """
   @spec remote_url(atom, Media.t()) :: binary
-  def remote_url(module, media, version \\ nil)
+  def remote_url(module \\ nil, media, version \\ nil)
 
-  def remote_url(module, %Media{} = media, version),
+  def remote_url(module, %Media{} = media, version) when is_atom(module) and not is_nil(module),
     do: module.url({media.path, media.user_id}, version)
 
-  def remote_url(module, media_id, version) when is_binary(media_id) do
+  def remote_url(module, media_id, version)
+      when is_binary(media_id) and is_atom(module) and not is_nil(module) do
     case Media.one(id: media_id) do
       {:ok, media} ->
         remote_url(module, media, version)
+
+      _ ->
+        nil
+    end
+  end
+
+  def remote_url(nil, %Media{metadata: %{"module" => definition}} = media, version) do
+    case Types.maybe_to_atom(definition) do
+      module when is_atom(module) and not is_nil(module) ->
+        remote_url(module, media, version)
+
+      _ ->
+        nil
+    end
+  end
+
+  def remote_url(nil, media_id, version) when is_binary(media_id) do
+    case Media.one(id: media_id) do
+      {:ok, media} ->
+        remote_url(media, version)
 
       _ ->
         nil

@@ -4,7 +4,8 @@ defmodule Bonfire.Files.Media.Queries do
 
   alias Bonfire.Files.Media
 
-  def query(Media), do: from(c in Media, as: :content)
+  def query(Media), do: from(c in Media, as: :content) |> filter(order: [desc: :id])
+
   def query(filters), do: query(Media, filters)
 
   def query(q, filters), do: filter(query(q), filters)
@@ -61,4 +62,8 @@ defmodule Bonfire.Files.Media.Queries do
 
   def filter(q, {:user, ids}) when is_list(ids),
     do: where(q, [content: c], c.user_id in ^ids)
+
+  def filter(q, {:order, [desc: :id]}) do
+    order_by(q, [c], desc: c.id)
+  end
 end
