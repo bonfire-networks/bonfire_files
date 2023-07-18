@@ -70,7 +70,9 @@ defmodule Bonfire.Files.Media do
   def many(filters \\ []), do: {:ok, repo().many(Queries.query(Media, filters))}
 
   def update_by(filters, updates) do
-    repo().update_all(Queries.query(Media, filters), set: updates)
+    Queries.query(Media, filters)
+    |> Ecto.Query.exclude(:order_by)
+    |> repo().update_all(set: updates)
   end
 
   @doc """
