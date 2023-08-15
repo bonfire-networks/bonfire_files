@@ -38,9 +38,7 @@ defmodule Bonfire.Files.Acts.AttachMedia do
           %Changeset{valid?: true} = changeset ->
             smart(epic, act, uploaded_media, "upload media")
 
-            uploaded_media
-            |> Enum.map(&%{media: &1})
-            |> Changesets.put_assoc(changeset, :files, ...)
+            cast(changeset, uploaded_media)
             |> Epic.assign(epic, on, ...)
 
           %Changeset{valid?: false} = changeset ->
@@ -52,5 +50,11 @@ defmodule Bonfire.Files.Acts.AttachMedia do
             epic
         end
     end
+  end
+
+  def cast(changeset, uploaded_media) do
+    List.wrap(uploaded_media)
+    |> Enum.map(&%{media: &1})
+    |> Changesets.put_assoc(changeset, :files, ...)
   end
 end
