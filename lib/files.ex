@@ -61,7 +61,13 @@ defmodule Bonfire.Files do
     if opts[:skip_fetching_remote] == true or
          Bonfire.Common.Config.env() == :test do
       debug("Files - skip file handling and just insert url or path in DB")
-      insert(context, %{path: file}, %{size: 0, media_type: "remote"}, attrs)
+
+      insert(
+        context,
+        %{path: file},
+        %{size: 0, media_type: attrs[:media_type] || "remote"},
+        attrs
+      )
     else
       maybe_do_upload(module, context, file, attrs, opts)
     end
@@ -344,13 +350,27 @@ defmodule Bonfire.Files do
       |> List.flatten()
       |> Enums.filter_empty([])
 
+  def ap_receive_attachments(
+        %{character: %{peered: %{canonical_uri: actor_url}}} = creator,
+        %{"name" => "Live stream preview", "url" => _gif_url} = attachment
+      ) do
+    # special case for owncast stream 
+    # TODO: a better way?
+
+    Bonfire.Files.Acts.URLPreviews.maybe_fetch_and_save(creator, actor_url)
+  end
+
   def ap_receive_attachments(creator, %{"url" => url} = attachment) do
+    debug(creator)
+    debug(attachment)
+    type = attachment["mediaType"]
+
     with {:ok, uploaded} <-
            upload(
-             definition_module(%{media_type: attachment["mediaType"]}),
+             definition_module(%{media_type: type}),
              creator,
              url,
-             %{client_name: url, metadata: %{"label" => attachment["name"]}},
+             %{media_type: type, client_name: url, metadata: %{"label" => attachment["name"]}},
              skip_fetching_remote: true
            )
 
