@@ -33,7 +33,12 @@ defmodule Bonfire.Files.Web.UploadIconLive do
      )
      |> assign(assigns)
      |> allow_upload(:icon,
-       accept: ~w(.jpg .jpeg .png .gif .svg .tiff .webp),
+       accept:
+         Config.get_ext(
+           :bonfire_files,
+           [Bonfire.Files.IconUploader, :allowed_media_extensions],
+           ~w(.jpg .png)
+         ),
        # make extensions & size configurable
        max_file_size: 5_000_000,
        max_entries: 1,

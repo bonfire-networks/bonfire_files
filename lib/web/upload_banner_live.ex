@@ -27,7 +27,12 @@ defmodule Bonfire.Files.Web.UploadBannerLive do
      )
      |> assign(assigns)
      |> allow_upload(:banner,
-       accept: ~w(.jpg .jpeg .png .gif .svg .tiff .webp),
+       accept:
+         Config.get_ext(
+           :bonfire_files,
+           [Bonfire.Files.BannerUploader, :allowed_media_extensions],
+           ~w(.jpg .png)
+         ),
        # make extensions & size configurable
        max_file_size: 10_000_000,
        max_entries: 1,

@@ -47,62 +47,101 @@ defmodule Bonfire.Files.RuntimeConfig do
         asset_host: "/"
     end
 
-    image_media_types = [
-      "image/png",
-      "image/jpeg",
-      "image/gif",
-      "image/svg+xml",
-      "image/tiff"
-    ]
+    # TODO: how can we make this configurable from ENV vars?
 
-    all_allowed_media_types =
-      image_media_types ++
-        [
-          "text/plain",
+    image_media = %{
+      "image/png" => "png",
+      "image/jpeg" => ["jpg", "jpeg"],
+      "image/gif" => "gif",
+      "image/svg+xml" => "svg",
+      "image/webp" => ["webp"]
+      # "image/tiff"=> "tiff"
+    }
+
+    all_allowed_media =
+      Map.merge(
+        image_media,
+        %{
+          "text/plain" => ["txt"],
+          "text/markdown" => ["md"],
           # doc
-          "text/csv",
-          "application/pdf",
-          "application/rtf",
-          "application/msword",
-          "application/vnd.ms-excel",
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          "application/vnd.oasis.opendocument.presentation",
-          "application/vnd.oasis.opendocument.spreadsheet",
-          "application/vnd.oasis.opendocument.text",
-          "application/epub+zip",
+          "text/csv" => ["csv"],
+          "text/tab-separated-values" => ["tsv"],
+          "application/pdf" => ["pdf"],
+          "application/rtf" => "rtf",
+          # "application/msword"=> ["doc", "dot"],
+          # "application/vnd.openxmlformats-officedocument.wordprocessingml.document"=> ["docx"],
+          # "application/vnd.ms-excel"=> ["xls"],
+          # "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"=> ["xlsx"],
+          # "application/vnd.oasis.opendocument.presentation"=> ["odp"],
+          # "application/vnd.oasis.opendocument.spreadsheet"=> ["ods"],
+          # "application/vnd.oasis.opendocument.text"=> ["odt"],
+          "application/epub+zip" => ["epub"],
           # archives
-          "application/x-tar",
-          "application/x-bzip",
-          "application/x-bzip2",
-          "application/gzip",
-          "application/zip",
-          "application/rar",
-          "application/x-7z-compressed",
+          # "application/x-tar"=> ["tar"],
+          # "application/x-bzip"=> ["bzip"],
+          # "application/x-bzip2"=> ["bzip2"],
+          # "application/gzip"=> ["gz", "gzip"],
+          # "application/zip"=> ["zip"],
+          # "application/rar"=> ["rar"],
+          # "application/vnd.rar"=> ["rar"],
+          # "application/x-7z-compressed"=> ["7z"],
           # audio
-          "audio/mpeg",
-          "audio/ogg",
-          "audio/wav",
-          "audio/webm",
-          "audio/opus",
+          "audio/mpeg" => ["mpa", "mp2"],
+          "audio/aac" => ["aac"],
+          "audio/mp3" => ["mp3"],
+          "audio/ogg" => ["ogg", "oga"],
+          "audio/wav" => ["wav"],
+          "audio/webm" => ["webm"],
+          "audio/opus" => ["opus"],
+          "audio/flac" => ["flac"],
           # video
-          "video/mp4",
-          "video/mpeg",
-          "video/ogg",
-          "video/webm"
-        ]
+          "video/mp4" => ["mp4"],
+          "video/mpeg" => ["mpeg"],
+          "video/ogg" => ["ogg", "ogv"],
+          "video/webm" => ["webm"]
+        }
+      )
 
-    config :bonfire_files, image_media_types: image_media_types
-    config :bonfire_files, all_allowed_media_types: all_allowed_media_types
+    all_allowed_media_types = all_allowed_media |> Map.keys()
+
+    all_allowed_media_extensions =
+      all_allowed_media |> Map.values() |> List.flatten() |> Enum.uniq() |> Enum.map(&".#{&1}")
+
+    image_media_types = image_media |> Map.keys()
+
+    image_media_extensions =
+      image_media |> Map.values() |> List.flatten() |> Enum.uniq() |> Enum.map(&".#{&1}")
+
+    config :bonfire_files,
+      image_media_types: image_media_types,
+      image_media_extensions: image_media_extensions
+
+    config :bonfire_files,
+      all_allowed_media_types: all_allowed_media_types,
+      all_allowed_media_extensions: all_allowed_media_extensions
 
     config :bonfire_files, Bonfire.Files.DocumentUploader,
-      allowed_media_types: all_allowed_media_types
+      allowed_media_types: all_allowed_media_types,
+      allowed_media_extensions: all_allowed_media_extensions
 
-    config :bonfire_files, Bonfire.Files.IconUploader, allowed_media_types: image_media_types
+    config :bonfire_files, Bonfire.Files.IconUploader,
+      allowed_media_types: image_media_types,
+      allowed_media_extensions: image_media_extensions
 
     config :bonfire_files, Bonfire.Files.ImageUploader,
       allowed_media_types: image_media_types,
+      allowed_media_extensions: image_media_extensions,
       max_width: System.get_env("IMAGE_MAX_W", "700"),
       max_height: System.get_env("IMAGE_MAX_H", "700")
+
+    # NOTE: this is avoid LV uploads failing with `invalid accept filter provided to allow_upload. Expected a file extension with a known MIME type.`
+    # NOTE2: seems this needs to be compile-time
+    # config :mime, :types, Map.merge(%{
+    #   "application/json" => ["json"],
+    #   "application/activity+json" => ["activity+json"],
+    #   "application/ld+json" => ["ld+json"],
+    #   "application/jrd+json" => ["jrd+json"]
+    # }, all_allowed_media)
   end
 end
