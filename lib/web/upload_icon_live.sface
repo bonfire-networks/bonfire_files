@@ -4,7 +4,7 @@
   phx-change="Bonfire.Files:validate"
   phx-submit="Bonfire.Files:save"
   phx-target={@myself}
-  class="flex"
+  class="flex items-center gap-4"
 >
   <div class={@container_class}>
     {#case @src}
@@ -32,7 +32,7 @@
   </div>
 
   {#if !@label_on_hover}
-    <label for={@uploads.icon.ref} class="ml-3 normal-case btn btn-sm btn-outline">
+    <label for={@uploads.icon.ref} class="normal-case btn btn-sm !border !border-base-content/30 rounded-full btn-outline">
       {l("Upload %{image}", image: @label || l("avatar"))}
     </label>
   {/if}
