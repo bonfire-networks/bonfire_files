@@ -21,7 +21,7 @@ defmodule Bonfire.Files.Web.UploadIconLive do
     ]
 
   prop class, :css_class, default: nil
-  prop bg_class, :css_class, default: ["rounded-md bg-base-100"]
+  prop bg_class, :css_class, default: ["rounded-md bg-base-100 h-full"]
   prop opts, :any, default: %{}
 
   def update(assigns, socket) do
