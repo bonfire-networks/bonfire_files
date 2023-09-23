@@ -8,7 +8,7 @@
     <div class="space-y-1 text-center">
       <div class="flex text-sm text-primary-content-600">
         <label for={@uploads.banner.ref} class={@label_class}>
-          {live_file_input(@uploads.banner, class: "sr-only")}
+          <.live_file_input upload={@uploads.banner} class="sr-only" />
 
           <div class="text-center">
             <span>{l("Upload a background image")}</span>

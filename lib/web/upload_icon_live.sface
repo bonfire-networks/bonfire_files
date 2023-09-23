@@ -27,7 +27,7 @@
         <span>{l("Upload or drop")}</span>
         <span class="sr-only">{@label || l("avatar")}</span>
       {/if}
-      {live_file_input(@uploads.icon, class: "sr-only")}
+      <.live_file_input upload={@uploads.icon} class="sr-only" />
     </label>
   </div>
 
