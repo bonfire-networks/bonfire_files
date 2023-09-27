@@ -30,7 +30,7 @@ defmodule Bonfire.Files.Blurred do
     Cache.maybe_apply_cached(&make_blurhash/1, [opts[:src] || media_or_path])
   end
 
-  def make_blurhash(path) when is_binary(path) do
+  defp make_blurhash(path) when is_binary(path) do
     path =
       path
       |> String.trim_leading("/")
@@ -47,7 +47,7 @@ defmodule Bonfire.Files.Blurred do
     end
   end
 
-  @doc "Create a blurred JPEG (deprecate in favour of blurhash)"
+  @doc "Create a blurred JPEG (deprecated in favour of blurhash)"
   def blurred(media_or_path, opts \\ [])
   def blurred(%{path: path} = _media, opts), do: blurred(path, opts)
 

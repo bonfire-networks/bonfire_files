@@ -40,6 +40,29 @@ defmodule Bonfire.Files.Image.Edit do
     end
   end
 
+  @doc """
+  Returns the dominant color of an image (given as path, binary, or stream) as HEX value.
+
+  `bins` is an integer number of color frequency bins the image is divided into. The default is 10.
+  """
+  def dominant_color(file_path_or_binary_or_stream, bins \\ 10, fallback \\ "#FFF8E7") do
+    with {:ok, img} <- Image.open(file_path_or_binary_or_stream),
+         {:ok, color} <-
+           Image.dominant_color(img, [{:bins, bins}])
+           |> Image.Color.rgb_to_hex() do
+      color
+    else
+      e ->
+        error(e, "Could not calculate image color")
+        debug(File.cwd())
+        fallback
+    end
+  rescue
+    e in MatchError ->
+      error(e, "Could not calculate image color")
+      fallback
+  end
+
   def banner(filename, max_width, max_height) do
     cond do
       System.find_executable("vipsthumbnail") ->
