@@ -71,6 +71,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
                metadata:
                  Map.from_struct(meta) |> Map.drop([:canonical_url]) |> Enums.filter_empty(nil)
              }
+             |> debug
            ) do
       # |> debug
       media
@@ -82,6 +83,15 @@ defmodule Bonfire.Files.Acts.URLPreviews do
       _ ->
         nil
     end
+  catch
+    e ->
+      # workaround for badly-parsed webpages in non-UTF8 encodings
+      error(e, "Could not save the URL preview")
+      nil
+  rescue
+    e ->
+      error(e, "Could not save the URL preview")
+      nil
   end
 
   defp maybe_exists(url) when is_binary(url) do
