@@ -84,28 +84,32 @@ defmodule Bonfire.Files do
   def upload(module, context, file, attrs, opts),
     do: maybe_do_upload(module, context, file, attrs, opts)
 
-  defp maybe_do_upload(module, context, file, attrs, _opts) do
+  defp maybe_do_upload(module, context, upload_filename, attrs, _opts) do
     debug(attrs, "uploads attrs")
+    debug(upload_filename, "upload_filename")
     id = Pointers.ULID.generate()
 
     file_extension =
       file_extension(
-        Utils.e(attrs, :client_name, nil) || Utils.e(file, :filename, nil) ||
-          file
+        Utils.e(attrs, :client_name, nil) || Utils.e(upload_filename, :filename, nil) ||
+          upload_filename
       )
 
-    filename =
+    final_filename =
       "#{id}#{file_extension}"
       |> debug("filename")
 
-    with {:ok, file} <- fetch_file(module, file),
+    new_tmp_filename = "#{upload_filename}_#{final_filename}"
+
+    with :ok <- File.rename(upload_filename, new_tmp_filename),
+         {:ok, file} <- fetch_file(module, new_tmp_filename),
          {:ok, file_info} <- extract_metadata(file),
          module when is_atom(module) and not is_nil(module) <-
            definition_module(module, file_info),
          :ok <- verify_media_type(module, file_info),
          {:ok, new_path} <-
            module.store({
-             %Plug.Upload{filename: filename, path: file.path},
+             %Plug.Upload{filename: final_filename, path: file.path},
              context_id(context)
            }) do
       insert(
@@ -113,6 +117,7 @@ defmodule Bonfire.Files do
         %{file | path: new_path},
         file_info
         |> Map.put(:module, module),
+        # |> Enums.maybe_put(:preview, if File.exists?()),
         attrs
         |> Map.put(:id, id)
       )

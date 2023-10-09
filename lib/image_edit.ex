@@ -36,8 +36,53 @@ defmodule Bonfire.Files.Image.Edit do
          "-strip -thumbnail #{max_size}x#{max_size}^ -gravity center -crop #{max_size}x#{max_size}+0+0 -limit area 10MB -limit disk 20MB"}
 
       true ->
-        nil
+        &thumbnail_image/2
+        # nil
     end
+  end
+
+  def thumbnail_pdf(_filename) do
+    # TODO: configurable
+    max_size = 1024
+
+    if System.find_executable("pdftocairo"),
+      do:
+        {:pdftocairo,
+         fn original_path, new_path ->
+           " -png -singlefile -scale-to #{max_size} #{original_path} #{String.slice(new_path, 0..-5)}"
+         end, :png},
+      else: :noaction
+  catch
+    :exit, e ->
+      error(e)
+      :noaction
+
+    e ->
+      error(e)
+      :noaction
+  end
+
+  def thumbnail_image(_version, %{path: filename} = original_file) do
+    # TODO: configurable
+    max_size = 142
+
+    with {:ok, image} <- Image.thumbnail(filename, max_size, crop: :attention),
+         tmp_path <- Waffle.File.generate_temporary_path(original_file),
+         {:ok, _} <- Image.write(image, tmp_path) do
+      {:ok, %Waffle.File{original_file | path: tmp_path, is_tempfile?: true}}
+    else
+      e ->
+        error(e, "Could not create or save thumbnail")
+        :noaction
+    end
+  catch
+    :exit, e ->
+      error(e)
+      :noaction
+
+    e ->
+      error(e)
+      :noaction
   end
 
   @doc """
