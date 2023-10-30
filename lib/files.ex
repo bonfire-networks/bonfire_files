@@ -84,25 +84,23 @@ defmodule Bonfire.Files do
   def upload(module, context, file, attrs, opts),
     do: maybe_do_upload(module, context, file, attrs, opts)
 
-  defp maybe_do_upload(module, context, upload_filename, attrs, _opts) do
+  defp maybe_do_upload(module, context, upload_file, attrs, opts) do
     debug(attrs, "uploads attrs")
-    debug(upload_filename, "upload_filename")
+    debug(upload_file, "upload_file")
     id = Pointers.ULID.generate()
 
+    upload_filename =
+      Utils.e(upload_file, :path, nil) || Utils.e(upload_file, :filename, nil) ||
+        upload_file
+
     file_extension =
-      file_extension(
-        Utils.e(attrs, :client_name, nil) || Utils.e(upload_filename, :filename, nil) ||
-          upload_filename
-      )
+      file_extension(Utils.e(attrs, :client_name, nil) || upload_filename)
 
     final_filename =
       "#{id}#{file_extension}"
-      |> debug("filename")
 
-    new_tmp_filename = "#{upload_filename}_#{final_filename}"
-
-    with :ok <- File.rename(upload_filename, new_tmp_filename),
-         {:ok, file} <- fetch_file(module, new_tmp_filename),
+    with {:ok, tmp_filename} <- maybe_move(opts[:move_original], upload_filename, final_filename),
+         {:ok, file} <- fetch_file(module, tmp_filename),
          {:ok, file_info} <- extract_metadata(file),
          module when is_atom(module) and not is_nil(module) <-
            definition_module(module, file_info),
@@ -126,6 +124,22 @@ defmodule Bonfire.Files do
         error(other)
     end
   end
+
+  defp maybe_move(true, upload_filename, final_filename) do
+    new_tmp_filename =
+      "#{upload_filename}_#{final_filename}"
+      |> debug("new_tmp_filename")
+
+    with :ok <- File.rename(upload_filename, new_tmp_filename) do
+      {:ok, new_tmp_filename}
+    else
+      e ->
+        error(e)
+        {:ok, upload_filename}
+    end
+  end
+
+  defp maybe_move(_, upload_filename, _), do: {:ok, upload_filename}
 
   def file_extension(path) do
     path |> Path.extname() |> String.downcase()

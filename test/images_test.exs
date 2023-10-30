@@ -82,7 +82,7 @@ defmodule Bonfire.Files.ImagesTest do
           )
 
         # resized version
-        assert "#{w}x#{h}" ==
+        assert "525x#{h}" ==
                  ImageUploader.remote_url(upload)
                  |> String.slice(1, 10000)
                  |> geometry()

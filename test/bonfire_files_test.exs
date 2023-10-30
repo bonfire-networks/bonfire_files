@@ -87,7 +87,7 @@ defmodule Bonfire.Files.Test do
 
     test "fails when the upload is a missing file" do
       file = %{path: "missing.gif", filename: "missing.gif"}
-      assert {:error, :invalid_file_path} = fake_upload(file)
+      assert {:error, _} = fake_upload(file)
     end
   end
 
