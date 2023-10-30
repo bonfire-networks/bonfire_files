@@ -13,7 +13,7 @@
           parent_id="upload_icon"
           class={@class}
           bg_class={@bg_class}
-          user={@object}
+          user_id={id(@object)}
           src={@src}
           opts={@opts}
         />
