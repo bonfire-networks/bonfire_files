@@ -6,7 +6,7 @@
     style={"background-image: url('#{@src || Media.banner_url(@object)}')"}
   >
     <div class="space-y-1 text-center">
-      <div class="flex text-sm text-primary-content-600">
+      <div class="flex text-sm text-base-content">
         <label for={@uploads.banner.ref} class={@label_class}>
           <.live_file_input upload={@uploads.banner} class="sr-only" />
 
@@ -14,15 +14,33 @@
             <span>{l("Upload a background image")}</span>
             <p class="pl-1">{l("or drag and drop")}</p>
           </div>
-          <p class="block mt-2 text-xs text-center text-primary-content-200">
-            {#if length(@uploads.banner.entries) > 0}
-              {#for entry <- @uploads.banner.entries}
+          {#if length(@uploads.banner.entries) > 0}
+            {#for entry <- @uploads.banner.entries}
+              <p class="block mt-2 text-xs text-center text-base-content">
                 {entry.client_name} - {entry.progress}%
-              {/for}
-            {#else}
-              {l("PNG, JPG, GIF up to 10MB")}
-            {/if}
-          </p>
+              </p>
+              <div :for={err <- upload_errors(@uploads.banner, entry)} role="alert" class="alert alert-warning">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="stroke-current shrink-0 h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  /></svg>
+                <span>{upload_error_to_string(err)}</span>
+              </div>
+            {/for}
+          {#else}
+            <p class="block mt-2 text-xs text-center text-base-content">
+              {l("PNG, JPG, GIF up to %{size} MB",
+                size: Bonfire.Common.Config.get([Bonfire.Files, :max_user_images_file_size], 5)
+              )}
+            </p>
+          {/if}
         </label>
       </div>
     </div>
