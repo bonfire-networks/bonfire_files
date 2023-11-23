@@ -36,8 +36,13 @@ defmodule Bonfire.Files.ImageUploader do
       :noaction
   end
 
-  def storage_dir(_, {_file, user_id}) when is_binary(user_id) do
+  def storage_dir(_, {_file, %{user_id: user_id}}) when is_binary(user_id) do
     "data/uploads/#{user_id}/images"
+  end
+
+  def storage_dir(_, scope) do
+    warn(scope, "no valid scope")
+    "data/uploads/_/images"
   end
 
   def allowed_media_types do
@@ -47,6 +52,13 @@ defmodule Bonfire.Files.ImageUploader do
       [__MODULE__, :allowed_media_types],
       # fallback
       ["image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/tiff"]
+    )
+  end
+
+  def max_file_size do
+    Files.normalise_size(
+      Bonfire.Common.Config.get([:bonfire_files, :max_user_images_file_size]),
+      8
     )
   end
 end

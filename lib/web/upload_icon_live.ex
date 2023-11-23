@@ -42,8 +42,7 @@ defmodule Bonfire.Files.Web.UploadIconLive do
            ~w(.jpg .png)
          ),
        # make extensions & size configurable
-       max_file_size:
-         Bonfire.Common.Config.get([Bonfire.Files, :max_user_images_file_size], 5) * 1_000_000,
+       max_file_size: Bonfire.Files.IconUploader.max_file_size(),
        max_entries: 1,
        auto_upload: true,
        progress: &handle_progress/3

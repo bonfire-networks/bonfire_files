@@ -15,6 +15,7 @@ defmodule Bonfire.Files.Definition do
       use Waffle.Definition
       import Untangle
       alias Bonfire.Files
+      alias Bonfire.Files.FileDenied
 
       @acl :public_read
 
@@ -28,6 +29,34 @@ defmodule Bonfire.Files.Definition do
       def blurred(media), do: Files.Blurred.blurred(media, definition: __MODULE__)
 
       def blurhash(media), do: Files.Blurred.blurhash(media, definition: __MODULE__)
+
+      def validate(%{file_info: %{} = file_info}), do: validate(file_info)
+
+      def validate(%{media_type: media_type, size: size}) do
+        case {allowed_media_types(), max_file_size()} |> debug("validate_with") do
+          {_, max_file_size} when size > max_file_size ->
+            {:error, FileDenied.new(max_file_size)}
+
+          {:all, _} ->
+            :ok
+
+          {types, _} ->
+            if Enum.member?(types, media_type) do
+              :ok
+            else
+              {:error, FileDenied.new(media_type)}
+            end
+        end
+      end
+
+      def validate({_file, %{file_info: %{} = file_info}}) do
+        validate(file_info)
+      end
+
+      def validate(other) do
+        # TODO: `Files.extract_metadata` here as fallback?
+        error(other, "File info not available so file type and/or size could not be validated")
+      end
     end
   end
 end

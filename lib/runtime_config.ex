@@ -115,9 +115,9 @@ defmodule Bonfire.Files.RuntimeConfig do
 
     config :bonfire_files,
       image_media_types: image_media_types,
-      image_media_extensions: image_media_extensions
-
-    config :bonfire_files,
+      image_media_extensions: image_media_extensions,
+      max_user_images_file_size: 8,
+      max_docs_file_size: 6,
       all_allowed_media_types: all_allowed_media_types,
       all_allowed_media_extensions: all_allowed_media_extensions
 

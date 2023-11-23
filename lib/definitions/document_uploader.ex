@@ -28,8 +28,12 @@ defmodule Bonfire.Files.DocumentUploader do
     end
   end
 
-  def storage_dir(_, {_file, user_id}) when is_binary(user_id) do
+  def storage_dir(_, {_file, %{user_id: user_id}}) when is_binary(user_id) do
     "data/uploads/#{user_id}/docs"
+  end
+
+  def storage_dir(_, {_file, _}) do
+    "data/uploads/_/docs"
   end
 
   def allowed_media_types do
@@ -40,5 +44,9 @@ defmodule Bonfire.Files.DocumentUploader do
       # fallback
       ["application/pdf"]
     )
+  end
+
+  def max_file_size do
+    Files.normalise_size(Bonfire.Common.Config.get([:bonfire_files, :max_docs_file_size]), 8)
   end
 end

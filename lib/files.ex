@@ -7,9 +7,9 @@ defmodule Bonfire.Files do
 
   A few definitions exist as defaults inside of this namespace, but you can also define
   your own - a `Bonfire.Files.Definition` is an extension of `Waffle.Definition`,
-  however the `allowed_media_types/0` callback is added, forcing you to define
-  what media types are accepted for these types of uploads.
-  (You can also return `:all` to accept everything).
+  however the `allowed_media_types/0` and `max_file_size/0` callback are added, 
+  with which you need to define what media types are accepted for these types of uploads.
+  (You can also return `:all` to accept all media types).
 
   To use the uploader:
 
@@ -104,11 +104,15 @@ defmodule Bonfire.Files do
          {:ok, file_info} <- extract_metadata(file),
          module when is_atom(module) and not is_nil(module) <-
            definition_module(module, file_info),
-         :ok <- verify_media_type(module, file_info),
+         #  :ok <- module.validate(file_info), # note: already called by Waffle
          {:ok, new_path} <-
            module.store({
-             %Plug.Upload{filename: final_filename, path: file.path},
-             context_id(context)
+             %Plug.Upload{
+               filename: final_filename,
+               path: file.path,
+               content_type: Map.get(file_info, :media_type)
+             },
+             %{user_id: context_id(context), file_info: file_info}
            }) do
       insert(
         context,
@@ -227,7 +231,7 @@ defmodule Bonfire.Files do
   def remote_url(module \\ nil, media, version \\ nil)
 
   def remote_url(module, %Media{} = media, version) when is_atom(module) and not is_nil(module),
-    do: module.url({media.path, media.user_id}, version)
+    do: module.url({media.path, %{user_id: media.user_id}}, version)
 
   def remote_url(module, media_id, version)
       when is_binary(media_id) and is_atom(module) and not is_nil(module) do
@@ -287,20 +291,6 @@ defmodule Bonfire.Files do
       TwinkleStar.from_filepath(path)
     else
       %{}
-    end
-  end
-
-  def verify_media_type(definition, %{media_type: media_type}) do
-    case definition.allowed_media_types() do
-      :all ->
-        :ok
-
-      types ->
-        if Enum.member?(types, media_type) do
-          :ok
-        else
-          {:error, FileDenied.new(media_type)}
-        end
     end
   end
 
@@ -422,5 +412,20 @@ defmodule Bonfire.Files do
   def ap_receive_attachments(_creator, attachment) do
     error(attachment, "Dunno how to handle this")
     nil
+  end
+
+  def normalise_size(size, default \\ 8)
+
+  def normalise_size(none, default) when is_nil(none) or none == 0 do
+    normalise_size(default, 8)
+  end
+
+  def normalise_size(size, default) when is_integer(size) do
+    size * 1_000_000
+  end
+
+  def normalise_size(size, default) do
+    Types.maybe_to_integer(size, default)
+    |> normalise_size(default)
   end
 end

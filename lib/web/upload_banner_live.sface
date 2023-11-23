@@ -37,7 +37,7 @@
           {#else}
             <p class="block mt-2 text-xs text-center text-base-content">
               {l("PNG, JPG, GIF up to %{size} MB",
-                size: Bonfire.Common.Config.get([Bonfire.Files, :max_user_images_file_size], 5)
+                size: Bonfire.Common.Config.get([:bonfire_files, :max_user_images_file_size], 5)
               )}
             </p>
           {/if}

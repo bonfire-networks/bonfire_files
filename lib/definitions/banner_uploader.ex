@@ -25,8 +25,12 @@ defmodule Bonfire.Files.BannerUploader do
       :noaction
   end
 
-  def storage_dir(_, {_file, user_id}) when is_binary(user_id) do
+  def storage_dir(_, {_file, %{user_id: user_id}}) when is_binary(user_id) do
     "data/uploads/#{user_id}/banners"
+  end
+
+  def storage_dir(_, {_file, _}) do
+    "data/uploads/_/banners"
   end
 
   def allowed_media_types do
@@ -36,6 +40,13 @@ defmodule Bonfire.Files.BannerUploader do
       [__MODULE__, :allowed_media_types],
       # fallback
       ["image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/tiff"]
+    )
+  end
+
+  def max_file_size do
+    Files.normalise_size(
+      Bonfire.Common.Config.get([:bonfire_files, :max_user_images_file_size]),
+      8
     )
   end
 end
