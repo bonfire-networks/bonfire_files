@@ -1,4 +1,9 @@
-<form phx-change="Bonfire.Files:validate" phx-submit="Bonfire.Files:save" phx-target={@myself}>
+<form
+  data-scope="upload_banner_form"
+  phx-change="Bonfire.Files:validate"
+  phx-submit="Bonfire.Files:save"
+  phx-target={@myself}
+>
   <div
     data-id="upload_banner"
     phx-drop-target={@uploads.banner.ref}
