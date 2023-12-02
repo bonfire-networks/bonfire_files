@@ -33,18 +33,17 @@ defmodule Bonfire.Files.Media do
     field(:deleted_at, :utc_datetime_usec)
   end
 
-  @create_required ~w(path size media_type)a
+  @create_required ~w(path size media_type user_id)a
   @create_cast @create_required ++ ~w(id metadata)a
 
-  def changeset(user, attrs) do
+  defp changeset(user, attrs) do
     %__MODULE__{}
     |> Changeset.cast(attrs, @create_cast)
-    |> debug()
+    # |> debug()
     |> Bonfire.Files.CapsuleIntegration.Attacher.upload(:file, attrs)
     |> debug()
     |> Changeset.validate_required(@create_required)
     |> Changeset.validate_length(:media_type, max: 255)
-    |> Changeset.change(user_id: Types.ulid(user) || "0AND0MSTRANGERS0FF1NTERNET")
   end
 
   def insert(user, %{path: path} = file, file_info, attrs) do
@@ -68,6 +67,8 @@ defmodule Bonfire.Files.Media do
       |> Map.put(:path, url_or_path)
       |> Map.put(:size, file_info[:size])
       |> Map.put(:media_type, file_info[:media_type])
+      |> Map.put(:module, file_info[:module])
+      |> Map.put(:user_id, Types.ulid(user) || "0AND0MSTRANGERS0FF1NTERNET")
       |> Map.put(:metadata, metadata)
 
     with {:ok, media} <- repo().insert(changeset(user, attrs)) do

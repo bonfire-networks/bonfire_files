@@ -41,12 +41,12 @@ defmodule Bonfire.Files.Test do
     end
   end
 
-  describe "upload" do
+  describe "upload" do 
     test "creates a file upload" do
       assert {:ok, upload} = fake_upload(icon_file())
       assert upload.media_type == "image/png"
       assert upload.path
-      assert upload.size
+      assert upload.size 
     end
 
     test "fails when the file is a disallowed type" do

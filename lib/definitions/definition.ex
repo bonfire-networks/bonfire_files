@@ -12,7 +12,16 @@ defmodule Bonfire.Files.Definition do
   defmacro __using__(_opts) do
     quote do
       @behaviour Bonfire.Files.Definition
+
       use Waffle.Definition
+
+      use Capsule.Uploader, storages: [
+      # TODO: create a S3orDisk storage adapter that only uses S3 if credentials for that have been configured?
+        cache: Capsule.Storages.Disk, 
+        store: Capsule.Storages.Disk 
+        #store: Capsule.Storages.S3
+      ]
+
       import Untangle
       alias Bonfire.Files
       alias Bonfire.Files.FileDenied
@@ -57,6 +66,27 @@ defmodule Bonfire.Files.Definition do
         # TODO: `Files.extract_metadata` here as fallback?
         error(other, "File info not available so file type and/or size could not be validated")
       end
+
+      def storage_options(upload, :cache, opts) do
+        storage_dir = storage_dir(:cache, {upload, %{user_id: "cache"}})
+        Keyword.put(opts, :prefix, storage_dir)
+      end
+
+      def storage_options(upload, :store, opts) do
+        storage_dir = storage_dir(:store, {upload, %{user_id: opts[:user_id]}})
+
+        opts
+        |> Keyword.put(:prefix, storage_dir)
+        |> Keyword.drop(:user_id)
+      end
+
+      def attach(tuple, changeset) do
+        Bonfire.Files.CapsuleIntegration.Attacher.attach(tuple, changeset, __MODULE__)
+      end
+
     end
+
+
+
   end
 end
