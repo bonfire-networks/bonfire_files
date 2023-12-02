@@ -1,4 +1,9 @@
 waffle = "~> 1.1.3"
+
+capsule = "~> 0.10.0"
+capsule_supplement = "~> 0.9.0"
+capsule_ecto = "~> 0.10.0"
+
 mogrify = "~> 0.9.1"
 image = "~> 0.37"
 fetch_favicon = "~> 0.1.3"

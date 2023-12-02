@@ -6,6 +6,7 @@ defmodule Bonfire.Files.Media do
     source: "bonfire_files_media"
 
   import Bonfire.Common.Config, only: [repo: 0]
+  import Untangle
 
   alias Ecto.Changeset
   alias Bonfire.Common.Types
@@ -17,11 +18,18 @@ defmodule Bonfire.Files.Media do
   pointable_schema do
     # has_one(:preview, __MODULE__)
     belongs_to(:user, Pointers.Pointer)
+
+    # old path info from Waffle
     field(:path, :string)
+
+    # new File data from Capsule
+    field :file, Capsule.Ecto.Type
+    # field(:file, :map, virtual: true)
+
     field(:size, :integer)
     field(:media_type, :string)
     field(:metadata, :map)
-    field(:file, :map, virtual: true)
+
     field(:deleted_at, :utc_datetime_usec)
   end
 
@@ -31,6 +39,9 @@ defmodule Bonfire.Files.Media do
   def changeset(user, attrs) do
     %__MODULE__{}
     |> Changeset.cast(attrs, @create_cast)
+    |> debug()
+    |> Bonfire.Files.CapsuleIntegration.Attacher.upload(:file, attrs)
+    |> debug()
     |> Changeset.validate_required(@create_required)
     |> Changeset.validate_length(:media_type, max: 255)
     |> Changeset.change(user_id: Types.ulid(user) || "0AND0MSTRANGERS0FF1NTERNET")
@@ -38,7 +49,7 @@ defmodule Bonfire.Files.Media do
 
   def insert(user, %{path: path} = file, file_info, attrs) do
     with {:ok, media} <- insert(user, path, file_info, attrs) do
-      {:ok, Map.put(media, :file, file)}
+      {:ok, Map.put_new(media, :file, file)}
     end
 
     # |> debug
@@ -53,12 +64,13 @@ defmodule Bonfire.Files.Media do
 
     attrs =
       attrs
+      |> Map.put_new(:file, url_or_path)
       |> Map.put(:path, url_or_path)
       |> Map.put(:size, file_info[:size])
       |> Map.put(:media_type, file_info[:media_type])
       |> Map.put(:metadata, metadata)
 
-    with {:ok, media} <- repo().insert(Media.changeset(user, attrs)) do
+    with {:ok, media} <- repo().insert(changeset(user, attrs)) do
       {:ok, Map.put(media, :user, user)}
     end
 
@@ -123,6 +135,7 @@ defmodule Bonfire.Files.Media.Migrations do
         Ecto.Migration.add(:user_id, Pointers.Migration.strong_pointer(), null: false)
 
         Ecto.Migration.add(:path, :text, null: false)
+        Ecto.Migration.add(:file, :jsonb)
         Ecto.Migration.add(:size, :integer, null: false)
         # see https://stackoverflow.com/a/643772 for size
         Ecto.Migration.add(:media_type, :string, null: false, size: 255)

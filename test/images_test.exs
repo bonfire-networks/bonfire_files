@@ -2,6 +2,8 @@
 defmodule Bonfire.Files.ImagesTest do
   use Bonfire.DataCase, async: true
 
+  import Bonfire.Files.Simulation
+
   alias Bonfire.Common.Simulation
   alias Bonfire.Files
 
@@ -11,43 +13,9 @@ defmodule Bonfire.Files.ImagesTest do
   alias Bonfire.Files.ImageUploader
   alias Bonfire.Files.Media
 
-  # FIXME: path
-  @icon_file %{
-    path: Path.expand("fixtures/150.png", __DIR__),
-    filename: "150.png"
-  }
-  @image_file %{
-    path: Path.expand("fixtures/600x800.png", __DIR__),
-    filename: "600x800.png"
-  }
-  @text_file %{
-    path: Path.expand("fixtures/text.txt", __DIR__),
-    filename: "text.txt"
-  }
-
-  def fake_upload(file, upload_def \\ nil) do
-    user = fake_user!()
-
-    upload_def =
-      upload_def ||
-        Faker.Util.pick([IconUploader, ImageUploader, DocumentUploader])
-
-    Files.upload(upload_def, user, file, %{})
-  end
-
-  defp geometry(path) do
-    {identify, 0} = System.cmd("identify", ["-verbose", path], stderr_to_stdout: true)
-
-    Enum.at(Regex.run(~r/Geometry: ([^+]*)/, identify), 1)
-  end
-
-  defp cleanup(path) do
-    File.rm(path)
-  end
-
   describe "upload" do
     test "creates transformed versions for icons" do
-      assert {:ok, upload} = fake_upload(@icon_file, IconUploader)
+      assert {:ok, upload} = fake_upload(icon_file(), IconUploader)
 
       if !System.get_env("CI") do
         # resized version(s)
@@ -64,7 +32,7 @@ defmodule Bonfire.Files.ImagesTest do
     end
 
     test "creates a transformed version for images" do
-      assert {:ok, upload} = fake_upload(@image_file, ImageUploader)
+      assert {:ok, upload} = fake_upload(image_file(), ImageUploader)
 
       if !System.get_env("CI") do
         w =

@@ -2,6 +2,8 @@
 defmodule Bonfire.Files.Test do
   use Bonfire.DataCase, async: true
 
+  import Bonfire.Files.Simulation
+
   alias Bonfire.Common.Simulation
   alias Bonfire.Files
 
@@ -11,34 +13,6 @@ defmodule Bonfire.Files.Test do
   alias Bonfire.Files.ImageUploader
   alias Bonfire.Files.Media
 
-  # FIXME: path
-  @icon_file %{
-    path: Path.expand("fixtures/150.png", __DIR__),
-    filename: "150.png"
-  }
-  @image_file %{
-    path: Path.expand("fixtures/600x800.png", __DIR__),
-    filename: "600x800.png"
-  }
-  @text_file %{
-    path: Path.expand("fixtures/text.txt", __DIR__),
-    filename: "text.txt"
-  }
-
-  def fake_upload(file, upload_def \\ nil) do
-    user = fake_user!()
-
-    upload_def =
-      upload_def ||
-        Faker.Util.pick([IconUploader, ImageUploader, DocumentUploader])
-
-    Files.upload(upload_def, user, file, %{})
-  end
-
-  defp cleanup(path) do
-    File.rm(path)
-  end
-
   # describe "list_by_parent" do
   #   test "returns a list of uploads for a parent" do
   #     uploads =
@@ -46,7 +20,7 @@ defmodule Bonfire.Files.Test do
   #         user = fake_user!()
 
   #         {:ok, upload} =
-  #           Files.upload(Bonfire.Files.IconUploader, user, @icon_file, %{})
+  #           Files.upload(Bonfire.Files.IconUploader, user, icon_file(), %{})
 
   #         upload
   #       end
@@ -57,7 +31,7 @@ defmodule Bonfire.Files.Test do
 
   describe "one" do
     test "returns an upload for an existing ID" do
-      assert {:ok, original_upload} = fake_upload(@icon_file)
+      assert {:ok, original_upload} = fake_upload(icon_file())
       assert {:ok, fetched_upload} = Media.one(id: original_upload.id)
       assert original_upload.id == fetched_upload.id
     end
@@ -69,7 +43,7 @@ defmodule Bonfire.Files.Test do
 
   describe "upload" do
     test "creates a file upload" do
-      assert {:ok, upload} = fake_upload(@icon_file)
+      assert {:ok, upload} = fake_upload(icon_file())
       assert upload.media_type == "image/png"
       assert upload.path
       assert upload.size
@@ -93,7 +67,7 @@ defmodule Bonfire.Files.Test do
 
   describe "remote_url" do
     test "returns the remote URL for an upload" do
-      assert {:ok, upload} = Files.upload(DocumentUploader, fake_user!(), @text_file)
+      assert {:ok, upload} = Files.upload(DocumentUploader, fake_user!(), text_file())
 
       assert url = Files.remote_url(DocumentUploader, upload)
 
@@ -106,7 +80,7 @@ defmodule Bonfire.Files.Test do
 
   describe "soft_delete" do
     test "updates the deletion date of the upload" do
-      assert {:ok, upload} = Files.upload(IconUploader, fake_user!(), @icon_file)
+      assert {:ok, upload} = Files.upload(IconUploader, fake_user!(), icon_file())
 
       refute upload.deleted_at
       assert {:ok, deleted_upload} = Media.soft_delete(upload)
@@ -116,7 +90,7 @@ defmodule Bonfire.Files.Test do
 
   describe "hard_delete" do
     test "removes the upload, including files" do
-      assert {:ok, upload} = Files.upload(ImageUploader, fake_user!(), @icon_file)
+      assert {:ok, upload} = Files.upload(ImageUploader, fake_user!(), icon_file())
 
       assert {:ok, _} = Media.hard_delete(ImageUploader, upload)
     end

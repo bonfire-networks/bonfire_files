@@ -25,6 +25,8 @@ defmodule Bonfire.Files.RuntimeConfig do
 
       IO.puts("Note: uploads will be stored in s3: #{bucket} at #{host}")
 
+      config :capsule, Capsule.Storages.S3, bucket: bucket
+
       config :waffle,
         storage: Waffle.Storage.S3,
         bucket: bucket,
@@ -46,6 +48,8 @@ defmodule Bonfire.Files.RuntimeConfig do
         # or {:system, "ASSET_HOST"}
         asset_host: "/"
     end
+
+    config :capsule, Capsule.Storages.Disk, root_dir: "data/uploads"
 
     # TODO: how can we make this configurable from ENV vars?
 

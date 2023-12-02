@@ -105,13 +105,14 @@ defmodule Bonfire.Files do
          module when is_atom(module) and not is_nil(module) <-
            definition_module(module, file_info),
          #  :ok <- module.validate(file_info), # note: already called by Waffle
+         upload_source <- %Plug.Upload{
+           filename: final_filename,
+           path: file.path,
+           content_type: Map.get(file_info, :media_type)
+         },
          {:ok, new_path} <-
            module.store({
-             %Plug.Upload{
-               filename: final_filename,
-               path: file.path,
-               content_type: Map.get(file_info, :media_type)
-             },
+             upload_source,
              %{user_id: context_id(context), file_info: file_info}
            }) do
       insert(
@@ -122,6 +123,7 @@ defmodule Bonfire.Files do
         # |> Enums.maybe_put(:preview, if File.exists?()),
         attrs
         |> Map.put(:id, id)
+        |> Map.put(:file, upload_source)
       )
     else
       other ->
