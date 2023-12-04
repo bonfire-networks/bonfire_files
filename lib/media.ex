@@ -36,22 +36,32 @@ defmodule Bonfire.Files.Media do
   @create_required ~w(path size media_type user_id)a
   @create_cast @create_required ++ ~w(id metadata)a
 
+  defp changeset(user, %{url: url} = attrs) when is_binary(url) do
+    common_changeset(user, attrs)
+  end
+
   defp changeset(user, attrs) do
+    common_changeset(user, attrs)
+    |> upload_changeset(attrs)
+  end
+  
+  defp common_changeset(user, attrs) do
     %__MODULE__{}
     |> Changeset.cast(attrs, @create_cast)
-    # |> debug()
-    |> Bonfire.Files.CapsuleIntegration.Attacher.upload(:file, attrs)
-    |> debug()
     |> Changeset.validate_required(@create_required)
     |> Changeset.validate_length(:media_type, max: 255)
+    |> debug()
+  end
+
+  defp upload_changeset(changeset, attrs) do
+    changeset
+    |> Bonfire.Files.CapsuleIntegration.Attacher.upload(:file, attrs)
   end
 
   def insert(user, %{path: path} = file, file_info, attrs) do
     with {:ok, media} <- insert(user, path, file_info, attrs) do
       {:ok, Map.put_new(media, :file, file)}
     end
-
-    # |> debug
   end
 
   def insert(user, url_or_path, file_info, attrs) do
