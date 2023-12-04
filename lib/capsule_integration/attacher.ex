@@ -19,7 +19,8 @@ defmodule Bonfire.Files.CapsuleIntegration.Attacher do
     end
   end
 
-  def upload(changeset, field, %{module: module} = attrs) when is_atom(module) and not is_nil(module) do
+  def upload(changeset, field, %{module: module} = attrs)
+      when is_atom(module) and not is_nil(module) do
     changeset
     |> debug()
     |> Capsule.Ecto.upload(attrs, [field], module, :attach)

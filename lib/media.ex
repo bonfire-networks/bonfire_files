@@ -44,7 +44,7 @@ defmodule Bonfire.Files.Media do
     common_changeset(user, attrs)
     |> upload_changeset(attrs)
   end
-  
+
   defp common_changeset(user, attrs) do
     %__MODULE__{}
     |> Changeset.cast(attrs, @create_cast)
