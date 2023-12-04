@@ -309,7 +309,7 @@ defmodule Bonfire.Files do
   defp capsule_remote_url(%Capsule.Locator{id: id, storage: storage}, :default)
        when is_atom(storage) do
     with {:ok, file} <- storage.url(id) do
-      IO.inspect(file)
+      file
     end
   end
 
@@ -323,6 +323,11 @@ defmodule Bonfire.Files do
            |> storage.url() do
       file
     end
+  end
+
+  defp capsule_remote_url(%{storage: storage} = locator, version)
+       when is_binary(storage) do
+    capsule_remote_url(Map.put(locator, :storage, Types.maybe_to_atom!(storage)), version)
   end
 
   defp fetch_file(module, file) do

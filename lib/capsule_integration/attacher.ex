@@ -1,5 +1,23 @@
 defmodule Bonfire.Files.CapsuleIntegration.Attacher do
   import Untangle
+  alias Bonfire.Common.Config
+
+  def storages(upload, module) do
+    debug(upload)
+    debug(module)
+
+    if Config.get([:bonfire_files, :storage], :local) == :s3 do
+      [
+        cache: Capsule.Storages.Disk,
+        store: Capsule.Storages.S3
+      ]
+    else
+      [
+        cache: Capsule.Storages.Disk,
+        store: Capsule.Storages.Disk
+      ]
+    end
+  end
 
   def upload(changeset, field, %{module: module} = attrs) when is_atom(module) do
     changeset

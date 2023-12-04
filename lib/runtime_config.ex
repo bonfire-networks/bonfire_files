@@ -9,7 +9,7 @@ defmodule Bonfire.Files.RuntimeConfig do
     # an example s3 compatible service: https://www.scaleway.com/en/pricing/?tags=storage
     # The default is local storage.
 
-    if (config_env() != :test || System.get_env("USE_S3")) && System.get_env("UPLOADS_S3_BUCKET") &&
+    if System.get_env("UPLOADS_S3_BUCKET") &&
          System.get_env("UPLOADS_S3_ACCESS_KEY_ID") &&
          System.get_env("UPLOADS_S3_SECRET_ACCESS_KEY") do
       # Use s3-compatible cloud storage
@@ -24,7 +24,10 @@ defmodule Bonfire.Files.RuntimeConfig do
       scheme = System.get_env("UPLOADS_S3_SCHEME", "https://")
       port = System.get_env("UPLOADS_S3_PORT", "443")
 
-      IO.puts("Note: uploads will be stored in s3: #{bucket} at #{host}")
+      if config_env() not in [:test, :dev] || System.get_env("USE_S3") do
+        IO.puts("Note: uploads will be stored in s3: #{bucket} at #{host}")
+        config :bonfire_files, :storage, :s3
+      end
 
       config :capsule, Capsule.Storages.S3, bucket: bucket
       config :capsule, Capsule.Storages.Disk, root_dir: "data/uploads"
@@ -46,6 +49,8 @@ defmodule Bonfire.Files.RuntimeConfig do
           port: port
         ]
     else
+      config :bonfire_files, :storage, :local
+
       config :waffle,
         storage: Waffle.Storage.Local,
         # or {:system, "ASSET_HOST"}

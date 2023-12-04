@@ -18,12 +18,7 @@ defmodule Bonfire.Files.Definition do
       use Bonfire.Files.Prepare
 
       use Capsule.Uploader,
-        storages: [
-          # TODO: create a S3orDisk storage adapter that only uses S3 if credentials for that have been configured?
-          cache: Capsule.Storages.Disk,
-          # store: Capsule.Storages.Disk 
-          store: Capsule.Storages.S3
-        ]
+        storages: {Bonfire.Files.CapsuleIntegration.Attacher, :storages, [__MODULE__]}
 
       import Untangle
       alias Bonfire.Files
