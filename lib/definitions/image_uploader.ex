@@ -36,13 +36,8 @@ defmodule Bonfire.Files.ImageUploader do
       :noaction
   end
 
-  def storage_dir(_, {_file, %{user_id: user_id}}) when is_binary(user_id) do
-    "data/uploads/#{user_id}/images"
-  end
-
-  def storage_dir(_, scope) do
-    warn(scope, "no valid scope")
-    "data/uploads/_/images"
+  def prefix_dir() do
+    "images"
   end
 
   def allowed_media_types do

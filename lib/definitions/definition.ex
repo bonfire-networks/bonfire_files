@@ -41,6 +41,14 @@ defmodule Bonfire.Files.Definition do
 
       def validate(media), do: Files.validate(media, allowed_media_types(), max_file_size())
 
+      def storage_dir(_, {_file, %{user_id: user_id}}) when is_binary(user_id) do
+        "data/uploads/#{user_id}/#{prefix_dir()}"
+      end
+
+      def storage_dir(_, {_file, _}) do
+        "data/uploads/_/#{prefix_dir()}"
+      end
+
       def build_options(upload, :cache, opts) do
         storage_dir = storage_dir(:cache, {upload, %{user_id: "cache"}})
 
@@ -74,6 +82,8 @@ defmodule Bonfire.Files.Definition do
       def attach(tuple, changeset) do
         Bonfire.Files.CapsuleIntegration.Attacher.attach(tuple, changeset, __MODULE__)
       end
+
+      defoverridable storage_dir: 2
     end
   end
 end

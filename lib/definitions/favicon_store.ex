@@ -96,7 +96,11 @@ defmodule Bonfire.Files.FaviconStore do
   end
 
   def storage_dir(_ \\ nil, _ \\ nil) do
-    "data/uploads/favicons"
+    "data/uploads/#{prefix_dir()}"
+  end
+
+  def prefix_dir() do
+    "favicons"
   end
 
   def allowed_media_types do

@@ -25,12 +25,8 @@ defmodule Bonfire.Files.BannerUploader do
       :noaction
   end
 
-  def storage_dir(_, {_file, %{user_id: user_id}}) when is_binary(user_id) do
-    "data/uploads/#{user_id}/banners"
-  end
-
-  def storage_dir(_, {_file, _}) do
-    "data/uploads/_/banners"
+  def prefix_dir() do
+    "banners"
   end
 
   def allowed_media_types do

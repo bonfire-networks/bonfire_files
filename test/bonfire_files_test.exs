@@ -72,7 +72,7 @@ defmodule Bonfire.Files.Test do
       assert url = Files.remote_url(DocumentUploader, upload)
 
       uri = URI.parse(url)
-      # assert uri.scheme
+      # assert uri.scheme 
       # assert uri.host
       assert uri.path =~ "/docs/"
     end

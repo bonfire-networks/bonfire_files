@@ -30,7 +30,7 @@ defmodule Bonfire.Files.RuntimeConfig do
       end
 
       config :capsule, Capsule.Storages.S3, bucket: bucket
-      config :capsule, Capsule.Storages.Disk, root_dir: "data/uploads"
+      # config :capsule, Capsule.Storages.Disk, root_dir: "data/uploads"
 
       config :waffle,
         storage: Waffle.Storage.S3,

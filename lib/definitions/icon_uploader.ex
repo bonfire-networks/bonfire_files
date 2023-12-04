@@ -27,12 +27,8 @@ defmodule Bonfire.Files.IconUploader do
   #   {:convert, "-strip -thumbnail #{max_size}x#{max_size} -gravity center -crop #{max_size}x#{max_size}+0+0 -limit area 50MB -limit disk 2MB"}
   # end
 
-  def storage_dir(_, {_file, %{user_id: user_id}}) when is_binary(user_id) do
-    "data/uploads/#{user_id}/icons"
-  end
-
-  def storage_dir(_, {_file, _}) do
-    "data/uploads/_/icons"
+  def prefix_dir() do
+    "icons"
   end
 
   def allowed_media_types do

@@ -28,12 +28,8 @@ defmodule Bonfire.Files.DocumentUploader do
     end
   end
 
-  def storage_dir(_, {_file, %{user_id: user_id}}) when is_binary(user_id) do
-    "data/uploads/#{user_id}/docs"
-  end
-
-  def storage_dir(_, {_file, _}) do
-    "data/uploads/_/docs"
+  def prefix_dir() do
+    "docs"
   end
 
   def allowed_media_types do
