@@ -14,7 +14,7 @@ defmodule Bonfire.Files.DocumentUploader do
   end
 
   def transform(:thumbnail, {%{file_name: "http" <> _ = filename}, _scope}) do
-    :noaction
+    :skip
   end
 
   def transform(:thumbnail, {%{file_name: filename}, _scope}) do
@@ -24,7 +24,7 @@ defmodule Bonfire.Files.DocumentUploader do
       Bonfire.Files.Image.Edit.thumbnail_pdf(filename)
     else
       debug(filename, "do not transform")
-      :noaction
+      :skip
     end
   end
 

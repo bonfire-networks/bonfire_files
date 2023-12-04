@@ -22,9 +22,14 @@ defmodule Bonfire.Files.Simulation do
     path: Path.expand("../test/fixtures/text.txt", __DIR__),
     filename: "text.txt"
   }
+  @pdf_file %{
+    path: Path.expand("../test/fixtures/doc.pdf", __DIR__),
+    filename: "doc.pdf"
+  }
   def icon_file, do: @icon_file
   def image_file, do: @image_file
   def text_file, do: @text_file
+  def pdf_file, do: @pdf_file
 
   def fake_upload(file, upload_def \\ nil) do
     user = fake_user!()

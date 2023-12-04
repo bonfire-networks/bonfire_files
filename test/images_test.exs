@@ -21,7 +21,8 @@ defmodule Bonfire.Files.ImagesTest do
         # resized version(s)
         assert "142x142" ==
                  IconUploader.remote_url(upload)
-                 |> String.slice(1, 10000)
+                 # String.slice(1, 10000)
+                 |> String.trim_leading("/")
                  |> geometry()
 
         # assert "48x48" == IconUploader.remote_url(upload, :small) |> String.slice(1, 10000) |> geometry()
@@ -52,11 +53,31 @@ defmodule Bonfire.Files.ImagesTest do
         # resized version
         assert "525x#{h}" ==
                  ImageUploader.remote_url(upload)
-                 |> String.slice(1, 10000)
+                 # String.slice(1, 10000)
+                 |> String.trim_leading("/")
                  |> geometry()
 
         # original file untouched # TODO?
         # assert "600x800" == ImageUploader.remote_url(upload, :original) |> String.slice(1, 10000) |> geometry()
+      end
+    end
+
+    test "creates thumbnail for PDF" do
+      assert {:ok, upload} = fake_upload(pdf_file(), DocumentUploader)
+
+      if !System.get_env("CI") do
+        # resized version(s)
+        thumb = IconUploader.remote_url(upload, :thumbnail)
+        assert thumb =~ ".png"
+
+        # assert "595x842" ==
+        assert thumb
+               # String.slice(1, 10000)
+               |> String.trim_leading("/")
+               |> geometry()
+
+        # original file untouched # TODO?
+        assert IconUploader.remote_url(upload, :default) =~ ".pdf"
       end
     end
   end

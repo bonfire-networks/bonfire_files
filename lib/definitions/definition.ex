@@ -15,12 +15,15 @@ defmodule Bonfire.Files.Definition do
 
       use Waffle.Definition
 
-      use Capsule.Uploader, storages: [
-      # TODO: create a S3orDisk storage adapter that only uses S3 if credentials for that have been configured?
-        cache: Capsule.Storages.Disk, 
-        store: Capsule.Storages.Disk 
-        #store: Capsule.Storages.S3
-      ]
+      use Bonfire.Files.Prepare
+
+      use Capsule.Uploader,
+        storages: [
+          # TODO: create a S3orDisk storage adapter that only uses S3 if credentials for that have been configured?
+          cache: Capsule.Storages.Disk,
+          # store: Capsule.Storages.Disk 
+          store: Capsule.Storages.S3
+        ]
 
       import Untangle
       alias Bonfire.Files
@@ -32,61 +35,50 @@ defmodule Bonfire.Files.Definition do
         Files.upload(__MODULE__, user, file, attrs, opts)
       end
 
-      def remote_url(media, version \\ nil),
+      def remote_url(media, version \\ nil)
+
+      def remote_url(media, version),
         do: Files.remote_url(__MODULE__, media, version)
 
       def blurred(media), do: Files.Blurred.blurred(media, definition: __MODULE__)
 
       def blurhash(media), do: Files.Blurred.blurhash(media, definition: __MODULE__)
 
-      def validate(%{file_info: %{} = file_info}), do: validate(file_info)
+      def validate(media), do: Files.validate(media, allowed_media_types(), max_file_size())
 
-      def validate(%{media_type: media_type, size: size}) do
-        case {allowed_media_types(), max_file_size()} |> debug("validate_with") do
-          {_, max_file_size} when size > max_file_size ->
-            {:error, FileDenied.new(max_file_size)}
-
-          {:all, _} ->
-            :ok
-
-          {types, _} ->
-            if Enum.member?(types, media_type) do
-              :ok
-            else
-              {:error, FileDenied.new(media_type)}
-            end
-        end
-      end
-
-      def validate({_file, %{file_info: %{} = file_info}}) do
-        validate(file_info)
-      end
-
-      def validate(other) do
-        # TODO: `Files.extract_metadata` here as fallback?
-        error(other, "File info not available so file type and/or size could not be validated")
-      end
-
-      def storage_options(upload, :cache, opts) do
+      def build_options(upload, :cache, opts) do
         storage_dir = storage_dir(:cache, {upload, %{user_id: "cache"}})
+
         Keyword.put(opts, :prefix, storage_dir)
+        |> debug()
       end
 
-      def storage_options(upload, :store, opts) do
+      def build_options(upload, :store, opts) do
         storage_dir = storage_dir(:store, {upload, %{user_id: opts[:user_id]}})
 
         opts
         |> Keyword.put(:prefix, storage_dir)
-        |> Keyword.drop(:user_id)
+        |> Keyword.drop([:user_id])
+        |> debug()
+      end
+
+      def build_metadata(%{thumbnail: %{} = thumbnail, default: %{}}, storage, opts) do
+        with {:ok, %{id: id}} <-
+               store(%Bonfire.Files.Versions{thumbnail: thumbnail}, storage, opts) do
+          %{thumbnail: id}
+        end
+      end
+
+      def build_metadata(upload, storage, opts) do
+        # debug(upload)
+        # debug(storage)
+        # debug(opts)
+        %{}
       end
 
       def attach(tuple, changeset) do
         Bonfire.Files.CapsuleIntegration.Attacher.attach(tuple, changeset, __MODULE__)
       end
-
     end
-
-
-
   end
 end

@@ -110,25 +110,57 @@ defmodule Bonfire.Files do
            path: file.path,
            content_type: Map.get(file_info, :media_type)
          },
-         {:ok, new_path} <-
-           module.store({
+         # TODO: fully deprecate old Waffle based upload (for now we pass through it do apply validation+transformation)
+         {:ok, new_paths} <-
+           module.prepare({
              upload_source,
              %{user_id: context_id(context), file_info: file_info}
-           }) do
+           })
+           |> debug("prepared") do
       insert(
         context,
-        %{file | path: new_path},
+        %{file | path: Map.get(new_paths, :default)},
+        # file,
         file_info
         |> Map.put(:module, module),
         # |> Enums.maybe_put(:preview, if File.exists?()),
         attrs
         |> Map.put(:id, id)
-        |> Map.put(:file, upload_source)
+        |> Map.put(:file, new_paths)
       )
     else
       other ->
         error(other)
     end
+  end
+
+  def validate(%{file_info: %{} = file_info}, allowed_media_types, max_file_size),
+    do: validate(file_info, allowed_media_types, max_file_size)
+
+  def validate(%{media_type: media_type, size: size}, allowed_media_types, max_file_size) do
+    case {allowed_media_types, max_file_size} |> debug("validate_with") do
+      {_, max_file_size} when size > max_file_size ->
+        {:error, FileDenied.new(max_file_size)}
+
+      {:all, _} ->
+        :ok
+
+      {types, _} ->
+        if Enum.member?(types, media_type) do
+          :ok
+        else
+          {:error, FileDenied.new(media_type)}
+        end
+    end
+  end
+
+  def validate({_file, %{file_info: %{} = file_info}}, allowed_media_types, max_file_size) do
+    validate(file_info, allowed_media_types, max_file_size)
+  end
+
+  def validate(other, _, _) do
+    # TODO: `Files.extract_metadata` here as fallback?
+    error(other, "File info not available so file type and/or size could not be validated")
   end
 
   defp maybe_move(true, upload_filename, final_filename) do
@@ -230,7 +262,13 @@ defmodule Bonfire.Files do
   Return the URL that a local file has.
   """
   @spec remote_url(atom, Media.t()) :: binary
-  def remote_url(module \\ nil, media, version \\ nil)
+  def remote_url(module \\ nil, media, version \\ :default)
+
+  def remote_url(module, %{file: %Capsule.Locator{id: id} = locator}, version) when is_binary(id),
+    do: capsule_remote_url(locator, version)
+
+  def remote_url(_module, %Capsule.Locator{id: id} = locator, version) when is_binary(id),
+    do: capsule_remote_url(locator, version)
 
   def remote_url(module, %Media{} = media, version) when is_atom(module) and not is_nil(module),
     do: module.url({media.path, %{user_id: media.user_id}}, version)
@@ -267,6 +305,25 @@ defmodule Bonfire.Files do
   end
 
   def remote_url(_, _, _), do: nil
+
+  defp capsule_remote_url(%Capsule.Locator{id: id, storage: storage}, :default)
+       when is_atom(storage) do
+    with {:ok, file} <- storage.url(id) do
+      IO.inspect(file)
+    end
+  end
+
+  defp capsule_remote_url(
+         %Capsule.Locator{id: id, storage: storage, metadata: %{} = metadata},
+         version
+       )
+       when is_atom(storage) do
+    with {:ok, file} <-
+           (Map.get(metadata, version) || id)
+           |> storage.url() do
+      file
+    end
+  end
 
   defp fetch_file(module, file) do
     file
