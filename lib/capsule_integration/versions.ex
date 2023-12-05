@@ -9,8 +9,10 @@ defimpl Capsule.Upload, for: Bonfire.Files.Versions do
     path = get_path(versions)
 
     case File.exists?(path) do
-      {:error, reason} -> {:error, "Source file does not exist"}
-      success_tuple -> {:ok, path}
+      false -> 
+        error(path, "Source file does not exist")
+        nil
+      true -> path
     end
   end
 
