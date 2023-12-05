@@ -4,15 +4,18 @@ end
 
 defimpl Capsule.Upload, for: Bonfire.Files.Versions do
   use Arrows
+  import Untangle
 
   def path(versions) do
     path = get_path(versions)
 
     case File.exists?(path) do
-      false -> 
+      false ->
         error(path, "Source file does not exist")
         nil
-      true -> path
+
+      true ->
+        path
     end
   end
 
