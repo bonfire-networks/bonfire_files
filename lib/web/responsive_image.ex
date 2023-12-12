@@ -68,6 +68,7 @@ defmodule Bonfire.Files.ResponsiveImage do
   def resize(attr) when is_list(attr) do
     for {path, width} <- attr, do: resize(path, width)
   end
+
   def resize({path, width}) do
     resize(path, width)
   end
@@ -92,7 +93,10 @@ defmodule Bonfire.Files.ResponsiveImage do
 
   defp without_ext(path), do: "#{Path.dirname(path)}/#{Path.basename(path, Path.extname(path))}"
   defp in_path(path), do: Path.join("priv/static/images/", path)
-  defp img_src(path, widths) when is_list(widths), do: widths |> Enum.map(&"#{img_src(path, &1)} #{&1}w") |> Enum.join(", ")
+
+  defp img_src(path, widths) when is_list(widths),
+    do: widths |> Enum.map(&"#{img_src(path, &1)} #{&1}w") |> Enum.join(", ")
+
   defp img_src(path, width), do: "/resized/#{without_ext(path)}_#{width}.avif"
   defp out_path(path, width), do: "priv/static#{img_src(path, width)}"
 end
