@@ -66,6 +66,8 @@ defmodule Bonfire.Files.Image.Edit do
     # TODO: configurable
     max_size = 142
 
+    # TODO: return a Stream instead of creating a temp file: https://hexdocs.pm/image/Image.html#stream!/2
+
     with {:ok, image} <- Image.thumbnail(filename, max_size, crop: :attention),
          tmp_path <- Waffle.File.generate_temporary_path(original_file),
          {:ok, _} <- Image.write(image, tmp_path) do
