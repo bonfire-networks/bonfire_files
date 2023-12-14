@@ -2,13 +2,19 @@ defmodule Bonfire.Files.Image.Edit do
   import Untangle
 
   def image(filename, max_width, max_height) do
+    ext = Bonfire.Files.file_extension_only(filename)
+
     cond do
+      ext not in ["jpg", "jpeg", "png", "gif", "webp"] ->
+        nil
+
+      # avoid error `svgload: operation is blocked`
       System.find_executable("vipsthumbnail") ->
         {:vipsthumbnail,
          fn input, output ->
            "#{input} --size #{max_width}x#{max_height} --linear --export-profile srgb -o #{output}[strip]"
            # |> info()
-         end, Bonfire.Files.file_extension_only(filename)}
+         end, ext}
 
       System.find_executable("convert") ->
         {:convert,
@@ -22,14 +28,19 @@ defmodule Bonfire.Files.Image.Edit do
   def thumbnail(filename) do
     # TODO: configurable
     max_size = 142
+    ext = Bonfire.Files.file_extension_only(filename)
 
     cond do
+      ext not in ["jpg", "jpeg", "png", "gif", "webp"] ->
+        nil
+
+      # avoid error `svgload: operation is blocked`
       System.find_executable("vipsthumbnail") ->
         {:vipsthumbnail,
          fn input, output ->
            "#{input} --smartcrop attention -s #{max_size} --linear --export-profile srgb -o #{output}[strip]"
            # |> info()
-         end, Bonfire.Files.file_extension_only(filename)}
+         end, ext}
 
       System.find_executable("convert") ->
         {:convert,
@@ -51,15 +62,15 @@ defmodule Bonfire.Files.Image.Edit do
          fn original_path, new_path ->
            " -png -singlefile -scale-to #{max_size} #{original_path} #{String.slice(new_path, 0..-5)}"
          end, :png},
-      else: :noaction
+      else: nil
   catch
     :exit, e ->
       error(e)
-      :noaction
+      nil
 
     e ->
       error(e)
-      :noaction
+      nil
   end
 
   def thumbnail_image(_version, %{path: filename} = original_file) do
@@ -75,16 +86,16 @@ defmodule Bonfire.Files.Image.Edit do
     else
       e ->
         error(e, "Could not create or save thumbnail")
-        :noaction
+        nil
     end
   catch
     :exit, e ->
       error(e)
-      :noaction
+      nil
 
     e ->
       error(e)
-      :noaction
+      nil
   end
 
   @doc """
@@ -92,11 +103,13 @@ defmodule Bonfire.Files.Image.Edit do
 
   `bins` is an integer number of color frequency bins the image is divided into. The default is 10.
   """
-  def dominant_color(file_path_or_binary_or_stream, bins \\ 10, fallback \\ "#FFF8E7") do
+  def dominant_color(file_path_or_binary_or_stream, bins \\ 15, fallback \\ "#FFF8E7") do
     with {:ok, img} <- Image.open(file_path_or_binary_or_stream),
          {:ok, color} <-
            Image.dominant_color(img, [{:bins, bins}])
-           |> Image.Color.rgb_to_hex() do
+           |> debug()
+           |> Image.Color.rgb_to_hex()
+           |> debug() do
       color
     else
       e ->
@@ -111,13 +124,19 @@ defmodule Bonfire.Files.Image.Edit do
   end
 
   def banner(filename, max_width, max_height) do
+    ext = Bonfire.Files.file_extension_only(filename)
+
     cond do
+      ext not in ["jpg", "jpeg", "png", "gif", "webp"] ->
+        nil
+
+      # avoid error `svgload: operation is blocked`
       System.find_executable("vipsthumbnail") ->
         {:vipsthumbnail,
          fn input, output ->
            "#{input} --smartcrop attention --size #{max_width}x#{max_height} --linear --export-profile srgb -o #{output}[strip]"
            # |> info()
-         end, Bonfire.Files.file_extension_only(filename)}
+         end, ext}
 
       System.find_executable("convert") ->
         {:convert,

@@ -19,7 +19,10 @@ defmodule Bonfire.Files.IconUploader do
 
   def transform(:default, {%{file_name: filename}, _scope}) do
     debug(filename, "transform")
-    Bonfire.Files.Image.Edit.thumbnail(filename) || :noaction
+
+    Bonfire.Files.Image.Edit.thumbnail(filename)
+    |> debug() ||
+      :noaction
   end
 
   # def transform(:small, _) do
@@ -37,7 +40,7 @@ defmodule Bonfire.Files.IconUploader do
       # allowed types for this definition
       [__MODULE__, :allowed_media_types],
       # fallback
-      ["image/png", "image/jpeg", "image/gif", "image/tiff"]
+      ["image/png", "image/jpeg", "image/gif", "image/tiff", "image/webp"]
     )
   end
 
