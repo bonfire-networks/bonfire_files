@@ -1,7 +1,7 @@
 defmodule Bonfire.Files.LiveHandler do
   use Bonfire.UI.Common.Web, :live_handler
 
-  def handle_event("validate", params, socket) do
+  def handle_event("validate", _params, socket) do
     {:noreply, socket}
   end
 
