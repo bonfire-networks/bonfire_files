@@ -1,7 +1,7 @@
 defmodule Bonfire.Files.Migrations do
   @moduledoc false
   import Ecto.Migration
-  import Pointers.Migration
+  import Needle.Migration
   alias Bonfire.Files
 
   @files_table Files.__schema__(:source)
@@ -10,10 +10,10 @@ defmodule Bonfire.Files.Migrations do
 
   defp make_files_table(exprs) do
     quote do
-      require Pointers.Migration
+      require Needle.Migration
 
-      Pointers.Migration.create_mixin_table Bonfire.Files do
-        Ecto.Migration.add(:media_id, Pointers.Migration.strong_pointer(), primary_key: true)
+      Needle.Migration.create_mixin_table Bonfire.Files do
+        Ecto.Migration.add(:media_id, Needle.Migration.strong_pointer(), primary_key: true)
 
         unquote_splicing(exprs)
       end

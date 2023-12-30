@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 defmodule Bonfire.Files.Media do
-  use Pointers.Pointable,
+  use Needle.Pointable,
     otp_app: :bonfire_files,
     table_id: "30NF1REF11ESC0NTENT1SGREAT",
     source: "bonfire_files_media"
@@ -17,7 +17,7 @@ defmodule Bonfire.Files.Media do
 
   pointable_schema do
     # has_one(:preview, __MODULE__)
-    belongs_to(:user, Pointers.Pointer)
+    belongs_to(:user, Needle.Pointer)
 
     # old path info from Waffle
     field(:path, :string)
@@ -135,15 +135,15 @@ end
 defmodule Bonfire.Files.Media.Migrations do
   @moduledoc false
   use Ecto.Migration
-  import Pointers.Migration
+  import Needle.Migration
   alias Bonfire.Files.Media
 
   defp make_media_table(exprs) do
     quote do
-      require Pointers.Migration
+      require Needle.Migration
 
-      Pointers.Migration.create_pointable_table Media do
-        Ecto.Migration.add(:user_id, Pointers.Migration.strong_pointer(), null: false)
+      Needle.Migration.create_pointable_table Media do
+        Ecto.Migration.add(:user_id, Needle.Migration.strong_pointer(), null: false)
 
         Ecto.Migration.add(:path, :text, null: false)
         Ecto.Migration.add(:file, :jsonb)

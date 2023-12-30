@@ -7,7 +7,7 @@ adding support for media type checking using magic bytes inside of files,
 along with creating a [pointable][2] table for storage of file data.
 
 [1]: https://github.com/elixir-waffle/waffle 
-[2]: https://github.com/bonfire-networks/pointers
+[2]: https://github.com/bonfire-networks/needle
 
 ## Configuration
 

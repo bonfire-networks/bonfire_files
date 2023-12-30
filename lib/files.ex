@@ -22,12 +22,12 @@ defmodule Bonfire.Files do
   ```
   """
 
-  use Pointers.Mixin,
+  use Needle.Mixin,
     otp_app: :bonfire_files,
     source: "bonfire_files"
 
   import Bonfire.Common.Config, only: [repo: 0]
-  require Pointers.Changesets
+  require Needle.Changesets
   use Arrows
   import Untangle
 
@@ -37,7 +37,7 @@ defmodule Bonfire.Files do
   alias Bonfire.Files.FileDenied
 
   alias Bonfire.Common.Utils
-  # alias Pointers.Pointer
+  # alias Needle.Pointer
   alias Ecto.Changeset
   alias Bonfire.Common
   alias Common.Types
@@ -88,7 +88,7 @@ defmodule Bonfire.Files do
   defp maybe_do_upload(module, context, upload_file, attrs, opts) do
     debug(attrs, "uploads attrs")
     debug(upload_file, "upload_file")
-    id = Pointers.ULID.generate()
+    id = Needle.ULID.generate()
 
     upload_filename =
       Utils.e(upload_file, :path, nil) || Utils.e(upload_file, :filename, nil) ||

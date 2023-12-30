@@ -13,7 +13,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
 
   # alias Bonfire.Files
   alias Ecto.Changeset
-  # alias Pointers.Changesets
+  # alias Needle.Changesets
   # import Bonfire.Common.Config, only: [repo: 0]
   import Epics
   # import Untangle, only: [error: 2, warn: 1]
