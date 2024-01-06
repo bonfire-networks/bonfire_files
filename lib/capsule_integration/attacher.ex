@@ -29,7 +29,9 @@ defmodule Bonfire.Files.CapsuleIntegration.Attacher do
   def upload(changeset, field, attrs) do
     changeset
     |> debug()
-    |> Capsule.Ecto.upload(attrs, [field], __MODULE__, :attach)
+
+    # |> Capsule.Ecto.upload(attrs, [field], __MODULE__, :attach)
+    # TODO: also use Capsule for when we don't have a definition?
   end
 
   def attach(upload, changeset, module \\ nil)
@@ -68,6 +70,7 @@ defmodule Bonfire.Files.CapsuleIntegration.Attacher do
     )
   end
 
+  # def store(_, upload, _) when is_binary(upload), do: store(nil, URI.parse(upload), nil)
   def store(_, upload, _) do
     case Capsule.Storages.Disk.put(upload) do
       {:ok, id} ->

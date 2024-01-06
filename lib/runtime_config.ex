@@ -5,6 +5,21 @@ defmodule Bonfire.Files.RuntimeConfig do
   def config do
     import Config
 
+    config :furlex, Furlex.Oembed,
+      extra_providers: [
+        %{
+          "provider_name" => "Crossref",
+          "provider_url" => "doi.org",
+          "fetch_function" => {Bonfire.Files.DOI, :fetch}
+          #  "endpoints" => [
+          #    %{
+          #      "url" => "https://api.crossref.org/works/",
+          #      "append_url" => true
+          #    }
+          #  ]
+        }
+      ]
+
     # where do you want to store uploaded files? supports local storage, s3-compatible services, and more, see https://hexdocs.pm/waffle/Waffle.html#module-setup-a-storage-provider
     # an example s3 compatible service: https://www.scaleway.com/en/pricing/?tags=storage
     # The default is local storage.
