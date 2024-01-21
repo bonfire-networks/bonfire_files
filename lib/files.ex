@@ -94,11 +94,9 @@ defmodule Bonfire.Files do
       Utils.e(upload_file, :path, nil) || Utils.e(upload_file, :filename, nil) ||
         upload_file
 
-    file_extension =
-      file_extension(Utils.e(attrs, :client_name, nil) || upload_filename)
+    file_extension = file_extension(Utils.e(attrs, :client_name, nil) || upload_filename)
 
-    final_filename =
-      "#{id}#{file_extension}"
+    final_filename = "#{id}#{file_extension}"
 
     with {:ok, tmp_filename} <- maybe_move(opts[:move_original], upload_filename, final_filename),
          {:ok, file} <- fetch_file(module, tmp_filename),
