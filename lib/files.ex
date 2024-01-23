@@ -263,11 +263,12 @@ defmodule Bonfire.Files do
   @spec remote_url(atom, Media.t()) :: binary
   def remote_url(module \\ nil, media, version \\ :default)
 
-  def remote_url(module, %{file: %Capsule.Locator{id: id} = locator}, version) when is_binary(id),
-    do: capsule_remote_url(locator, version)
+  def remote_url(module, %{file: %Entrepot.Locator{id: id} = locator}, version)
+      when is_binary(id),
+      do: entrepot_remote_url(locator, version)
 
-  def remote_url(_module, %Capsule.Locator{id: id} = locator, version) when is_binary(id),
-    do: capsule_remote_url(locator, version)
+  def remote_url(_module, %Entrepot.Locator{id: id} = locator, version) when is_binary(id),
+    do: entrepot_remote_url(locator, version)
 
   def remote_url(module, %Media{} = media, version) when is_atom(module) and not is_nil(module),
     do: module.url({media.path, %{user_id: media.user_id}}, version)
@@ -305,15 +306,15 @@ defmodule Bonfire.Files do
 
   def remote_url(_, _, _), do: nil
 
-  defp capsule_remote_url(%Capsule.Locator{id: id, storage: storage}, :default)
+  defp entrepot_remote_url(%Entrepot.Locator{id: id, storage: storage}, :default)
        when is_atom(storage) do
     with {:ok, file} <- storage.url(id) do
       file
     end
   end
 
-  defp capsule_remote_url(
-         %Capsule.Locator{id: id, storage: storage, metadata: %{} = metadata},
+  defp entrepot_remote_url(
+         %Entrepot.Locator{id: id, storage: storage, metadata: %{} = metadata},
          version
        )
        when is_atom(storage) do
@@ -329,9 +330,9 @@ defmodule Bonfire.Files do
     end
   end
 
-  defp capsule_remote_url(%{storage: storage} = locator, version)
+  defp entrepot_remote_url(%{storage: storage} = locator, version)
        when is_binary(storage) do
-    capsule_remote_url(Map.put(locator, :storage, Types.maybe_to_module(storage)), version)
+    entrepot_remote_url(Map.put(locator, :storage, Types.maybe_to_module(storage)), version)
   end
 
   defp fetch_file(module, file) do

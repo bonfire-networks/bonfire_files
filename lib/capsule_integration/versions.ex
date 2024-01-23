@@ -2,7 +2,7 @@ defmodule Bonfire.Files.Versions do
   defstruct [:default, :thumbnail]
 end
 
-defimpl Capsule.Upload, for: Bonfire.Files.Versions do
+defimpl Entrepot.Upload, for: Bonfire.Files.Versions do
   use Arrows
   import Untangle
 

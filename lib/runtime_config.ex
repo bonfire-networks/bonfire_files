@@ -55,8 +55,8 @@ defmodule Bonfire.Files.RuntimeConfig do
         config :bonfire_files, :storage, :s3
       end
 
-      config :capsule, Capsule.Storages.S3, bucket: bucket
-      # config :capsule, Capsule.Storages.Disk, root_dir: "data/uploads"
+      config :entrepot, Entrepot.Storages.S3, bucket: bucket
+      # config :entrepot, Entrepot.Storages.Disk, root_dir: "data/uploads"
 
       config :waffle,
         storage: Waffle.Storage.S3,

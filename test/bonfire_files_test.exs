@@ -23,7 +23,7 @@ defmodule Bonfire.Files.Test do
   #           Files.upload(Bonfire.Files.IconUploader, user, icon_file(), %{})
 
   #         upload
-  #       end
+  #       end 
 
   #     assert Enum.count(uploads) == Enum.count(Files.list_by_parent(comm))
   #   end

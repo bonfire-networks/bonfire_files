@@ -8,13 +8,13 @@ defmodule Bonfire.Files.CapsuleIntegration.Attacher do
 
     if Config.get([:bonfire_files, :storage], :local) == :s3 do
       [
-        cache: Capsule.Storages.Disk,
-        store: Capsule.Storages.S3
+        cache: Entrepot.Storages.Disk,
+        store: Entrepot.Storages.S3
       ]
     else
       [
-        cache: Capsule.Storages.Disk,
-        store: Capsule.Storages.Disk
+        cache: Entrepot.Storages.Disk,
+        store: Entrepot.Storages.Disk
       ]
     end
   end
@@ -23,15 +23,15 @@ defmodule Bonfire.Files.CapsuleIntegration.Attacher do
       when is_atom(module) and not is_nil(module) do
     changeset
     |> debug()
-    |> Capsule.Ecto.upload(attrs, [field], module, :attach)
+    |> Entrepot.Ecto.upload(attrs, [field], module, :attach)
   end
 
   def upload(changeset, field, attrs) do
     changeset
     |> debug()
 
-    # |> Capsule.Ecto.upload(attrs, [field], __MODULE__, :attach)
-    # TODO: also use Capsule for when we don't have a definition?
+    # |> Entrepot.Ecto.upload(attrs, [field], __MODULE__, :attach)
+    # TODO: also use Entrepot for when we don't have a definition?
   end
 
   def attach(upload, changeset, module \\ nil)
@@ -41,7 +41,7 @@ defmodule Bonfire.Files.CapsuleIntegration.Attacher do
 
     # TODO: use prefix to put in right folder based on type/definition and user
     case store(module, upload, changeset) do
-      {:ok, %Capsule.Locator{} = locator} ->
+      {:ok, %Entrepot.Locator{} = locator} ->
         debug(locator)
 
         Ecto.Changeset.cast(
@@ -72,14 +72,14 @@ defmodule Bonfire.Files.CapsuleIntegration.Attacher do
 
   # def store(_, upload, _) when is_binary(upload), do: store(nil, URI.parse(upload), nil)
   def store(_, upload, _) do
-    case Capsule.Storages.Disk.put(upload) do
+    case Entrepot.Storages.Disk.put(upload) do
       {:ok, id} ->
         debug(id)
 
         {:ok,
-         %Capsule.Locator{
+         %Entrepot.Locator{
            id: id,
-           storage: Capsule.Storages.Disk
+           storage: Entrepot.Storages.Disk
            # , metadata: %{extra: :here}
          }}
 

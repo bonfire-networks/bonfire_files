@@ -17,7 +17,7 @@ defmodule Bonfire.Files.Definition do
 
       use Bonfire.Files.Prepare
 
-      use Capsule.Uploader,
+      use Entrepot.Uploader,
         storages: {Bonfire.Files.CapsuleIntegration.Attacher, :storages, [__MODULE__]}
 
       import Untangle

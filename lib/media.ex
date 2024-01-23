@@ -22,8 +22,8 @@ defmodule Bonfire.Files.Media do
     # old path info from Waffle
     field(:path, :string)
 
-    # new File data from Capsule
-    field :file, Capsule.Ecto.Type
+    # new File data from Entrepot
+    field :file, Entrepot.Ecto.Type
     # field(:file, :map, virtual: true)
 
     field(:size, :integer)
