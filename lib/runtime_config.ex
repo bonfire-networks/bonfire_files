@@ -10,13 +10,24 @@ defmodule Bonfire.Files.RuntimeConfig do
         %{
           "provider_name" => "Crossref",
           "provider_url" => "doi.org",
-          "fetch_function" => {Bonfire.Files.DOI, :fetch}
-          #  "endpoints" => [
-          #    %{
-          #      "url" => "https://api.crossref.org/works/",
-          #      "append_url" => true
-          #    }
-          #  ]
+          "fetch_function" => {Bonfire.Files.DOI, :fetch},
+          "endpoints" => [
+            %{
+              "schemes" =>
+                [
+                  fn url ->
+                    case URI.parse(url) do
+                      %URI{scheme: nil} -> false
+                      %URI{host: nil} -> false
+                      %URI{path: nil} -> false
+                      _ -> true
+                    end
+                  end
+                ] ++ (Bonfire.Files.DOI.pub_id_and_uri_matchers() |> Map.values())
+              #      "url" => "https://api.crossref.org/works/",
+              #      "append_url" => true 
+            }
+          ]
         }
       ]
 

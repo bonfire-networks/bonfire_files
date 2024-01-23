@@ -32,16 +32,31 @@ defmodule Bonfire.Files.Acts.URLPreviews do
         # attrs = Keyword.get(epic.assigns[:options], attrs_key, %{})
         urls_key = Keyword.get(act.options, :urls, :urls)
         media_key = Keyword.get(act.options, :medias, :uploaded_media)
+        text_key = Keyword.get(act.options, :text, :text)
 
         case changeset do
           %Changeset{valid?: true} = changeset ->
-            smart(epic, act, changeset, "valid changeset")
-            urls = Map.get(epic.assigns, urls_key, [])
+            # smart(epic, act, changeset, "valid changeset")
 
-            urls
-            |> smart(epic, act, ..., "URLs")
-            |> Enum.map(&maybe_fetch_and_save(current_user, &1))
-            |> maybe_debug(epic, act, ..., "metadata")
+            urls =
+              Map.get(epic.assigns, urls_key, [])
+              |> smart(epic, act, ..., "URLs")
+
+            urls_media =
+              urls
+              |> Enum.map(&maybe_fetch_and_save(current_user, &1, {Furlex, :unfurl}))
+
+            text_media =
+              Map.get(epic.assigns, text_key, "")
+              |> String.split()
+              |> Enum.reject(&(&1 in urls or !Bonfire.Files.DOI.is_pub_id_or_uri_match?(&1)))
+              |> IO.inspect()
+              |> Enum.map(&maybe_fetch_and_save(current_user, &1, {Bonfire.Files.DOI, :fetch}))
+              |> Enums.filter_empty([])
+              |> IO.inspect()
+
+            (text_media ++ urls_media)
+            |> smart(epic, act, ..., "metadata")
             |> Epic.assign(epic, media_key, ...)
 
           %Changeset{valid?: false} = changeset ->
@@ -55,21 +70,25 @@ defmodule Bonfire.Files.Acts.URLPreviews do
     end
   end
 
-  def maybe_fetch_and_save(current_user, url) do
+  def maybe_fetch_and_save(current_user, url, {mod, fun}) do
     with {:error, :not_found} <- maybe_exists(url),
-         {:ok, meta} <- Furlex.unfurl(url),
+         {:ok, meta} <- apply(mod, fun, [url]),
          # note: canonical url is only set if different from original url, so we only check each unique url once
-         {:error, :not_found} <- maybe_exists(meta.canonical_url),
+         canonical_url <- Map.get(meta, :canonical_url),
+         {:error, :not_found} <- maybe_exists(canonical_url),
          media_type <-
-           e(meta, :facebook, "og:type", nil) || e(meta, :oembed, "type", nil) || "link",
+           e(meta, :facebook, "og:type", nil) || e(meta, :oembed, "type", nil) ||
+             e(meta, :wikidata, "itemType", nil) || "link",
          {:ok, media} <-
            Bonfire.Files.Media.insert(
              current_user,
-             meta.canonical_url || url,
+             canonical_url || url,
              %{media_type: media_type, size: 0},
              %{
                metadata:
-                 Map.from_struct(meta) |> Map.drop([:canonical_url]) |> Enums.filter_empty(nil)
+                 meta
+                 |> Map.drop([:canonical_url])
+                 |> Enums.filter_empty(nil)
              }
              |> debug
            ) do
