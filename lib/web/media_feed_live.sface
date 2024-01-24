@@ -1,0 +1,14 @@
+<div id="media_list">
+  {!-- <Bonfire.UI.Common.PageTitleLive page_title={@page_title} /> --}
+  {!-- 
+      TODO: support LivePush:
+      ComponentID.new(Bonfire.UI.Social.FeedLive, @feed_ids || @feed_id, __MODULE__) --}
+
+  <StatefulComponent
+    module={maybe_component(Bonfire.UI.Social.FeedLive, @__context__)}
+    id={ComponentID.new(Bonfire.UI.Social.FeedLive, @feed_id, __MODULE__)}
+    feed_name={@feed_id}
+    showing_within={@feed_id}
+    hide_tabs
+  />
+</div>

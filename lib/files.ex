@@ -14,7 +14,7 @@ defmodule Bonfire.Files do
   To use the uploader:
 
   ```
-  iex> {:ok, media} = Bonfire.Files.upload(MyUploader, context, %{path: "./150.png"})
+  iex> {:ok, media} = Bonfire.Files.upload(MyUploader, creator_or_context, %{path: "./150.png"})
   iex> media.media_type
   "image/png"
   iex> Bonfire.Files.remote_url(MyUploader, media)
@@ -55,7 +55,7 @@ defmodule Bonfire.Files do
   participates in the meta abstraction, providing the user/context of
   the upload.
   """
-  def upload(module, context, file, attrs \\ %{}, opts \\ [])
+  def upload(module, creator_or_context, file, attrs \\ %{}, opts \\ [])
 
   def upload(module, context, "http" <> _ = url, attrs, opts) do
     if opts[:skip_fetching_remote] == true or
