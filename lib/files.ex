@@ -307,7 +307,7 @@ defmodule Bonfire.Files do
   def remote_url(_, _, _), do: nil
 
   defp entrepot_remote_url(%Entrepot.Locator{id: id, storage: storage}, :default)
-       when is_atom(storage) do
+       when is_atom(storage) and not is_nil(storage) do
     with {:ok, file} <- storage.url(id) do
       file
     end
@@ -317,7 +317,7 @@ defmodule Bonfire.Files do
          %Entrepot.Locator{id: id, storage: storage, metadata: %{} = metadata},
          version
        )
-       when is_atom(storage) do
+       when is_atom(storage) and not is_nil(storage) do
     with {:ok, file} <-
            (metadata
             |> debug("metadata")
@@ -332,7 +332,16 @@ defmodule Bonfire.Files do
 
   defp entrepot_remote_url(%{storage: storage} = locator, version)
        when is_binary(storage) do
-    entrepot_remote_url(Map.put(locator, :storage, Types.maybe_to_module(storage)), version)
+    case storage
+         # temporary
+         |> String.replace("Capsule", "Entrepot")
+         |> Types.maybe_to_module() do
+      nil ->
+        error(storage, "Storage module not found")
+
+      storage ->
+        entrepot_remote_url(Map.put(locator, :storage, storage), version)
+    end
   end
 
   defp fetch_file(module, file) do
