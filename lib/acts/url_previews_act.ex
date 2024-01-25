@@ -50,12 +50,12 @@ defmodule Bonfire.Files.Acts.URLPreviews do
               (Map.get(epic.assigns, text_key) || epic.assigns[:options][text_key] || "")
               |> String.split()
               |> Enum.reject(&(&1 in urls or !Bonfire.Files.DOI.is_pub_id_or_uri_match?(&1)))
-              |> IO.inspect()
+              # |> IO.inspect()
               |> Enum.map(&maybe_fetch_and_save(current_user, &1, {Bonfire.Files.DOI, :fetch}))
               |> Enums.filter_empty([])
-              |> IO.inspect()
 
             (text_media ++ urls_media)
+            |> IO.inspect(label: "all media")
             |> smart(epic, act, ..., "metadata")
             |> Epic.assign(epic, media_key, ...)
 

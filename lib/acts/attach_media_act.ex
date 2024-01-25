@@ -56,5 +56,6 @@ defmodule Bonfire.Files.Acts.AttachMedia do
     List.wrap(uploaded_media)
     |> Enum.map(&%{media: &1})
     |> Changesets.put_assoc(changeset, :files, ...)
+    |> IO.inspect(label: "cs with media")
   end
 end
