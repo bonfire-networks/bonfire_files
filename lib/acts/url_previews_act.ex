@@ -39,7 +39,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
             # smart(epic, act, changeset, "valid changeset")
 
             urls =
-              Map.get(epic.assigns, urls_key, [])
+              (epic.assigns[:options][urls_key] || Map.get(epic.assigns, urls_key, []))
               |> smart(epic, act, ..., "URLs")
 
             urls_media =
@@ -47,7 +47,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
               |> Enum.map(&maybe_fetch_and_save(current_user, &1, {Furlex, :unfurl}))
 
             text_media =
-              Map.get(epic.assigns, text_key, "")
+              (Map.get(epic.assigns, text_key) || epic.assigns[:options][text_key] || "")
               |> String.split()
               |> Enum.reject(&(&1 in urls or !Bonfire.Files.DOI.is_pub_id_or_uri_match?(&1)))
               |> IO.inspect()
