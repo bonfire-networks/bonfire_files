@@ -30,7 +30,11 @@ defmodule Bonfire.Files.DOI do
     with {:ok, body, 200} <- Fetcher.fetch(url),
          {:ok, [data | _]} <- Jason.decode(body) do
       with %{"identifiers" => %{"url" => dl_url}} when dl_url != url <- data do
-        {:ok, %{wikibase: data, download_url: dl_url}}
+        key = if String.ends_with?(dl_url, ".pdf"), do: :download_url, else: :canonical_url
+
+        {:ok,
+         %{wikibase: data}
+         |> Map.put(key, dl_url)}
       else
         _ ->
           {:ok, %{wikibase: data}}
