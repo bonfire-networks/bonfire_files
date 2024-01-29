@@ -386,6 +386,7 @@ defmodule Bonfire.Files do
 
   def ap_publish_activity(medias) when is_list(medias) do
     Enum.map(medias, &ap_publish_activity/1)
+    |> Enums.filter_empty([])
   end
 
   def ap_publish_activity(%Media{media_type: "image" <> _} = media) do
@@ -413,6 +414,11 @@ defmodule Bonfire.Files do
       "url" => full_url(Bonfire.Files.DocumentUploader, media),
       "name" => media.metadata["label"]
     }
+  end
+
+  def ap_publish_activity(%Media{path: "http" <> _} = media) do
+    #  skip remote links/docs
+    nil
   end
 
   def ap_publish_activity(%Media{} = media) do
