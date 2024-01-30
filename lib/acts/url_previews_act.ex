@@ -70,6 +70,8 @@ defmodule Bonfire.Files.Acts.URLPreviews do
     end
   end
 
+  def maybe_fetch_and_save(current_user, url, mod_and_fun \\ {Furlex, :unfurl})
+
   def maybe_fetch_and_save(current_user, url, {mod, fun}) do
     with {:error, :not_found} <- maybe_exists(url),
          {:ok, meta} <- apply(mod, fun, [url]),

@@ -4,7 +4,7 @@ defmodule Bonfire.Files.DOI do
 
   @doi_matcher "10.\d{4,9}\/[-._;()\/:A-Z0-9]+$"
   @pub_id_matchers %{
-    pmid: ~r/[0-9]{1,8}/,
+    pmid: ~r/PMID:*[ \t]*[0-9]{1,10}/,
     pmcid: ~r/PMC[0-9]+/,
     # :doi => ~r/10.+\/.+/,
     doi: ~r/^#{@doi_matcher}/i,
