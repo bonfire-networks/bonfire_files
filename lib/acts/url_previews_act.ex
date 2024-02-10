@@ -92,7 +92,6 @@ defmodule Bonfire.Files.Acts.URLPreviews do
                  |> Map.drop([:canonical_url])
                  |> Enums.filter_empty(nil)
              }
-             |> debug
            ) do
       # |> debug
       media

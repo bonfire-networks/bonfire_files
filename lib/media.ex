@@ -88,9 +88,9 @@ defmodule Bonfire.Files.Media do
     # |> debug
   end
 
-  def one(filters), do: repo().single(Queries.query(Media, filters))
+  def one(filters, _opts \\ []), do: repo().single(Queries.query(Media, filters))
 
-  def many(filters \\ []), do: {:ok, repo().many(Queries.query(Media, filters))}
+  def many(filters \\ [], _opts \\ []), do: {:ok, repo().many(Queries.query(Media, filters))}
 
   def update_by(filters, updates) do
     Queries.query(Media, filters)
