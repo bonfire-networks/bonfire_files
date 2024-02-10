@@ -34,7 +34,7 @@ defmodule Bonfire.Files.Media do
   end
 
   @create_required ~w(path size media_type user_id)a
-  @create_cast @create_required ++ ~w(id metadata)a
+  @cast @create_required ++ ~w(id metadata)a
 
   defp changeset(media \\ %__MODULE__{}, user, attrs)
 
@@ -48,11 +48,15 @@ defmodule Bonfire.Files.Media do
   end
 
   defp common_changeset(media, _user, attrs) do
-    media
-    |> Changeset.cast(attrs, @create_cast)
+    base_changeset(media, attrs)
     |> Changeset.validate_required(@create_required)
     |> Changeset.validate_length(:media_type, max: 255)
     |> debug()
+  end
+
+  defp base_changeset(media, attrs) do
+    media
+    |> Changeset.cast(attrs, @cast)
   end
 
   defp upload_changeset(changeset, attrs) do
@@ -102,8 +106,8 @@ defmodule Bonfire.Files.Media do
     {:error, :not_found}
   end
 
-  def update(user \\ nil, %{} = media, updates) do
-    changeset(media, user, updates)
+  def update(_user \\ nil, %{} = media, updates) do
+    base_changeset(media, updates)
     |> repo().update()
   end
 

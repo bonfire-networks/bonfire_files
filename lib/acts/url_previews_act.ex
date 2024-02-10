@@ -52,7 +52,9 @@ defmodule Bonfire.Files.Acts.URLPreviews do
               |> Enum.reject(&(&1 in urls or !Bonfire.Files.DOI.is_pub_id_or_uri_match?(&1)))
               # |> IO.inspect()
               |> Enum.map(
-                &maybe_fetch_and_save(current_user, &1, fetch_fn: {Bonfire.Files.DOI, :fetch})
+                &maybe_fetch_and_save(current_user, &1,
+                  fetch_fn: fn url, opts -> Bonfire.Files.DOI.fetch(url, opts) end
+                )
               )
               |> Enums.filter_empty([])
 
@@ -92,16 +94,10 @@ defmodule Bonfire.Files.Acts.URLPreviews do
   end
 
   defp do_maybe_fetch_and_save(current_user, url, opts) do
-    with {:ok, meta} <- if(opts[:fetch_fn], do: opts[:fetch_fn].(url), else: Furlex.unfurl(url)),
+    with {:ok, meta} <-
+           if(opts[:fetch_fn], do: opts[:fetch_fn].(url, opts), else: Furlex.unfurl(url, opts)),
          # note: canonical url is only set if different from original url, so we only check each unique url once
          canonical_url <- Map.get(meta, :canonical_url),
-         extra <- %{
-           metadata:
-             meta
-             |> Map.drop([:canonical_url])
-             |> Enums.filter_empty(nil)
-         },
-         {{:error, :not_found}, _} <- {Bonfire.Files.Media.get_by_path(canonical_url), extra},
          media_type <-
            if(opts[:type_fn],
              do: opts[:type_fn].(meta),
@@ -109,6 +105,17 @@ defmodule Bonfire.Files.Acts.URLPreviews do
                e(meta, :facebook, "og:type", nil) || e(meta, :oembed, "type", nil) ||
                  e(meta, :wikidata, "itemType", nil) || "link"
            ),
+         extra <- %{
+           media_type: media_type,
+           metadata:
+             meta
+             |> Map.drop([:canonical_url])
+             |> Enums.filter_empty(nil)
+         },
+         {{:error, :not_found}, _} <-
+           {Bonfire.Files.Media.get_by_path(
+              if opts[:update_existing] == :force, do: canonical_url || url, else: canonical_url
+            ), extra},
          {:ok, media} <-
            Bonfire.Files.Media.insert(
              current_user,
@@ -122,7 +129,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
       {{:ok, media}, extra} ->
         # already exists with same canonical_url
         if opts[:update_existing] do
-          Bonfire.Files.Media.update(current_user, media, extra)
+          ok_unwrap(Bonfire.Files.Media.update(current_user, media, extra))
         else
           media
         end

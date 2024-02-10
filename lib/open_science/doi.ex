@@ -22,7 +22,7 @@ defmodule Bonfire.Files.DOI do
     if is_pub_id_or_uri_match?(url), do: fetch(url)
   end
 
-  def fetch(url) do
+  def fetch(url, _opts \\ []) do
     url =
       "https://en.wikipedia.org/api/rest_v1/data/citation/wikibase/#{URI.encode_www_form(url)}"
       |> debug()
