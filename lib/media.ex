@@ -36,17 +36,19 @@ defmodule Bonfire.Files.Media do
   @create_required ~w(path size media_type user_id)a
   @create_cast @create_required ++ ~w(id metadata)a
 
-  defp changeset(user, %{url: url} = attrs) when is_binary(url) do
-    common_changeset(user, attrs)
+  defp changeset(media \\ %__MODULE__{}, user, attrs)
+
+  defp changeset(media, user, %{url: url} = attrs) when is_binary(url) do
+    common_changeset(media, user, attrs)
   end
 
-  defp changeset(user, attrs) do
-    common_changeset(user, attrs)
+  defp changeset(media, user, attrs) do
+    common_changeset(media, user, attrs)
     |> upload_changeset(attrs)
   end
 
-  defp common_changeset(user, attrs) do
-    %__MODULE__{}
+  defp common_changeset(media, _user, attrs) do
+    media
     |> Changeset.cast(attrs, @create_cast)
     |> Changeset.validate_required(@create_required)
     |> Changeset.validate_length(:media_type, max: 255)
@@ -91,6 +93,19 @@ defmodule Bonfire.Files.Media do
   def one(filters, _opts \\ []), do: repo().single(Queries.query(Media, filters))
 
   def many(filters \\ [], _opts \\ []), do: {:ok, repo().many(Queries.query(Media, filters))}
+
+  def get_by_path(url) when is_binary(url) do
+    one(path: url)
+  end
+
+  def get_by_path(_) do
+    {:error, :not_found}
+  end
+
+  def update(user \\ nil, %{} = media, updates) do
+    changeset(media, user, updates)
+    |> repo().update()
+  end
 
   def update_by(filters, updates) do
     Queries.query(Media, filters)

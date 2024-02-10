@@ -1,5 +1,6 @@
 defmodule Bonfire.Files.DOI do
   alias Furlex.Fetcher
+  alias Bonfire.Common.HTTP
   import Untangle
 
   @doi_matcher "10.\d{4,9}\/[-._;()\/:A-Z0-9]+$"
@@ -91,4 +92,16 @@ defmodule Bonfire.Files.DOI do
   def pub_uri_matchers(), do: @pub_uri_matchers
   def pub_id_and_uri_matchers(), do: @pub_id_and_uri_matchers
   def pub_id_matcher(type), do: pub_id_and_uri_matchers()[type]
+
+  def fetch_orcid_data(metadata, type \\ "record")
+
+  def fetch_orcid_data(%{"sub" => orcid_id, "access_token" => access_token}, type) do
+    HTTP.get("https://api.orcid.org/v3.0/#{orcid_id}/#{type}", [
+      {"Content-type", "application/json"},
+      {"authorization", "Bearer #{access_token}"}
+    ])
+    |> debug()
+  end
+
+  def fetch_orcid_data(%{metadata: %{} = metadata}, type), do: fetch_orcid_data(metadata, type)
 end
