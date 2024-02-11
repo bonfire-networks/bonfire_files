@@ -394,8 +394,10 @@ defmodule Bonfire.Files do
       "type" => "Image",
       "mediaType" => media.media_type,
       "url" => full_url(Bonfire.Files.ImageUploader, media),
-      "name" => media.metadata["label"]
+      "name" => media.metadata["label"],
+      "blurhash" => Bonfire.Files.Blurred.blurhash_cached(media)
     }
+    |> debug()
   end
 
   def ap_publish_activity(%Media{media_type: "audio" <> _} = media) do
@@ -463,11 +465,16 @@ defmodule Bonfire.Files do
              definition_module(%{media_type: type}),
              creator,
              url,
-             %{media_type: type, client_name: url, metadata: %{"label" => attachment["name"]}},
+             %{
+               media_type: type,
+               client_name: url,
+               metadata: %{
+                 label: attachment["name"],
+                 blurhash: attachment["blurhash"]
+               }
+             },
              skip_fetching_remote: true
            )
-
-           # TODO: don't save empty label
            |> debug("uploaded") do
       uploaded
     else

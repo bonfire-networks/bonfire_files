@@ -3,38 +3,57 @@ defmodule Bonfire.Files.Blurred do
   alias Bonfire.Files.Media
   alias Bonfire.Common.Cache
 
-  def blurhash(media, opts \\ [])
-
-  def blurhash(%{metadata: %{blurhash: hash}}, _opts) when is_binary(hash) do
+  def blurhash_cached(%{metadata: %{blurhash: hash}}) when is_binary(hash) and hash != "" do
     hash
   end
 
-  def blurhash(%{metadata: metadata, path: path, id: media_id} = _media, opts) do
-    case Cache.maybe_apply_cached(&make_blurhash/1, [
-           opts[:src] || path
-         ]) do
-      nil ->
-        "L6Pj0^jE.AyE_3t7t7R**0o#DgR4"
+  def blurhash_cached(%{metadata: %{"blurhash" => hash}}) when is_binary(hash) and hash != "" do
+    hash
+  end
 
-      # TODO: make fallback configurable
-      hash ->
-        # save it in DB 
-        Media.update_by([id: media_id], metadata: Map.merge(metadata, %{blurhash: hash}))
-        |> debug()
+  def blurhash_cached(%{file: %{metadata: %{blurhash: hash}}})
+      when is_binary(hash) and hash != "" do
+    hash
+  end
 
-        hash
+  def blurhash_cached(%{file: %{metadata: %{"blurhash" => hash}}})
+      when is_binary(hash) and hash != "" do
+    hash
+  end
+
+  def blurhash_cached(_) do
+    nil
+  end
+
+  def blurhash(media, opts \\ [])
+
+  def blurhash(%{metadata: metadata, path: path, id: media_id} = media, opts) do
+    if hash = blurhash_cached(media) do
+      hash
+    else
+      case blurhash(path, opts) do
+        nil ->
+          "L6Pj0^jE.AyE_3t7t7R**0o#DgR4"
+
+        # TODO: make fallback configurable
+        hash ->
+          # save it in DB 
+          Media.update_by([id: media_id], metadata: Map.merge(metadata, %{blurhash: hash}))
+          |> debug()
+
+          hash
+      end
     end
   end
 
   def blurhash(media_or_path, opts) do
-    Cache.maybe_apply_cached(&make_blurhash/1, [opts[:src] || media_or_path])
+    Cache.maybe_apply_cached(&make_blurhash/1, [
+      (opts[:src] || media_or_path)
+      |> String.trim_leading("/")
+    ])
   end
 
-  defp make_blurhash(path) when is_binary(path) do
-    path =
-      path
-      |> String.trim_leading("/")
-
+  def make_blurhash(path) when is_binary(path) do
     with false <- String.starts_with?(path, "http"),
          {:ok, blurhash} <- Blurhash.downscale_and_encode(path, 4, 3) do
       # debug(blurhash, path)

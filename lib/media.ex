@@ -9,6 +9,7 @@ defmodule Bonfire.Files.Media do
   import Untangle
 
   alias Ecto.Changeset
+  alias Bonfire.Common.Enums
   alias Bonfire.Common.Types
   alias Bonfire.Files.Media
   alias Bonfire.Files.Media.Queries
@@ -76,6 +77,7 @@ defmodule Bonfire.Files.Media do
         Map.get(attrs, :metadata) || %{},
         Map.drop(file_info, [:size, :media_type])
       )
+      |> Enums.filter_empty(%{})
 
     attrs =
       attrs

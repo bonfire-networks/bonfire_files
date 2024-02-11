@@ -72,10 +72,27 @@ defmodule Bonfire.Files.Definition do
         end
       end
 
+      def build_metadata(%{default: %{path: path}}, storage, opts)
+          when __MODULE__ in [
+                 Bonfire.Files.ImageUploader,
+                 Bonfire.Files.BannerUploader,
+                 Bonfire.Files.IconUploader
+               ] and is_binary(path) do
+        if hash = Bonfire.Files.Blurred.make_blurhash(path) do
+          %{
+            blurhash: hash
+          }
+        else
+          %{}
+        end
+        |> debug()
+      end
+
       def build_metadata(upload, storage, opts) do
-        # debug(upload)
-        # debug(storage)
-        # debug(opts)
+        debug(__MODULE__)
+        debug(upload)
+        debug(storage)
+        debug(opts)
         %{}
       end
 
