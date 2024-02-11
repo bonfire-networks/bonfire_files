@@ -1,17 +1,15 @@
 defmodule Bonfire.Files.DOI do
   alias Furlex.Fetcher
+  alias Bonfire.Common.Utils
   alias Bonfire.Common.HTTP
   import Untangle
 
   @doi_matcher "10.\d{4,9}\/[-._;()\/:A-Z0-9]+$"
   @pub_id_matchers %{
-    pmid: ~r/PMID:*[ \t]*[0-9]{1,10}/,
-    pmcid: ~r/PMC[0-9]+/,
     # :doi => ~r/10.+\/.+/,
     doi: ~r/^#{@doi_matcher}/i,
     # doi_prefixed: ~r/doi:^#{@doi_matcher}/i
     doi_prefixed: ~r/^doi:([^\s]+)/i
-    # scopus_eid: ~r/2-s2.0-[0-9]{11}/
   }
   @pub_uri_matchers %{
     doi_url: ~r/doi\.org([^\s]+)/i
@@ -23,28 +21,10 @@ defmodule Bonfire.Files.DOI do
   end
 
   def fetch(url, _opts \\ []) do
-    url =
-      "https://en.wikipedia.org/api/rest_v1/data/citation/wikibase/#{URI.encode_www_form(url)}"
-      |> debug()
-
-    # TODO: add a custom user agent 
-    with {:ok, body, 200} <- Fetcher.fetch(url),
-         {:ok, [data | _]} <- Jason.decode(body) do
-      with %{"identifiers" => %{"url" => dl_url}} when dl_url != url <- data do
-        key = if String.ends_with?(dl_url, ".pdf"), do: :download_url, else: :canonical_url
-
-        {:ok,
-         %{wikibase: data}
-         |> Map.put(key, dl_url)}
-      else
-        _ ->
-          {:ok, %{wikibase: data}}
-      end
-    else
-      e ->
-        warn(e, "Could not find data on wikipedia, try another source...")
-        fetch_crossref(url)
-    end
+    # use the function from the extension if available, as it may be more up-to-date or full-featured
+    Utils.maybe_apply(Bonfire.OpenScience.APIs, :fetch_crossref, url,
+      fallback_fun: fn -> fetch_crossref(url) end
+    )
   end
 
   def fetch_crossref(url) do
@@ -92,16 +72,4 @@ defmodule Bonfire.Files.DOI do
   def pub_uri_matchers(), do: @pub_uri_matchers
   def pub_id_and_uri_matchers(), do: @pub_id_and_uri_matchers
   def pub_id_matcher(type), do: pub_id_and_uri_matchers()[type]
-
-  def fetch_orcid_data(metadata, type \\ "record")
-
-  def fetch_orcid_data(%{"sub" => orcid_id, "access_token" => access_token}, type) do
-    HTTP.get("https://api.orcid.org/v3.0/#{orcid_id}/#{type}", [
-      {"Content-type", "application/json"},
-      {"authorization", "Bearer #{access_token}"}
-    ])
-    |> debug()
-  end
-
-  def fetch_orcid_data(%{metadata: %{} = metadata}, type), do: fetch_orcid_data(metadata, type)
 end

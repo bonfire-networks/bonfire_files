@@ -42,21 +42,23 @@ defmodule Bonfire.Files.Acts.URLPreviews do
               (epic.assigns[:options][urls_key] || Map.get(epic.assigns, urls_key, []))
               |> smart(epic, act, ..., "URLs")
 
-            urls_media =
-              urls
-              |> Enum.map(&maybe_fetch_and_save(current_user, &1))
+            urls_media = maybe_fetch_and_save(current_user, urls)
 
             text_media =
-              (Map.get(epic.assigns, text_key) || epic.assigns[:options][text_key] || "")
-              |> String.split()
-              |> Enum.reject(&(&1 in urls or !Bonfire.Files.DOI.is_pub_id_or_uri_match?(&1)))
-              # |> IO.inspect()
-              |> Enum.map(
-                &maybe_fetch_and_save(current_user, &1,
-                  fetch_fn: fn url, opts -> Bonfire.Files.DOI.fetch(url, opts) end
+              if module_enabled?(Bonfire.OpenScience.APIs) do
+                (Map.get(epic.assigns, text_key) || epic.assigns[:options][text_key] || "")
+                |> String.split()
+                |> Enum.reject(
+                  &(&1 in urls or !Bonfire.OpenScience.APIs.is_pub_id_or_uri_match?(&1))
                 )
-              )
-              |> Enums.filter_empty([])
+                # |> IO.inspect()
+                |> maybe_fetch_and_save(current_user, ...,
+                  fetch_fn: fn url, opts -> Bonfire.OpenScience.APIs.fetch(url, opts) end
+                )
+                |> Enums.filter_empty([])
+              else
+                []
+              end
 
             (text_media ++ urls_media)
             |> IO.inspect(label: "all media")
@@ -76,7 +78,12 @@ defmodule Bonfire.Files.Acts.URLPreviews do
 
   def maybe_fetch_and_save(current_user, url, opts \\ [])
 
-  def maybe_fetch_and_save(current_user, url, opts) do
+  def maybe_fetch_and_save(current_user, urls, opts) when is_list(urls) do
+    urls
+    |> Enum.map(&maybe_fetch_and_save(current_user, &1, opts))
+  end
+
+  def maybe_fetch_and_save(current_user, url, opts) when is_binary(url) do
     with {:error, :not_found} <- Bonfire.Files.Media.get_by_path(url) do
       do_maybe_fetch_and_save(current_user, url, opts)
     else
@@ -108,9 +115,12 @@ defmodule Bonfire.Files.Acts.URLPreviews do
          extra <- %{
            media_type: media_type,
            metadata:
-             meta
-             |> Map.drop([:canonical_url])
-             |> Enums.filter_empty(nil)
+             Enum.into(
+               opts[:extra] || %{},
+               meta
+               |> Map.drop([:canonical_url])
+               |> Enums.filter_empty(nil)
+             )
          },
          {{:error, :not_found}, _} <-
            {Bonfire.Files.Media.get_by_path(
@@ -124,12 +134,24 @@ defmodule Bonfire.Files.Acts.URLPreviews do
              extra
            ) do
       # |> debug
-      media
+      if is_function(opts[:post_create_fn], 3) do
+        opts[:post_create_fn].(current_user, media, opts)
+        |> debug()
+      else
+        media
+      end
     else
       {{:ok, media}, extra} ->
         # already exists with same canonical_url
         if opts[:update_existing] do
-          ok_unwrap(Bonfire.Files.Media.update(current_user, media, extra))
+          media = ok_unwrap(Bonfire.Files.Media.update(current_user, media, extra))
+
+          if opts[:update_existing] == :force and is_function(opts[:post_create_fn], 3) do
+            opts[:post_create_fn].(current_user, media, opts)
+            |> debug()
+          else
+            media
+          end
         else
           media
         end
