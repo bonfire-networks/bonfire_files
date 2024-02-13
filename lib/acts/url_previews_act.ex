@@ -61,7 +61,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
               end
 
             (text_media ++ urls_media)
-            |> IO.inspect(label: "all media")
+            # |> IO.inspect(label: "all media")
             |> smart(epic, act, ..., "metadata")
             |> Epic.assign(epic, media_key, ...)
 
