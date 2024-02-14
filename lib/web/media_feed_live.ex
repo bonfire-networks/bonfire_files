@@ -4,7 +4,7 @@ defmodule Bonfire.UI.Files.Web.MediaFeedLive do
   declare_nav_link(l("Media"),
     page: "media",
     href: "/media",
-    icon: "octicon:file-media-24"
+    icon: "carbon:image"
     # icon: "carbon:document"
   )
 
