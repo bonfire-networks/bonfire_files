@@ -1,10 +1,11 @@
 defmodule Bonfire.UI.Files.Web.MediaFeedLive do
   use Bonfire.UI.Common.Web, {:surface_live_view, []}
 
-  declare_nav_link(l("Newsfeed"),
-    page: "Newsfeed",
+  declare_nav_link(l("Media"),
+    page: "media",
     href: "/media",
-    icon: "carbon:document"
+    icon: "octicon:file-media-24"
+    # icon: "carbon:document"
   )
 
   on_mount {LivePlugs, [Bonfire.UI.Me.LivePlugs.LoadCurrentUser]}
@@ -14,7 +15,7 @@ defmodule Bonfire.UI.Files.Web.MediaFeedLive do
      socket
      |> assign(
        feed_id: :media,
-       page_title: "Newsfeed",
+       page_title: "Media",
        nav_items: Bonfire.Common.ExtensionModule.default_nav()
      )}
   end
