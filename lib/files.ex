@@ -397,7 +397,8 @@ defmodule Bonfire.Files do
       "name" => media.metadata["label"],
       "blurhash" => Bonfire.Files.Blurred.blurhash_cached(media)
     }
-    |> debug()
+
+    # |> debug()
   end
 
   def ap_publish_activity(%Media{media_type: "audio" <> _} = media) do
