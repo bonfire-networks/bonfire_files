@@ -17,10 +17,10 @@ defmodule Bonfire.Files.Test do
   #   test "returns a list of uploads for a parent" do
   #     uploads =
   #       for _ <- 1..5 do
-  #         user = fake_user!()
+  #         creator = fake_user!()
 
   #         {:ok, upload} =
-  #           Files.upload(Bonfire.Files.IconUploader, user, icon_file(), %{})
+  #           Files.upload(Bonfire.Files.IconUploader, creator, icon_file(), %{})
 
   #         upload
   #       end 

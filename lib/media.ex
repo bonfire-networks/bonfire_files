@@ -18,7 +18,7 @@ defmodule Bonfire.Files.Media do
 
   pointable_schema do
     # has_one(:preview, __MODULE__)
-    belongs_to(:user, Needle.Pointer)
+    belongs_to(:creator, Needle.Pointer)
 
     # old path info from Waffle
     field(:path, :string)
@@ -34,17 +34,17 @@ defmodule Bonfire.Files.Media do
     field(:deleted_at, :utc_datetime_usec)
   end
 
-  @create_required ~w(path size media_type user_id)a
+  @create_required ~w(path size media_type creator_id)a
   @cast @create_required ++ ~w(id metadata)a
 
-  defp changeset(media \\ %__MODULE__{}, user, attrs)
+  defp changeset(media \\ %__MODULE__{}, creator, attrs)
 
-  defp changeset(media, user, %{url: url} = attrs) when is_binary(url) do
-    common_changeset(media, user, attrs)
+  defp changeset(media, creator, %{url: url} = attrs) when is_binary(url) do
+    common_changeset(media, creator, attrs)
   end
 
-  defp changeset(media, user, attrs) do
-    common_changeset(media, user, attrs)
+  defp changeset(media, creator, attrs) do
+    common_changeset(media, creator, attrs)
     |> upload_changeset(attrs)
   end
 
@@ -65,32 +65,33 @@ defmodule Bonfire.Files.Media do
     |> Bonfire.Files.CapsuleIntegration.Attacher.upload(:file, attrs)
   end
 
-  def insert(user, %{path: path} = file, file_info, attrs) do
-    with {:ok, media} <- insert(user, path, file_info, attrs) do
+  def insert(creator, %{path: path} = file, file_info, attrs) do
+    with {:ok, media} <- insert(creator, path, file_info, attrs) do
       {:ok, Map.put_new(media, :file, file)}
     end
   end
 
-  def insert(user, url_or_path, file_info, attrs) do
+  def insert(creator, url_or_path, file_info, attrs) do
     metadata =
       Map.merge(
         Map.get(attrs, :metadata) || %{},
-        Map.drop(file_info, [:size, :media_type])
+        Map.drop(file_info, [:id, :size, :media_type])
       )
       |> Enums.filter_empty(%{})
 
     attrs =
       attrs
+      |> Map.put(:id, file_info[:id])
       |> Map.put_new(:file, url_or_path)
       |> Map.put(:path, url_or_path)
       |> Map.put(:size, file_info[:size])
       |> Map.put(:media_type, file_info[:media_type])
       |> Map.put(:module, file_info[:module])
-      |> Map.put(:user_id, Types.ulid(user) || "0AND0MSTRANGERS0FF1NTERNET")
+      |> Map.put(:creator_id, Types.ulid(creator) || "0AND0MSTRANGERS0FF1NTERNET")
       |> Map.put(:metadata, metadata)
 
-    with {:ok, media} <- repo().insert(changeset(user, attrs)) do
-      {:ok, Map.put(media, :user, user)}
+    with {:ok, media} <- repo().insert(changeset(creator, attrs)) do
+      {:ok, Map.put(media, :creator, creator)}
     end
 
     # |> debug
@@ -134,7 +135,7 @@ defmodule Bonfire.Files.Media do
   def hard_delete(module, %Media{} = media) do
     repo().transaction(fn ->
       with {:ok, media} <- repo().delete(media),
-           {:ok, deleted} <- module.delete({media.path, media.user_id}) do
+           {:ok, deleted} <- module.delete({media.path, media.creator_id}) do
         {:ok, deleted}
       end
     end)
@@ -165,6 +166,8 @@ defmodule Bonfire.Files.Media.Migrations do
 
       Needle.Migration.create_pointable_table Media do
         Ecto.Migration.add(:user_id, Needle.Migration.strong_pointer(), null: false)
+        #  FYI user_id is renamed to creator_id in a migration
+        # Ecto.Migration.add(:creator_id, Needle.Migration.strong_pointer(), null: false) 
 
         Ecto.Migration.add(:path, :text, null: false)
         Ecto.Migration.add(:file, :jsonb)

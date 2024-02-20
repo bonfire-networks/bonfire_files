@@ -60,11 +60,11 @@ defmodule Bonfire.Files.Media.Queries do
   def filter(q, {:id, ids}) when is_list(ids),
     do: where(q, [content: c], c.id in ^ids)
 
-  def filter(q, {:user, id}) when is_binary(id),
-    do: where(q, [content: c], c.user_id == ^id)
+  def filter(q, {:creator, id}) when is_binary(id),
+    do: where(q, [content: c], c.creator_id == ^id)
 
-  def filter(q, {:user, ids}) when is_list(ids),
-    do: where(q, [content: c], c.user_id in ^ids)
+  def filter(q, {:creator, ids}) when is_list(ids),
+    do: where(q, [content: c], c.creator_id in ^ids)
 
   def filter(q, {:order, [desc: :id]}) do
     order_by(q, [c], desc: c.id)

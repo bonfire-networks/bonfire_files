@@ -130,7 +130,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
            Bonfire.Files.Media.insert(
              current_user,
              canonical_url || url,
-             %{media_type: media_type, size: 0},
+             %{id: opts[:id], media_type: media_type, size: 0},
              extra
            ) do
       # |> debug

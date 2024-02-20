@@ -66,7 +66,7 @@ defmodule Bonfire.Files.CapsuleIntegration.Attacher do
     debug(module)
 
     module.store(upload, :store,
-      user_id: Ecto.Changeset.get_change(changeset, :user_id) |> debug()
+      creator_id: Ecto.Changeset.get_change(changeset, :creator_id) |> debug()
     )
   end
 

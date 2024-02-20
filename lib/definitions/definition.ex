@@ -26,8 +26,8 @@ defmodule Bonfire.Files.Definition do
 
       @acl :public_read
 
-      def upload(user, file, attrs \\ %{}, opts \\ []) do
-        Files.upload(__MODULE__, user, file, attrs, opts)
+      def upload(creator, file, attrs \\ %{}, opts \\ []) do
+        Files.upload(__MODULE__, creator, file, attrs, opts)
       end
 
       def remote_url(media, version \\ nil)
@@ -41,8 +41,8 @@ defmodule Bonfire.Files.Definition do
 
       def validate(media), do: Files.validate(media, allowed_media_types(), max_file_size())
 
-      def storage_dir(_, {_file, %{user_id: user_id}}) when is_binary(user_id) do
-        "data/uploads/#{user_id}/#{prefix_dir()}"
+      def storage_dir(_, {_file, %{creator_id: creator_id}}) when is_binary(creator_id) do
+        "data/uploads/#{creator_id}/#{prefix_dir()}"
       end
 
       def storage_dir(_, {_file, _}) do
@@ -50,18 +50,18 @@ defmodule Bonfire.Files.Definition do
       end
 
       def build_options(upload, :cache, opts) do
-        storage_dir = storage_dir(:cache, {upload, %{user_id: "cache"}})
+        storage_dir = storage_dir(:cache, {upload, %{creator_id: "cache"}})
 
         Keyword.put(opts, :prefix, storage_dir)
         |> debug()
       end
 
       def build_options(upload, :store, opts) do
-        storage_dir = storage_dir(:store, {upload, %{user_id: opts[:user_id]}})
+        storage_dir = storage_dir(:store, {upload, %{creator_id: opts[:creator_id]}})
 
         opts
         |> Keyword.put(:prefix, storage_dir)
-        |> Keyword.drop([:user_id])
+        |> Keyword.drop([:creator_id])
         |> debug()
       end
 

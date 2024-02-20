@@ -113,7 +113,7 @@ defmodule Bonfire.Files do
          {:ok, new_paths} <-
            module.prepare({
              upload_source,
-             %{user_id: context_id(context), file_info: file_info}
+             %{creator_id: context_id(context), file_info: file_info}
            })
            |> debug("prepared") do
       insert(
@@ -186,21 +186,21 @@ defmodule Bonfire.Files do
     file_extension(path) |> String.trim_leading(".")
   end
 
-  defp insert({user, object}, file, file_info, attrs) do
-    insert(user, file, file_info, attrs)
+  defp insert({creator, object}, file, file_info, attrs) do
+    insert(creator, file, file_info, attrs)
     ~> repo().insert(files_changeset(%{id: Types.ulid(object), media: ...}))
   end
 
-  defp insert(user, file, file_info, attrs) do
-    Media.insert(user, file, file_info, attrs)
+  defp insert(creator, file, file_info, attrs) do
+    Media.insert(creator, file, file_info, attrs)
   end
 
-  defp context_id({user, _object}) do
-    Types.ulid(user)
+  defp context_id({creator, _object}) do
+    Types.ulid(creator)
   end
 
-  defp context_id(user) do
-    Types.ulid(user)
+  defp context_id(creator) do
+    Types.ulid(creator)
   end
 
   defp definition_module(module \\ nil, file_info)
@@ -271,7 +271,7 @@ defmodule Bonfire.Files do
     do: entrepot_remote_url(locator, version)
 
   def remote_url(module, %Media{} = media, version) when is_atom(module) and not is_nil(module),
-    do: module.url({media.path, %{user_id: media.user_id}}, version)
+    do: module.url({media.path, %{creator_id: media.creator_id}}, version)
 
   def remote_url(module, media_id, version)
       when is_binary(media_id) and is_atom(module) and not is_nil(module) do

@@ -32,13 +32,13 @@ defmodule Bonfire.Files.Simulation do
   def pdf_file, do: @pdf_file
 
   def fake_upload(file, upload_def \\ nil) do
-    user = fake_user!()
+    creator = fake_user!()
 
     upload_def =
       upload_def ||
         Faker.Util.pick([IconUploader, ImageUploader, DocumentUploader])
 
-    Files.upload(upload_def, user, file, %{})
+    Files.upload(upload_def, creator, file, %{})
   end
 
   def geometry(path) do
