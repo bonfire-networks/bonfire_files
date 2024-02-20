@@ -5,14 +5,23 @@ defmodule Bonfire.Files.Media do
     table_id: "30NF1REF11ESC0NTENT1SGREAT",
     source: "bonfire_files_media"
 
+  use Bonfire.Common.Utils
+
   import Bonfire.Common.Config, only: [repo: 0]
-  import Untangle
 
   alias Ecto.Changeset
-  alias Bonfire.Common.Enums
-  alias Bonfire.Common.Types
   alias Bonfire.Files.Media
   alias Bonfire.Files.Media.Queries
+
+  @behaviour Bonfire.Common.QueryModule
+  @behaviour Bonfire.Common.ContextModule
+  @behaviour Bonfire.Common.SchemaModule
+  def schema_module, do: __MODULE__
+  def context_module, do: __MODULE__
+  def query_module, do: Queries
+
+  @behaviour Bonfire.Federate.ActivityPub.FederationModules
+  def federation_module, do: ["Page"]
 
   @type t :: %__MODULE__{}
 
@@ -152,74 +161,71 @@ defmodule Bonfire.Files.Media do
     |> Queries.filter(filters)
     |> repo().delete_all()
   end
-end
 
-defmodule Bonfire.Files.Media.Migrations do
-  @moduledoc false
-  use Ecto.Migration
-  import Needle.Migration
-  alias Bonfire.Files.Media
-
-  defp make_media_table(exprs) do
-    quote do
-      require Needle.Migration
-
-      Needle.Migration.create_pointable_table Media do
-        Ecto.Migration.add(:user_id, Needle.Migration.strong_pointer(), null: false)
-        #  FYI user_id is renamed to creator_id in a migration
-        # Ecto.Migration.add(:creator_id, Needle.Migration.strong_pointer(), null: false) 
-
-        Ecto.Migration.add(:path, :text, null: false)
-        Ecto.Migration.add(:file, :jsonb)
-        Ecto.Migration.add(:size, :integer, null: false)
-        # see https://stackoverflow.com/a/643772 for size
-        Ecto.Migration.add(:media_type, :string, null: false, size: 255)
-        Ecto.Migration.add(:metadata, :jsonb)
-        Ecto.Migration.add(:deleted_at, :utc_datetime_usec)
-
-        unquote_splicing(exprs)
-      end
-    end
+  def media_label(%{} = media) do
+    (e(media.metadata, "label", nil) || e(media.metadata, "wikibase", "title", nil) ||
+       e(media.metadata, "crossref", "title", nil) || e(media.metadata, "oembed", "title", nil) ||
+       e(media.metadata, "facebook", "og:title", nil) ||
+       e(media.metadata, "twitter", "twitter:title", nil) ||
+       e(media.metadata, "other", "title", nil) ||
+       e(media.metadata, "orcid", "title", "title", "value", nil))
+    |> unwrap()
   end
 
-  defmacro create_media_table(), do: make_media_table([])
-  defmacro create_media_table(do: {_, _, body}), do: make_media_table(body)
+  def description(%{} = media) do
+    json_ld = e(media.metadata, "json_ld", nil)
 
-  def drop_media_table(), do: drop_pointable_table(Media)
-
-  defp make_media_path_index(opts \\ []) do
-    quote do
-      Ecto.Migration.create_if_not_exists(
-        Ecto.Migration.index("bonfire_files_media", [:path], unquote(opts))
-      )
-    end
+    (e(json_ld, "description", nil) ||
+       e(media.metadata, "facebook", "og:description", nil) ||
+       e(media.metadata, "twitter", "twitter:description", nil) ||
+       e(media.metadata, "other", "description", nil) ||
+       e(json_ld, "headline", nil) ||
+       e(media.metadata, "oembed", "abstract", nil))
+    |> unwrap()
   end
 
-  def drop_media_path_index(opts \\ []) do
-    drop_if_exists(Ecto.Migration.constraint("bonfire_files_media", :path, opts))
+  def unwrap(list) when is_list(list) do
+    List.first(list)
+    # |> unwrap()
   end
 
-  defp mc(:up) do
-    quote do
-      unquote(make_media_table([]))
-      unquote(make_media_path_index())
-    end
+  def unwrap(other) do
+    other
+    # |> to_string()
   end
 
-  defp mc(:down) do
-    quote do
-      Bonfire.Files.Media.Migrations.drop_media_path_index()
-      Bonfire.Files.Media.Migrations.drop_media_table()
-    end
+  def ap_publish_activity(subject, verb, media) do
+    # media = repo().preload(media, [:replied, activity: [:tags]])
+    # context = Threads.ap_prepare(Threads.ap_prepare(ulid(e(media, :replied, :thread_id, nil))))
+
+    {:ok, actor} = ActivityPub.Actor.get_cached(pointer: subject)
+
+    # FIXME: don't assume public
+    to = ["https://www.w3.org/ns/activitystreams#Public"]
+
+    object = %{
+      "type" => "Page",
+      "actor" => actor.ap_id,
+      "name" => media_label(media),
+      "summary" => description(media),
+      "url" => Bonfire.Common.Media.media_url(media),
+      "to" => to
+      # "context" => context,
+      # "inReplyTo" => Threads.ap_prepare(ulid(e(media, :replied, :reply_to_id, nil)))
+    }
+
+    params = %{
+      actor: actor,
+      # context: context,
+      object: object,
+      to: to,
+      pointer: ulid(media)
+    }
+
+    if verb == :edit, do: ActivityPub.update(params), else: ActivityPub.create(params)
   end
 
-  defmacro migrate_media() do
-    quote do
-      if Ecto.Migration.direction() == :up,
-        do: unquote(mc(:up)),
-        else: unquote(mc(:down))
-    end
+  def ap_receive_activity(creator, activity, object) do
+    error("TODO")
   end
-
-  defmacro migrate_media(dir), do: mc(dir)
 end
