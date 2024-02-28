@@ -8,6 +8,7 @@ defmodule Bonfire.Files.Web.UploadIconLive do
   prop set_field, :any, default: nil
   prop set_fn, :any, default: nil
   prop label, :string, default: nil
+  prop wrapper_class, :css_class, default: ["flex items-center gap-4"]
   prop label_on_hover, :boolean, default: true
 
   prop container_class, :css_class,
