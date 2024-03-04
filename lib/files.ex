@@ -7,7 +7,7 @@ defmodule Bonfire.Files do
 
   A few definitions exist as defaults inside of this namespace, but you can also define
   your own - a `Bonfire.Files.Definition` is an extension of `Waffle.Definition`,
-  however the `allowed_media_types/0` and `max_file_size/0` callback are added, 
+  however the `allowed_media_types/0` and `max_file_size/0` callback are added,
   with which you need to define what media types are accepted for these types of uploads.
   (You can also return `:all` to accept all media types).
 
@@ -320,7 +320,7 @@ defmodule Bonfire.Files do
        when is_atom(storage) and not is_nil(storage) do
     with {:ok, file} <-
            (metadata
-            |> debug("metadata")
+            # |> debug("metadata")
             |> Map.get(version) ||
               metadata
               |> Map.get(to_string(version)) ||
@@ -450,7 +450,7 @@ defmodule Bonfire.Files do
         %{character: %{peered: %{canonical_uri: actor_url}}} = creator,
         %{"name" => "Live stream preview", "url" => _gif_url} = attachment
       ) do
-    # special case for owncast stream 
+    # special case for owncast stream
     # TODO: a better way?
 
     Bonfire.Files.Acts.URLPreviews.maybe_fetch_and_save(creator, actor_url)
