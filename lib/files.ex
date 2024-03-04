@@ -318,9 +318,9 @@ defmodule Bonfire.Files do
          version
        )
        when is_atom(storage) and not is_nil(storage) do
+    # |> debug("metadata")
     with {:ok, file} <-
            (metadata
-            # |> debug("metadata")
             |> Map.get(version) ||
               metadata
               |> Map.get(to_string(version)) ||
