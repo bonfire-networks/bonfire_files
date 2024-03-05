@@ -73,11 +73,11 @@ defmodule Bonfire.Files.Prepare do
   end
 
   defp handle_responses(responses) do
-    errors = unwrap_tuples(responses, :error)
+    errors = Enums.unwrap_tuples(responses, :error)
 
     if is_nil(errors) do
       {:ok,
-       unwrap_tuples(responses, :ok)
+       Enums.unwrap_tuples(responses, :ok)
        |> Enums.deep_merge_reduce()
        |> struct(Bonfire.Files.Versions, ...)}
     else
@@ -85,7 +85,8 @@ defmodule Bonfire.Files.Prepare do
     end
   end
 
-  defp unwrap_tuples(responses, key) do
+  def unwrap_tuples(responses, key) do
+    # TODO: optimise
     Enum.filter(responses, fn resp -> elem(resp, 0) == key end)
     |> Enum.map(fn v -> elem(v, 1) end)
     |> Enum.uniq()
