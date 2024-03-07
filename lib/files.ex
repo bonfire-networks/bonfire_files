@@ -178,7 +178,7 @@ defmodule Bonfire.Files do
 
   defp maybe_move(_, upload_filename, _), do: {:ok, upload_filename}
 
-  def file_extension(path) do
+  def file_extension(path) when is_binary(path) do
     path |> Path.extname() |> String.downcase()
   end
 
@@ -438,7 +438,6 @@ defmodule Bonfire.Files do
     nil
   end
 
-  # TODO: put somewhere more reusable
   def ap_receive_attachments(creator, attachments) when is_list(attachments),
     do:
       attachments
@@ -456,9 +455,16 @@ defmodule Bonfire.Files do
     Bonfire.Files.Acts.URLPreviews.maybe_fetch_and_save(creator, actor_url)
   end
 
+  def ap_receive_attachments(creator, %{"url" => urls} = attachment) when is_list(urls) do
+    # Map.merge(attachment, url) # TODO to keep metadata
+    ap_receive_attachments(creator, urls)
+  end
+
   def ap_receive_attachments(creator, %{"url" => url} = attachment) do
     debug(creator)
     debug(attachment)
+    
+    url = Utils.e(url, "href", nil) || url
     type = attachment["mediaType"]
 
     with {:ok, uploaded} <-
