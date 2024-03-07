@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 defmodule Bonfire.Files.FileDenied do
   import Untangle
-  
+
   @enforce_keys [:message, :code, :status]
   defstruct @enforce_keys
 
@@ -29,6 +29,7 @@ defmodule Bonfire.Files.FileDenied do
 
   def new(other) do
     warn(other, "unknown mime or size")
+
     %__MODULE__{
       message: "Files with an unrecognised format or size are not allowed",
       code: "file_denied",

@@ -463,7 +463,7 @@ defmodule Bonfire.Files do
   def ap_receive_attachments(creator, %{"url" => url} = attachment) do
     debug(creator)
     debug(attachment)
-    
+
     url = Utils.e(url, "href", nil) || url
     type = attachment["mediaType"]
 
