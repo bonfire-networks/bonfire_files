@@ -1,0 +1,71 @@
+<div>
+  <Form submit="upload" change="validate" opts={"phx-target": @myself}>
+    <div class="p-5">
+      <div class="p-4 mb-0 rounded-md bg-info/10">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <div iconify="heroicons-solid:information-circle" class="w-5 h-5 text-info" aria-hidden="true" />
+          </div>
+          <div class="flex-1 ml-3 md:flex md:justify-between">
+            <p class="text-sm text-info">{@description}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex mt-5  items-start gap-6">
+        <span class="w-12 h-12 shrink-0  rounded-full flex place-content-center items-center bg-info/10">
+          <b>1</b>
+        </span>
+        <div class="flex flex-col gap-1 w-full" phx-update="ignore">
+          <h2 class="font-semibold">{l("Enter a label or description of the emoji")}</h2>
+          <input
+            name="label"
+            type="text"
+            placeholder="e.g: animation of a molotov cocktail being thrown"
+            class="input input-bordered w-full"
+          />
+        </div>
+      </div>
+
+      <div class="flex mt-5  items-start gap-6">
+        <span class="w-12 h-12 shrink-0  rounded-full flex place-content-center items-center bg-info/10">
+          <b>2</b>
+        </span>
+        <div class="flex flex-col gap-1 w-full" phx-update="ignore">
+          <h2 class="font-semibold">{l("Choose a shortcode to enter when inserting this emoji")}</h2>
+          <input
+            name="shortcode"
+            type="text"
+            placeholder="e.g: :light_my_fire:"
+            class="input input-bordered w-full"
+          />
+        </div>
+      </div>
+
+      <div class="mt-10 flex items-start gap-6">
+        <span class="w-12 h-12 shrink-0 rounded-full flex place-content-center items-center bg-info/10">
+          <b>3</b>
+        </span>
+        <div class="flex flex-col gap-1">
+          <div class="font-semibold">{l("Upload an emoji image")}</div>
+          {!-- <FileInput field="file" class="mt-4 file-input file-input-bordered w-full max-w-md" opts={"accepts": ".csv"} /> --}
+          <label for={@uploads.emoji.ref} class="w-full max-w-md">
+            <div class="text-sm py-1">{l("Select or drop a file (eg. SVG or PNG) to upload")}</div>
+            <.live_file_input upload={@uploads.emoji} class="file-input file-input-bordered" />
+          </label>
+        </div>
+      </div>
+
+      <button class="btn mt-12 btn-primary w-full rounded-full normal-case">{l("Add")}</button>
+    </div>
+  </Form>
+
+  {#if not is_nil(@existing_emoji)}
+    <div class="ml-6">
+      <h2 class="my-2 text-xl text-bold">Existing custom emoji</h2>
+      {#for {shortcode, meta} <- @existing_emoji}
+        <p class="mt-1 flex gap-2"><img src={e(meta, :url, nil)} class="w-5 h-auto max-h-5"> <code>{shortcode}</code> <span class="">({e(meta, :label, nil)})</span></p>
+      {/for}
+    </div>
+  {/if}
+</div>

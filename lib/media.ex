@@ -53,15 +53,19 @@ defmodule Bonfire.Files.Media do
   end
 
   defp changeset(media, creator, attrs) do
-    common_changeset(media, creator, attrs)
-    |> upload_changeset(attrs)
+    cs =
+      common_changeset(media, creator, attrs)
+      |> upload_changeset(attrs)
+
+    Changeset.cast(cs, %{path: Bonfire.Common.Media.media_url(cs.changes)}, @cast)
   end
 
   defp common_changeset(media, _user, attrs) do
     base_changeset(media, attrs)
     |> Changeset.validate_required(@create_required)
     |> Changeset.validate_length(:media_type, max: 255)
-    |> debug()
+
+    # |> debug()
   end
 
   defp base_changeset(media, attrs) do
@@ -81,11 +85,14 @@ defmodule Bonfire.Files.Media do
   end
 
   def insert(creator, url_or_path, file_info, attrs) do
+    meta_attrs = Map.get(attrs, :metadata) || %{}
+
     metadata =
       Map.merge(
-        Map.get(attrs, :metadata) || %{},
-        Map.drop(file_info, [:id, :size, :media_type])
+        meta_attrs,
+        file_info || %{}
       )
+      |> Map.drop([:id, :size, :media_type])
       |> Enums.filter_empty(%{})
 
     attrs =
@@ -94,7 +101,10 @@ defmodule Bonfire.Files.Media do
       |> Map.put_new(:file, url_or_path)
       |> Map.put(:path, url_or_path)
       |> Map.put(:size, file_info[:size])
-      |> Map.put(:media_type, file_info[:media_type])
+      |> Map.put(
+        :media_type,
+        meta_attrs[:media_type] || attrs[:media_type] || file_info[:media_type]
+      )
       |> Map.put(:module, file_info[:module])
       |> Map.put(:creator_id, Types.ulid(creator) || "0AND0MSTRANGERS0FF1NTERNET")
       |> Map.put(:metadata, metadata)

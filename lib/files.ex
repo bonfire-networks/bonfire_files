@@ -518,12 +518,12 @@ defmodule Bonfire.Files do
     normalise_size(default, 8)
   end
 
-  def normalise_size(size, default) when is_integer(size) do
+  def normalise_size(size, default) when is_number(size) do
     size * 1_000_000
   end
 
   def normalise_size(size, default) do
-    Types.maybe_to_integer(size, default)
+    Types.maybe_to_float(size, default)
     |> normalise_size(default)
   end
 end
