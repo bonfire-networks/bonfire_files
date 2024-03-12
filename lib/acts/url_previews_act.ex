@@ -109,7 +109,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
            if(opts[:type_fn],
              do: opts[:type_fn].(meta),
              else:
-               e(meta, :facebook, "og:type", nil) || e(meta, :oembed, "type", nil) ||
+               e(meta, :facebook, "type", nil) || e(meta, :oembed, "type", nil) ||
                  e(meta, :wikidata, "itemType", nil) || "link"
            ),
          extra <- %{

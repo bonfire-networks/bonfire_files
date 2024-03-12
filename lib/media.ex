@@ -165,8 +165,8 @@ defmodule Bonfire.Files.Media do
   def media_label(%{} = media) do
     (e(media.metadata, "label", nil) || e(media.metadata, "wikibase", "title", nil) ||
        e(media.metadata, "crossref", "title", nil) || e(media.metadata, "oembed", "title", nil) ||
-       e(media.metadata, "facebook", "og:title", nil) ||
-       e(media.metadata, "twitter", "twitter:title", nil) ||
+       e(media.metadata, "facebook", "title", nil) ||
+       e(media.metadata, "twitter", "title", nil) ||
        e(media.metadata, "other", "title", nil) ||
        e(media.metadata, "orcid", "title", "title", "value", nil))
     |> unwrap()
@@ -176,8 +176,8 @@ defmodule Bonfire.Files.Media do
     json_ld = e(media.metadata, "json_ld", nil)
 
     (e(json_ld, "description", nil) ||
-       e(media.metadata, "facebook", "og:description", nil) ||
-       e(media.metadata, "twitter", "twitter:description", nil) ||
+       e(media.metadata, "facebook", "description", nil) ||
+       e(media.metadata, "twitter", "description", nil) ||
        e(media.metadata, "other", "description", nil) ||
        e(json_ld, "headline", nil) ||
        e(media.metadata, "oembed", "abstract", nil))
