@@ -451,21 +451,42 @@ defmodule Bonfire.Files do
       ) do
     # special case for owncast stream
     # TODO: a better way?
-
     Bonfire.Files.Acts.URLPreviews.maybe_fetch_and_save(creator, actor_url)
   end
 
   def ap_receive_attachments(creator, %{"url" => urls} = attachment) when is_list(urls) do
-    # Map.merge(attachment, url) # TODO to keep metadata
-    ap_receive_attachments(creator, urls)
+    attachment = Map.drop(attachment, ["url"])
+
+    urls
+    |> Enum.map(fn
+      %{} = url ->
+        ap_receive_attachments(creator, Map.merge(attachment, url))
+
+      url when is_binary(url) ->
+        ap_receive_attachments(creator, Map.merge(attachment, %{"href" => url}))
+
+      other ->
+        error(other, "unexpected url data")
+        nil
+    end)
+    |> List.flatten()
+    |> Enums.filter_empty([])
   end
 
-  def ap_receive_attachments(creator, %{"url" => url} = attachment) do
-    debug(creator)
-    debug(attachment)
+  def ap_receive_attachments(creator, %{"url" => %{} = url} = attachment) do
+    ap_receive_attachments(creator, Map.drop(attachment, ["url"]) |> Map.merge(url))
+  end
 
-    url = Utils.e(url, "href", nil) || url
-    type = attachment["mediaType"]
+  def ap_receive_attachments(creator, url) when is_binary(url) do
+    ap_receive_attachments(creator, %{"href" => url})
+  end
+
+  def ap_receive_attachments(creator, %{} = attachment) do
+    # debug(creator)
+    debug(attachment, "handle attachment")
+
+    url = Utils.e(attachment, "href", nil) || Utils.e(attachment, "url", nil)
+    type = attachment["mediaType"] || attachment["type"]
 
     with {:ok, uploaded} <-
            upload(
