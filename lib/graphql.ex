@@ -1,4 +1,4 @@
-if Bonfire.Common.Extend.module_enabled?(Bonfire.API.GraphQL) do
+if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled do
   defmodule Bonfire.Files.GraphQL do
     import Untangle
 

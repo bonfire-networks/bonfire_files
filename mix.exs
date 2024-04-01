@@ -26,7 +26,7 @@ defmodule Bonfire.Files.MixProject do
           {:bonfire_api_graphql,
            git: "https://github.com/bonfire-networks/bonfire_api_graphql",
            branch: "main",
-           optional: true},
+           optional: true, runtime: false},
           {:ex_aws_s3, "~> 2.3", optional: true},
           {:blurhash, "~> 0.1.0", hex: :rinpatch_blurhash}
         ])
