@@ -45,15 +45,13 @@ defmodule Bonfire.Files.Acts.URLPreviews do
             urls_media = maybe_fetch_and_save(current_user, urls)
 
             text_media =
-              if module_enabled?(Bonfire.OpenScience.APIs) do
+              if module = maybe_module(Bonfire.OpenScience.APIs) do
                 (Map.get(epic.assigns, text_key) || epic.assigns[:options][text_key] || "")
                 |> String.split()
-                |> Enum.reject(
-                  &(&1 in urls or !Bonfire.OpenScience.APIs.is_pub_id_or_uri_match?(&1))
-                )
+                |> Enum.reject(&(&1 in urls or !module.is_pub_id_or_uri_match?(&1)))
                 # |> IO.inspect()
                 |> maybe_fetch_and_save(current_user, ...,
-                  fetch_fn: fn url, opts -> Bonfire.OpenScience.APIs.fetch(url, opts) end
+                  fetch_fn: fn url, opts -> module.fetch(url, opts) end
                 )
                 |> Enums.filter_empty([])
               else
