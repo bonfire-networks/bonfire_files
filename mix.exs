@@ -25,7 +25,6 @@ defmodule Bonfire.Files.MixProject do
         Mess.deps([
           {:bonfire_api_graphql,
            git: "https://github.com/bonfire-networks/bonfire_api_graphql",
-           branch: "main",
            optional: true, runtime: false},
           {:image, "~> 0.37", optional: true},
           {:ex_aws_s3, "~> 2.3", optional: true},
