@@ -20,7 +20,10 @@ defmodule Bonfire.Files.IconUploader do
   def transform(:default, {%{file_name: filename}, _scope}) do
     debug(filename, "transform")
 
-    Bonfire.Files.Image.Edit.thumbnail(filename)
+    # TODO: configurable
+    max_size = 142
+
+    Bonfire.Files.Image.Edit.thumbnail(filename, max_size)
     |> debug() ||
       :noaction
   end

@@ -1,40 +1,43 @@
 defmodule Bonfire.Files.Image.Edit do
   import Untangle
+  alias Bonfire.Files
+  alias Bonfire.Common.Extend
 
   def image(filename, max_width, max_height) do
-    ext = Bonfire.Files.file_extension_only(filename)
+    ext = Files.file_extension_only(filename)
+
+    max_size = "#{max_width}x#{max_height}"
 
     cond do
       ext not in ["jpg", "jpeg", "png", "gif", "webp"] ->
+        # to avoid error `svgload: operation is blocked`
         nil
 
-      # avoid error `svgload: operation is blocked`
       System.find_executable("vipsthumbnail") ->
         {:vipsthumbnail,
          fn input, output ->
-           "#{input} --size #{max_width}x#{max_height} --linear --export-profile srgb -o #{output}[strip]"
+           "#{input} --size #{max_size} --linear --export-profile srgb -o #{output}[strip]"
            # |> info()
          end, ext}
 
       System.find_executable("convert") ->
-        {:convert,
-         "-strip -thumbnail #{max_width}x#{max_height}> -limit area 10MB -limit disk 50MB"}
+        {:convert, "-strip -thumbnail #{max_size}> -limit area 10MB -limit disk 50MB"}
 
       true ->
-        nil
+        fn _version, %{path: filename} = waffle_file ->
+          image_resize_thumbnail(filename, max_size, waffle_file)
+        end
     end
   end
 
-  def thumbnail(filename) do
-    # TODO: configurable
-    max_size = 142
-    ext = Bonfire.Files.file_extension_only(filename)
+  def thumbnail(filename, max_size) do
+    ext = Files.file_extension_only(filename)
 
     cond do
       ext not in ["jpg", "jpeg", "png", "gif", "webp"] ->
+        # avoid error `svgload: operation is blocked`
         nil
 
-      # avoid error `svgload: operation is blocked`
       System.find_executable("vipsthumbnail") ->
         {:vipsthumbnail,
          fn input, output ->
@@ -47,8 +50,9 @@ defmodule Bonfire.Files.Image.Edit do
          "-strip -thumbnail #{max_size}x#{max_size}^ -gravity center -crop #{max_size}x#{max_size}+0+0 -limit area 10MB -limit disk 20MB"}
 
       true ->
-        &thumbnail_image/2
-        # nil
+        fn _version, %{path: filename} = waffle_file ->
+          image_resize_thumbnail(filename, max_size, waffle_file)
+        end
     end
   end
 
@@ -73,16 +77,40 @@ defmodule Bonfire.Files.Image.Edit do
       nil
   end
 
-  def thumbnail_image(_version, %{path: filename} = original_file) do
-    # TODO: configurable
-    max_size = 142
+  def banner(filename, max_width, max_height) do
+    ext = Bonfire.Files.file_extension_only(filename)
 
+    max_size = "#{max_width}x#{max_height}"
+
+    cond do
+      ext not in ["jpg", "jpeg", "png", "gif", "webp"] ->
+        # avoid error `svgload: operation is blocked`
+        nil
+
+      System.find_executable("vipsthumbnail") ->
+        {:vipsthumbnail,
+         fn input, output ->
+           "#{input} --smartcrop attention --size #{max_size} --linear --export-profile srgb -o #{output}[strip]"
+           # |> info()
+         end, ext}
+
+      System.find_executable("convert") ->
+        {:convert, "-strip -thumbnail #{max_size}> -limit area 10MB -limit disk 50MB"}
+
+      true ->
+        fn _version, %{path: filename} = waffle_file ->
+          image_resize_thumbnail(filename, max_size, waffle_file)
+        end
+    end
+  end
+
+  def image_resize_thumbnail(filename, max_size, waffle_file \\ %Waffle.File{}) do
     # TODO: return a Stream instead of creating a temp file: https://hexdocs.pm/image/Image.html#stream!/2
-
-    with {:ok, image} <- Image.thumbnail(filename, max_size, crop: :attention),
-         tmp_path <- Waffle.File.generate_temporary_path(original_file),
+    with true <- Extend.module_exists?(Image),
+         {:ok, image} <- Image.thumbnail(filename, max_size, crop: :attention),
+         tmp_path <- Waffle.File.generate_temporary_path(waffle_file),
          {:ok, _} <- Image.write(image, tmp_path) do
-      {:ok, %Waffle.File{original_file | path: tmp_path, is_tempfile?: true}}
+      {:ok, %Waffle.File{waffle_file | path: tmp_path, is_tempfile?: true}}
     else
       e ->
         error(e, "Could not create or save thumbnail")
@@ -104,7 +132,8 @@ defmodule Bonfire.Files.Image.Edit do
   `bins` is an integer number of color frequency bins the image is divided into. The default is 10.
   """
   def dominant_color(file_path_or_binary_or_stream, bins \\ 15, fallback \\ "#FFF8E7") do
-    with {:ok, img} <- Image.open(file_path_or_binary_or_stream),
+    with true <- Extend.module_exists?(Image),
+         {:ok, img} <- Image.open(file_path_or_binary_or_stream),
          {:ok, color} <-
            Image.dominant_color(img, [{:bins, bins}])
            |> debug()
@@ -121,30 +150,6 @@ defmodule Bonfire.Files.Image.Edit do
     e in MatchError ->
       error(e, "Could not calculate image color")
       fallback
-  end
-
-  def banner(filename, max_width, max_height) do
-    ext = Bonfire.Files.file_extension_only(filename)
-
-    cond do
-      ext not in ["jpg", "jpeg", "png", "gif", "webp"] ->
-        nil
-
-      # avoid error `svgload: operation is blocked`
-      System.find_executable("vipsthumbnail") ->
-        {:vipsthumbnail,
-         fn input, output ->
-           "#{input} --smartcrop attention --size #{max_width}x#{max_height} --linear --export-profile srgb -o #{output}[strip]"
-           # |> info()
-         end, ext}
-
-      System.find_executable("convert") ->
-        {:convert,
-         "-strip -thumbnail #{max_width}x#{max_height}> -limit area 10MB -limit disk 50MB"}
-
-      true ->
-        nil
-    end
   end
 
   # catch an issue when trying to blur gifs
