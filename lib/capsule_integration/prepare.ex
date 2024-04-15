@@ -85,14 +85,6 @@ defmodule Bonfire.Files.Prepare do
     end
   end
 
-  def unwrap_tuples(responses, key) do
-    # TODO: optimise
-    Enum.filter(responses, fn resp -> elem(resp, 0) == key end)
-    |> Enum.map(fn v -> elem(v, 1) end)
-    |> Enum.uniq()
-    |> Enums.filter_empty(nil)
-  end
-
   defp version_timeout do
     Application.get_env(:waffle, :version_timeout) || 15_000
   end

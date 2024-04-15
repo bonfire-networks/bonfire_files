@@ -60,13 +60,22 @@ defmodule Bonfire.Files.Image.Edit do
     # TODO: configurable
     max_size = 1024
 
-    if System.find_executable("pdftocairo"),
-      do:
+    cond do
+      System.find_executable("pdftocairo") ->
         {:pdftocairo,
          fn original_path, new_path ->
            " -png -singlefile -scale-to #{max_size} #{original_path} #{String.slice(new_path, 0..-5)}"
-         end, :png},
-      else: nil
+         end, :png}
+
+      System.find_executable("vips") ->
+        {:vips,
+         fn original_path, new_path ->
+           " copy #{original_path}[n=1,page=1,dpi=144] #{String.slice(new_path, 0..-5)}"
+         end, :png}
+
+      true ->
+        nil
+    end
   catch
     :exit, e ->
       error(e)
