@@ -6,3 +6,4 @@ fetch_favicon = "https://github.com/bonfire-networks/fetch_favicon"
 furlex = "https://github.com/bonfire-networks/furlex"
 entrepot = "https://github.com/bonfire-networks/entrepot"
 entrepot_ecto = "https://github.com/bonfire-networks/entrepot_ecto"
+
