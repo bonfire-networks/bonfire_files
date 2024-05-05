@@ -1,13 +1,12 @@
 # Bonfire.Files
 
-File management for bonfire apps.  
+File management extension for Bonfire.  
 
-Bonfire Files wraps [waffle][1] a file management library, 
-adding support for media type checking using magic bytes inside of files, 
-along with creating a [pointable][2] table for storage of file data.
+Bonfire Files wraps the `Entrepot` a file management library, 
+adding support for media type checking, image resizing, and the like, 
+along with creating a [pointable][1] table for storage of file data.
 
-[1]: https://github.com/elixir-waffle/waffle 
-[2]: https://github.com/bonfire-networks/needle
+[1]: https://github.com/bonfire-networks/needle
 
 ## Configuration
 

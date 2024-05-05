@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 defmodule Bonfire.Files do
   @moduledoc """
+  #{"./README.md" |> File.stream!() |> Enum.drop(1) |> Enum.join()}
+
   This module contains general functions for handling files, and also an Ecto schema which is a multimixin for storing one or more media attached to a Pointable object.
 
-  An uploader definition must be provided for each new upload, or will be automatically chosen based on the file type.
+  An uploader definition must be provided for each upload, or will be automatically chosen based on the file type.
 
   A few definitions exist as defaults inside of this namespace, but you can also define
   your own - a `Bonfire.Files.Definition` is an extension of `Waffle.Definition`,
