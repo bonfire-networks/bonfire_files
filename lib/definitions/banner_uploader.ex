@@ -18,13 +18,13 @@ defmodule Bonfire.Files.BannerUploader do
   end
 
   def transform(:default, {%{file_name: filename}, _scope}) do
-    # TODO: configurable
-    max_width = 580
-    max_height = 200
-
-    Bonfire.Files.Image.Edit.banner(filename, max_width, max_height) ||
+    Bonfire.Files.Image.Edit.banner(filename, max_width(), max_height()) ||
       :noaction
   end
+
+  # TODO: configurable
+  def max_width, do: 580
+  def max_height, do: 200
 
   def prefix_dir() do
     "banners"

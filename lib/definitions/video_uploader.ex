@@ -22,12 +22,16 @@ defmodule Bonfire.Files.VideoUploader do
 
     # TODO: configurable
     scrub_frames = 10 * 26
-    max_size = Bonfire.Files.ImageUploader.max_width()
+    max_size = "#{max_width()}x#{max_height()}"
 
     Bonfire.Files.Image.Edit.thumbnail_video(filename, scrub_frames, max_size)
     |> debug() ||
       :skip
   end
+
+  # TODO: configurable
+  def max_width, do: 644
+  def max_height, do: 362
 
   def prefix_dir() do
     "videos"

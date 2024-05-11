@@ -149,8 +149,15 @@ defmodule Bonfire.Files.Image.Edit do
          {:ok, image} <-
            Image.Video.image_from_video(video, frame: frame_to_scrub(scrub_sec, fps, frame_count))
            |> IO.inspect(label: "thumbnail_video_image") do
-      # image_resize_thumbnail(image, max_size, waffle_file) # FIXME: results in `Unknown image type ".mp4"`
-      image_save_temp_file(image, waffle_file, "#{Waffle.File.generate_temporary_path()}.jpg")
+      # FIXME: results in `Unknown image type ".mp4"`
+      image_resize_thumbnail(
+        image,
+        max_size,
+        waffle_file,
+        "#{Waffle.File.generate_temporary_path()}.jpg"
+      )
+
+      # image_save_temp_file(image, waffle_file, "#{Waffle.File.generate_temporary_path()}.jpg")
     else
       e ->
         IO.warn(inspect(e))
@@ -178,11 +185,11 @@ defmodule Bonfire.Files.Image.Edit do
     |> IO.inspect(label: "thumbnail_video_frame_to_scrub")
   end
 
-  def image_resize_thumbnail(image, max_size, waffle_file \\ %Waffle.File{}) do
+  def image_resize_thumbnail(image, max_size, waffle_file \\ %Waffle.File{}, tmp_path \\ nil) do
     # TODO: return a Stream instead of creating a temp file: https://hexdocs.pm/image/Image.html#stream!/2
     with true <- Extend.module_exists?(Image),
          {:ok, image} <- Image.thumbnail(image, max_size, crop: :attention) do
-      image_save_temp_file(image, waffle_file)
+      image_save_temp_file(image, waffle_file, tmp_path)
     else
       e ->
         error(e, "Could not create or save thumbnail")
