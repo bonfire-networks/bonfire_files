@@ -85,17 +85,37 @@ defmodule Bonfire.Files.MediaEdit do
 
   @doc "Converts video into a browser-supported format. NOTE: in dev mode on OSX, you can install ffmpeg with maximal features using https://gist.github.com/Piasy/b5dfd5c048eb69d1b91719988c0325d8?permalink_comment_id=3812563#gistcomment-3812563"
   def video_convert(_filename) do
-    # {:ffmpeg,
-    #      fn original_path, new_path -> # VP9, see https://trac.ffmpeg.org/wiki/Encode/VP9
+    # {
+    #  to VP9 webm, see https://trac.ffmpeg.org/wiki/Encode/VP9
+    # :ffmpeg,
+    #      fn original_path, new_path -> 
     #        " -i #{original_path} -c:v libvpx-vp9 -b:v 0 -crf 30 -pass 1 -an -f null /dev/null && \
     # ffmpeg -i #{original_path} -c:v libvpx-vp9 -b:v 0 -crf 30 -pass 2 -c:a libopus #{new_path}"
     #      end, :webm}
 
     {
+      # to AV1 mp4
       :ffmpeg,
-      # AV1, see https://evilmartians.com/chronicles/better-web-video-with-av1-codec
       fn original_path, new_path ->
-        " -i #{original_path} -map_metadata -1 -c:a libopus -c:v librav1e -qp 80 -tile-columns 2 -tile-rows 2 -pix_fmt yuv420p -movflags +faststart -vf scale=trunc(iw/2)*2:trunc(ih/2)*2 #{new_path}"
+        # -map_metadata -1 will remove video metadata (like the name of a tool that was used initially to create a video). Sometimes metadata is useful, but can be bad for privacy.
+        # -c:a libopus or -c:a libfdk_aac selects an audio codec.
+        # -c:v selects a video codec, a library to compress images into a video stream.
+        # -qp sets your size/quality balance for rav1e codec for AV1. The scale is from 0 to 255.
+        # -tile-columns 2 -tile-rows 2 is for speed enhancements, at the cost of a small loss in compression efficiency.
+        # -pix_fmt yuv420p (pixel format) is a trick to reduce the size of a video. Basically, it uses full resolution for brightness and a smaller resolution for color. It is a way to fool a human eye, and you can safely remove this argument if it does not work in your case.
+        # -movflags +faststart moves the important information to the beginning of the file. It allows browser to start playing video during downloading.
+        # -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" is a way to ensure the produced video will always have an even size (some codecs will only work with sizes like 300x200 and 302x200, but not with 301x200). This option tells FFmpeg to scale the source to the closest even resolution. If your video dimensions were even in the first place, it would not do anything.
+        " -i #{original_path} 
+        -map_metadata -1 
+        -c:a libopus 
+        -c:v librav1e 
+        -qp 80 
+        -tile-columns 2 
+        -tile-rows 2 
+        -pix_fmt yuv420p 
+        -movflags +faststart 
+        -vf scale=trunc(iw/2)*2:trunc(ih/2)*2 
+        #{new_path}"
       end,
       :mp4
     }
