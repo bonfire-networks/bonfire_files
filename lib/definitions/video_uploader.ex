@@ -10,7 +10,16 @@ defmodule Bonfire.Files.VideoUploader do
 
   @versions [:default, :thumbnail]
 
-  def transform(:default, _), do: :noaction
+  def transform(:default, {%{file_name: filename}, _scope}) do
+    # TODO: do the conversion async (eg. in an Oban queue)
+    # if not String.ends_with?(filename, [".mp4", ".webm", ".ogv", ".ogg"]) do 
+    #   # ^ just assume these are browser-supported for now
+    #   Bonfire.Files.MediaEdit.video_convert(filename) 
+    #   # TODO: change mime type of Media to match
+    # else 
+    :noaction
+    # end
+  end
 
   def transform(:thumbnail, {%{file_name: "http" <> _ = filename}, _scope}) do
     debug(filename, "do not extract thumbnail from url")
@@ -24,12 +33,14 @@ defmodule Bonfire.Files.VideoUploader do
     scrub_frames = 10 * 26
     max_size = "#{max_width()}x#{max_height()}"
 
-    Bonfire.Files.Image.Edit.thumbnail_video(filename, scrub_frames, max_size)
+    Bonfire.Files.MediaEdit.thumbnail_video(filename, scrub_frames, max_size)
     |> debug() ||
       :skip
   end
 
   # TODO: configurable
+  # small timeout, enough only for small videos (need to refactor to convert videos async instead)
+  def transform_timeout, do: 30_000
   def max_width, do: 644
   def max_height, do: 362
 
@@ -45,8 +56,6 @@ defmodule Bonfire.Files.VideoUploader do
       # fallback 
       [
         "video/mp4",
-        "video/mpeg",
-        "video/ogg",
         "video/webm"
       ]
     )

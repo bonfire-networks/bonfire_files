@@ -18,7 +18,7 @@ defmodule Bonfire.Files.BannerUploader do
   end
 
   def transform(:default, {%{file_name: filename}, _scope}) do
-    Bonfire.Files.Image.Edit.banner(filename, max_width(), max_height()) ||
+    Bonfire.Files.MediaEdit.banner(filename, max_width(), max_height()) ||
       :noaction
   end
 

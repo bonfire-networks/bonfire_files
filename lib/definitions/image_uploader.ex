@@ -19,7 +19,7 @@ defmodule Bonfire.Files.ImageUploader do
 
   def transform(:default, {%{file_name: filename}, _scope}) do
     if not String.ends_with?(filename, ".gif") do
-      Bonfire.Files.Image.Edit.image(
+      Bonfire.Files.MediaEdit.image(
         filename,
         max_width(),
         Bonfire.Common.Config.get_ext(

@@ -87,21 +87,26 @@ defmodule Bonfire.Files do
   def upload(module, context, file, attrs, opts),
     do: maybe_do_upload(module, context, file, attrs, opts)
 
-  defp maybe_do_upload(module, context, upload_file, attrs, opts) do
-    debug(attrs, "uploads attrs")
-    debug(upload_file, "upload_file")
-    id = Needle.ULID.generate()
+  defp maybe_do_upload(module, context, %{path: upload_filename}, attrs, opts)
+       when is_binary(upload_filename),
+       do: maybe_do_upload(module, context, upload_filename, attrs, opts)
 
-    upload_filename =
-      Utils.e(upload_file, :path, nil) || Utils.e(upload_file, :filename, nil) ||
-        upload_file
+  defp maybe_do_upload(module, context, %{filename: upload_filename}, attrs, opts)
+       when is_binary(upload_filename),
+       do: maybe_do_upload(module, context, upload_filename, attrs, opts)
+
+  defp maybe_do_upload(module, context, upload_filename, attrs, opts)
+       when is_binary(upload_filename) do
+    debug(attrs, "uploads attrs")
+    debug(upload_filename, "upload_filename")
+    id = Needle.ULID.generate()
 
     file_extension = file_extension(Utils.e(attrs, :client_name, nil) || upload_filename)
 
     final_filename = "#{id}#{file_extension}"
 
-    with {:ok, tmp_filename} <- maybe_move(opts[:move_original], upload_filename, final_filename),
-         {:ok, file} <- fetch_file(module, tmp_filename),
+    with {:ok, tmp_path} <- maybe_move(opts[:move_original], upload_filename, final_filename),
+         {:ok, file} <- init_file(module, tmp_path),
          {:ok, file_info} <- extract_metadata(file),
          module when is_atom(module) and not is_nil(module) <-
            definition_module(module, file_info),
@@ -130,6 +135,9 @@ defmodule Bonfire.Files do
         |> Map.put(:file, new_paths)
       )
     else
+      {:error, [error]} ->
+        error(error)
+
       other ->
         error(other)
     end
@@ -344,7 +352,7 @@ defmodule Bonfire.Files do
     end
   end
 
-  defp fetch_file(module, file) do
+  defp init_file(module, file) do
     file
     |> Bonfire.Common.Enums.input_to_atoms()
     # handles downloading if remote URL

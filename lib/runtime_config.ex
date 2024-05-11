@@ -87,10 +87,16 @@ defmodule Bonfire.Files.RuntimeConfig do
     }
 
     video_media = %{
-      "video/mp4" => ["mp4"],
-      "video/mpeg" => ["mpeg"],
+      "video/mp4" => ["mp4", "mp4v", "mpg4"],
+      "video/mpeg" => ["mpeg", "m1v", "m2v", "mpa", "mpe", "mpg"],
       "video/ogg" => ["ogg", "ogv"],
-      "video/webm" => ["webm"]
+      "video/x-matroska" => ["mkv"],
+      "application/x-matroska" => ["mkv"],
+      "video/webm" => ["webm"],
+      "video/3gpp" => ["3gp"],
+      "video/3gpp2" => ["3g2"],
+      "video/x-msvideo" => ["avi"],
+      "video/quicktime" => ["mov", "qt"]
     }
 
     all_allowed_media =

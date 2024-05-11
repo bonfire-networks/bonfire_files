@@ -23,7 +23,7 @@ defmodule Bonfire.Files.IconUploader do
     # TODO: configurable
     max_size = 142
 
-    Bonfire.Files.Image.Edit.thumbnail(filename, max_size)
+    Bonfire.Files.MediaEdit.thumbnail(filename, max_size)
     |> debug() ||
       :noaction
   end

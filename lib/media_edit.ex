@@ -1,4 +1,4 @@
-defmodule Bonfire.Files.Image.Edit do
+defmodule Bonfire.Files.MediaEdit do
   import Untangle
   alias Bonfire.Files
   alias Bonfire.Common.Extend
@@ -60,9 +60,12 @@ defmodule Bonfire.Files.Image.Edit do
   def thumbnail_video(filename, scrub, max_size) do
     ext = Files.file_extension_only(filename)
 
+    # TODO: convert in background rather than block publication (but federation would need to be triggered when file is ready)
+
     cond do
-      # ext not in ["mp4", "ogv", "mpg", "mpeg", "webm"] ->
-      #   nil
+      ext not in ["mp4", "mpg", "mpeg"] ->
+        # TODO: support other sources, or extract thumbnail from converted video instead
+        nil
 
       Extend.module_exists?(Image.Video) ->
         {fn _version, %{path: filename} = waffle_file ->
@@ -78,6 +81,25 @@ defmodule Bonfire.Files.Image.Edit do
         nil
     end
     |> IO.inspect(label: "thumbnail_video")
+  end
+
+  @doc "Converts video into a browser-supported format. NOTE: in dev mode on OSX, you can install ffmpeg with maximal features using https://gist.github.com/Piasy/b5dfd5c048eb69d1b91719988c0325d8?permalink_comment_id=3812563#gistcomment-3812563"
+  def video_convert(_filename) do
+    # {:ffmpeg,
+    #      fn original_path, new_path -> # VP9, see https://trac.ffmpeg.org/wiki/Encode/VP9
+    #        " -i #{original_path} -c:v libvpx-vp9 -b:v 0 -crf 30 -pass 1 -an -f null /dev/null && \
+    # ffmpeg -i #{original_path} -c:v libvpx-vp9 -b:v 0 -crf 30 -pass 2 -c:a libopus #{new_path}"
+    #      end, :webm}
+
+    {
+      :ffmpeg,
+      # AV1, see https://evilmartians.com/chronicles/better-web-video-with-av1-codec
+      fn original_path, new_path ->
+        " -i #{original_path} -map_metadata -1 -c:a libopus -c:v librav1e -qp 80 -tile-columns 2 -tile-rows 2 -pix_fmt yuv420p -movflags +faststart -vf scale=trunc(iw/2)*2:trunc(ih/2)*2 #{new_path}"
+      end,
+      :mp4
+    }
+    |> IO.inspect()
   end
 
   def thumbnail_pdf(_filename) do
@@ -149,15 +171,16 @@ defmodule Bonfire.Files.Image.Edit do
          {:ok, image} <-
            Image.Video.image_from_video(video, frame: frame_to_scrub(scrub_sec, fps, frame_count))
            |> IO.inspect(label: "thumbnail_video_image") do
-      # FIXME: results in `Unknown image type ".mp4"`
+      temp_thumb = "#{Waffle.File.generate_temporary_path()}.jpg"
+
       image_resize_thumbnail(
         image,
         max_size,
         waffle_file,
-        "#{Waffle.File.generate_temporary_path()}.jpg"
+        temp_thumb
       )
 
-      # image_save_temp_file(image, waffle_file, "#{Waffle.File.generate_temporary_path()}.jpg")
+      # image_save_temp_file(image, waffle_file, temp_thumb)
     else
       e ->
         IO.warn(inspect(e))

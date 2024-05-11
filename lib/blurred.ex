@@ -97,7 +97,7 @@ defmodule Bonfire.Files.Blurred do
 
   defp make_blurred_jpeg(path, blurred_path, fallback) do
     with saved_path when is_binary(saved_path) <-
-           Bonfire.Files.Image.Edit.blur(path, blurred_path),
+           Bonfire.Files.MediaEdit.blur(path, blurred_path),
          true <- File.exists?(saved_path) do
       debug(saved_path, "saved blurred jpeg")
 
