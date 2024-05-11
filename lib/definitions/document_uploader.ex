@@ -20,7 +20,7 @@ defmodule Bonfire.Files.DocumentUploader do
   def transform(:thumbnail, {%{file_name: filename}, _scope}) do
     if String.ends_with?(filename, ".pdf") do
       debug(filename, "extract a thumbnail")
-      Bonfire.Files.Image.Edit.thumbnail_pdf(filename) || :noaction
+      Bonfire.Files.Image.Edit.thumbnail_pdf(filename) || :skip
     else
       debug(filename, "do not transform")
       :skip

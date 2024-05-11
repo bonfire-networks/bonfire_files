@@ -21,11 +21,7 @@ defmodule Bonfire.Files.ImageUploader do
     if not String.ends_with?(filename, ".gif") do
       Bonfire.Files.Image.Edit.image(
         filename,
-        Bonfire.Common.Config.get_ext(
-          :bonfire_files,
-          [__MODULE__, :max_width],
-          580
-        ),
+        max_width(),
         Bonfire.Common.Config.get_ext(
           :bonfire_files,
           [__MODULE__, :max_height],
@@ -34,6 +30,14 @@ defmodule Bonfire.Files.ImageUploader do
       )
     end ||
       :noaction
+  end
+
+  def max_width do
+    Bonfire.Common.Config.get_ext(
+      :bonfire_files,
+      [__MODULE__, :max_width],
+      580
+    )
   end
 
   def prefix_dir() do

@@ -111,7 +111,7 @@ defmodule Bonfire.Files do
            path: file.path,
            content_type: Map.get(file_info, :media_type)
          },
-         # TODO: fully deprecate old Waffle based upload (for now we pass through it do apply validation+transformation)
+         # TODO: fully deprecate old Waffle based upload (for now we pass through it do apply validation and transformations)
          {:ok, new_paths} <-
            module.prepare({
              upload_source,
@@ -208,39 +208,37 @@ defmodule Bonfire.Files do
   defp definition_module(module \\ nil, file_info)
 
   defp definition_module(nil, %{media_type: media_type}) do
-    image_types =
-      Bonfire.Common.Config.get_ext(
-        :bonfire_files,
-        # allowed types of images
-        :image_media_types,
-        # fallback
-        ["image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/tiff"]
-      )
+    cond do
+      Enum.member?(Bonfire.Files.ImageUploader.allowed_media_types(), media_type) ->
+        debug(media_type, "using ImageUploader definition based on file type")
+        Bonfire.Files.ImageUploader
 
-    all_allowed_types =
-      Bonfire.Common.Config.get_ext(
-        :bonfire_files,
-        # all other
-        :all_allowed_media_types,
-        # fallback
-        ["application/pdf"]
-      )
+      Enum.member?(Bonfire.Files.VideoUploader.allowed_media_types(), media_type) ->
+        debug(media_type, "using VideoUploader definition based on file type")
+        Bonfire.Files.VideoUploader
 
-    if Enum.member?(image_types, media_type) do
-      debug(media_type, "using ImageUploader definition based on file type")
-      Bonfire.Files.ImageUploader
-    else
-      if Enum.member?(all_allowed_types, media_type) do
-        debug(
-          media_type,
-          "using DocumentUploader definition based on file type"
-        )
+      true ->
+        if Enum.member?(
+             Bonfire.Common.Config.get_ext(
+               :bonfire_files,
+               # all other
+               :all_allowed_media_types,
+               # fallback
+               ["application/pdf"]
+             ),
+             media_type
+           ) do
+          debug(
+            media_type,
+            "using DocumentUploader definition based on file type"
+          )
 
-        Bonfire.Files.DocumentUploader
-      else
-        {:error, FileDenied.new(media_type)}
-      end
+          Bonfire.Files.DocumentUploader
+        else
+          {:error, FileDenied.new(media_type)}
+        end
     end
+    |> IO.inspect(label: "definition_module")
   end
 
   defp definition_module(module, _file_info) do

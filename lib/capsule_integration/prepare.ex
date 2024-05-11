@@ -114,6 +114,7 @@ defmodule Bonfire.Files.Prepare do
         {:ok, nil}
 
       {:ok, file} ->
+        # returns file_name of transformation
         file_name = Versioning.resolve_file_name(definition, version, {file, scope})
         file = %File{file | file_name: file_name}
 
@@ -133,8 +134,8 @@ defmodule Bonfire.Files.Prepare do
             nil
 
           _ ->
-            nil
             # cleanup!(file)
+            nil
         end
 
         # result

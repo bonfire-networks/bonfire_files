@@ -2,6 +2,7 @@ defmodule Bonfire.Files.Image.Edit do
   import Untangle
   alias Bonfire.Files
   alias Bonfire.Common.Extend
+  alias Bonfire.Common.Types
 
   def image(filename, max_width, max_height) do
     ext = Files.file_extension_only(filename)
@@ -54,6 +55,29 @@ defmodule Bonfire.Files.Image.Edit do
           image_resize_thumbnail(filename, max_size, waffle_file)
         end
     end
+  end
+
+  def thumbnail_video(filename, scrub, max_size) do
+    ext = Files.file_extension_only(filename)
+
+    cond do
+      # ext not in ["mp4", "ogv", "mpg", "mpeg", "webm"] ->
+      #   nil
+
+      Extend.module_exists?(Image.Video) ->
+        {fn _version, %{path: filename} = waffle_file ->
+           video_image_thumbnail(filename, scrub, max_size, waffle_file)
+           |> IO.inspect(label: "thumbnail_video_ran")
+         end, fn _version, _file -> "jpg" end}
+
+      # System.find_executable("convert") ->
+      #   {:convert,
+      #    "[#{scrub*30}] -strip -thumbnail #{max_size}x#{max_size}^ -gravity center -crop #{max_size}x#{max_size}+0+0 -limit area 10MB -limit disk 20MB"}
+
+      true ->
+        nil
+    end
+    |> IO.inspect(label: "thumbnail_video")
   end
 
   def thumbnail_pdf(_filename) do
@@ -113,13 +137,52 @@ defmodule Bonfire.Files.Image.Edit do
     end
   end
 
-  def image_resize_thumbnail(filename, max_size, waffle_file \\ %Waffle.File{}) do
+  def video_image_thumbnail(filename, scrub_sec, max_size, waffle_file \\ %Waffle.File{}) do
+    filename
+    |> IO.inspect(label: "thumbnail_video_run")
+
+    with true <- Extend.module_exists?(Image.Video),
+         {:ok, %{fps: fps, frame_count: frame_count} = video} <-
+           Image.Video.open(filename)
+           #  video <- Image.Video.stream!(frame: scrub_frames..scrub_frames//2) # TODO?
+           |> IO.inspect(label: "thumbnail_video_open"),
+         {:ok, image} <-
+           Image.Video.image_from_video(video, frame: frame_to_scrub(scrub_sec, fps, frame_count))
+           |> IO.inspect(label: "thumbnail_video_image") do
+      # image_resize_thumbnail(image, max_size, waffle_file) # FIXME: results in `Unknown image type ".mp4"`
+      image_save_temp_file(image, waffle_file, "#{Waffle.File.generate_temporary_path()}.jpg")
+    else
+      e ->
+        IO.warn(inspect(e))
+        error(e, "Could not generate a video thumbnail")
+        nil
+    end
+  catch
+    :exit, e ->
+      error(e)
+      nil
+
+    e ->
+      error(e)
+      nil
+  end
+
+  def frame_to_scrub(scrub_sec, fps, frame_count) do
+    scrub_frames = scrub_sec * fps
+
+    cond do
+      scrub_frames < frame_count -> scrub_frames
+      # frame_count > 35 -> frame_count-30
+      true -> Types.maybe_to_integer(frame_count / 4)
+    end
+    |> IO.inspect(label: "thumbnail_video_frame_to_scrub")
+  end
+
+  def image_resize_thumbnail(image, max_size, waffle_file \\ %Waffle.File{}) do
     # TODO: return a Stream instead of creating a temp file: https://hexdocs.pm/image/Image.html#stream!/2
     with true <- Extend.module_exists?(Image),
-         {:ok, image} <- Image.thumbnail(filename, max_size, crop: :attention),
-         tmp_path <- Waffle.File.generate_temporary_path(waffle_file),
-         {:ok, _} <- Image.write(image, tmp_path) do
-      {:ok, %Waffle.File{waffle_file | path: tmp_path, is_tempfile?: true}}
+         {:ok, image} <- Image.thumbnail(image, max_size, crop: :attention) do
+      image_save_temp_file(image, waffle_file)
     else
       e ->
         error(e, "Could not create or save thumbnail")
@@ -133,6 +196,18 @@ defmodule Bonfire.Files.Image.Edit do
     e ->
       error(e)
       nil
+  end
+
+  def image_save_temp_file(image, waffle_file \\ %Waffle.File{}, tmp_path \\ nil) do
+    tmp_path = tmp_path || Waffle.File.generate_temporary_path(waffle_file)
+
+    with {:ok, _} <- Image.write(image, tmp_path) |> IO.inspect(label: "thumbnail_video_write") do
+      {:ok, %Waffle.File{waffle_file | path: tmp_path, is_tempfile?: true}}
+    else
+      e ->
+        error(e, "Could not save image")
+        nil
+    end
   end
 
   @doc """

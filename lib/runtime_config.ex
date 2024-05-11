@@ -86,50 +86,50 @@ defmodule Bonfire.Files.RuntimeConfig do
       # "image/tiff"=> "tiff"
     }
 
+    video_media = %{
+      "video/mp4" => ["mp4"],
+      "video/mpeg" => ["mpeg"],
+      "video/ogg" => ["ogg", "ogv"],
+      "video/webm" => ["webm"]
+    }
+
     all_allowed_media =
-      Map.merge(
-        image_media,
-        %{
-          "text/plain" => ["txt"],
-          "text/markdown" => ["md"],
-          # doc
-          "text/csv" => ["csv"],
-          "text/tab-separated-values" => ["tsv"],
-          "application/pdf" => ["pdf"],
-          "application/rtf" => "rtf",
-          # "application/msword"=> ["doc", "dot"],
-          # "application/vnd.openxmlformats-officedocument.wordprocessingml.document"=> ["docx"],
-          # "application/vnd.ms-excel"=> ["xls"],
-          # "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"=> ["xlsx"],
-          # "application/vnd.oasis.opendocument.presentation"=> ["odp"],
-          # "application/vnd.oasis.opendocument.spreadsheet"=> ["ods"],
-          # "application/vnd.oasis.opendocument.text"=> ["odt"],
-          "application/epub+zip" => ["epub"],
-          # archives
-          # "application/x-tar"=> ["tar"],
-          # "application/x-bzip"=> ["bzip"],
-          # "application/x-bzip2"=> ["bzip2"],
-          # "application/gzip"=> ["gz", "gzip"],
-          # "application/zip"=> ["zip"],
-          # "application/rar"=> ["rar"],
-          # "application/vnd.rar"=> ["rar"],
-          # "application/x-7z-compressed"=> ["7z"],
-          # audio
-          "audio/mpeg" => ["mpa", "mp2"],
-          "audio/aac" => ["aac"],
-          "audio/mp3" => ["mp3"],
-          "audio/ogg" => ["ogg", "oga"],
-          "audio/wav" => ["wav"],
-          "audio/webm" => ["webm"],
-          "audio/opus" => ["opus"],
-          "audio/flac" => ["flac"],
-          # video
-          "video/mp4" => ["mp4"],
-          "video/mpeg" => ["mpeg"],
-          "video/ogg" => ["ogg", "ogv"],
-          "video/webm" => ["webm"]
-        }
-      )
+      Map.merge(image_media, video_media)
+      |> Map.merge(%{
+        "text/plain" => ["txt"],
+        "text/markdown" => ["md"],
+        # doc
+        "text/csv" => ["csv"],
+        "text/tab-separated-values" => ["tsv"],
+        "application/pdf" => ["pdf"],
+        "application/rtf" => "rtf",
+        # "application/msword"=> ["doc", "dot"],
+        # "application/vnd.openxmlformats-officedocument.wordprocessingml.document"=> ["docx"],
+        # "application/vnd.ms-excel"=> ["xls"],
+        # "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"=> ["xlsx"],
+        # "application/vnd.oasis.opendocument.presentation"=> ["odp"],
+        # "application/vnd.oasis.opendocument.spreadsheet"=> ["ods"],
+        # "application/vnd.oasis.opendocument.text"=> ["odt"],
+        "application/epub+zip" => ["epub"],
+        # archives
+        # "application/x-tar"=> ["tar"],
+        # "application/x-bzip"=> ["bzip"],
+        # "application/x-bzip2"=> ["bzip2"],
+        # "application/gzip"=> ["gz", "gzip"],
+        # "application/zip"=> ["zip"],
+        # "application/rar"=> ["rar"],
+        # "application/vnd.rar"=> ["rar"],
+        # "application/x-7z-compressed"=> ["7z"],
+        # audio
+        "audio/mpeg" => ["mpa", "mp2"],
+        "audio/aac" => ["aac"],
+        "audio/mp3" => ["mp3"],
+        "audio/ogg" => ["ogg", "oga"],
+        "audio/wav" => ["wav"],
+        "audio/webm" => ["webm"],
+        "audio/opus" => ["opus"],
+        "audio/flac" => ["flac"]
+      })
 
     all_allowed_media_types = all_allowed_media |> Map.keys()
 
@@ -141,10 +141,17 @@ defmodule Bonfire.Files.RuntimeConfig do
     image_media_extensions =
       image_media |> Map.values() |> List.flatten() |> Enum.uniq() |> Enum.map(&".#{&1}")
 
+    video_media_types = video_media |> Map.keys()
+
+    video_media_extensions =
+      video_media |> Map.values() |> List.flatten() |> Enum.uniq() |> Enum.map(&".#{&1}")
+
     config :bonfire_files,
       image_media_types: image_media_types,
       image_media_extensions: image_media_extensions,
+      # TODO: put sizes in env
       max_user_images_file_size: 8,
+      max_user_video_file_size: 20,
       max_docs_file_size: 6,
       all_allowed_media_types: all_allowed_media_types,
       all_allowed_media_extensions: all_allowed_media_extensions
@@ -152,6 +159,10 @@ defmodule Bonfire.Files.RuntimeConfig do
     config :bonfire_files, Bonfire.Files.DocumentUploader,
       allowed_media_types: all_allowed_media_types,
       allowed_media_extensions: all_allowed_media_extensions
+
+    config :bonfire_files, Bonfire.Files.VideoUploader,
+      allowed_media_types: video_media_types,
+      allowed_media_extensions: video_media_extensions
 
     config :bonfire_files, Bonfire.Files.IconUploader,
       allowed_media_types: image_media_types,
