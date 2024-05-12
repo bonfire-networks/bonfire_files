@@ -30,10 +30,16 @@ defmodule Bonfire.Files.VideoUploader do
     debug(filename, "transform")
 
     # TODO: configurable
-    scrub_frames = 10 * 26
+    scrub_seconds = 10
+    scrub_percent = 15
+    scrub_frames = nil
     max_size = "#{max_width()}x#{max_height()}"
 
-    Bonfire.Files.MediaEdit.thumbnail_video(filename, scrub_frames, max_size)
+    Bonfire.Files.MediaEdit.thumbnail_video(filename, max_size,
+      seconds: scrub_seconds,
+      frames: scrub_frames,
+      percent: scrub_percent
+    )
     |> debug() ||
       :skip
   end

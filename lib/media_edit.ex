@@ -57,19 +57,34 @@ defmodule Bonfire.Files.MediaEdit do
     end
   end
 
-  def thumbnail_video(filename, scrub, max_size) do
+  def thumbnail_video(filename, max_size, scrub_opts) do
     ext = Files.file_extension_only(filename)
 
     # TODO: convert in background rather than block publication (but federation would need to be triggered when file is ready)
 
     cond do
+      System.find_executable("ffmpegthumbnailer") ->
+        {:ffmpegthumbnailer,
+         fn input, output ->
+           "-i #{input} -t #{scrub_opts[:percent]} -s #{max_size} -q 9 -o #{output}"
+         end, "jpg"}
+
+      # -t: time to seek to (percentage or absolute time hh:mm:ss) (default: 10)
+      # -s: size of the generated thumbnail in pixels (use 0 for original size) (default value: 128)
+      # -q: image quality (0 = bad, 10 = best) (default: 8) only applies to jpeg output
+      # -a: ignore aspect ratio and generate square thumbnail
+      # -c: override image format (jpeg or png) (default: determined by filename)
+      # -w: workaround some issues in older versions of ffmpeg (only use if you experience problems like 100% cpu usage on certain files)
+      # -rN: repeat thumbnail generation each N seconds, N=0 means disable repetition (default: 0)
+      # -f: use this option to overlay a movie strip on the generated thumbnail
+
       ext not in ["mp4", "mpg", "mpeg"] ->
         # TODO: support other sources, or extract thumbnail from converted video instead
         nil
 
       Extend.module_exists?(Image.Video) ->
         {fn _version, %{path: filename} = waffle_file ->
-           video_image_thumbnail(filename, scrub, max_size, waffle_file)
+           video_image_thumbnail(filename, max_size, scrub_opts, waffle_file)
            |> IO.inspect(label: "thumbnail_video_ran")
          end, fn _version, _file -> "jpg" end}
 
@@ -179,7 +194,7 @@ defmodule Bonfire.Files.MediaEdit do
     end
   end
 
-  def video_image_thumbnail(filename, scrub_sec, max_size, waffle_file \\ %Waffle.File{}) do
+  def video_image_thumbnail(filename, max_size, scrub_opts, waffle_file \\ %Waffle.File{}) do
     filename
     |> IO.inspect(label: "thumbnail_video_run")
 
@@ -189,7 +204,9 @@ defmodule Bonfire.Files.MediaEdit do
            #  video <- Image.Video.stream!(frame: scrub_frames..scrub_frames//2) # TODO?
            |> IO.inspect(label: "thumbnail_video_open"),
          {:ok, image} <-
-           Image.Video.image_from_video(video, frame: frame_to_scrub(scrub_sec, fps, frame_count))
+           Image.Video.image_from_video(video,
+             frame: frame_to_scrub(fps, frame_count, scrub_opts)
+           )
            |> IO.inspect(label: "thumbnail_video_image") do
       temp_thumb = "#{Waffle.File.generate_temporary_path()}.jpg"
 
@@ -217,13 +234,23 @@ defmodule Bonfire.Files.MediaEdit do
       nil
   end
 
-  def frame_to_scrub(scrub_sec, fps, frame_count) do
-    scrub_frames = scrub_sec * fps
+  def frame_to_scrub(fps, frame_count, scrub_opts) do
+    percent = scrub_opts[:percent]
+    scrub_frames = scrub_opts[:frames] || (scrub_opts[:seconds] || 5) * (fps || 30)
 
     cond do
-      scrub_frames < frame_count -> scrub_frames
+      is_number(percent) and is_number(frame_count) ->
+        Types.maybe_to_integer(frame_count / percent)
+
+      scrub_frames < frame_count ->
+        scrub_frames
+
       # frame_count > 35 -> frame_count-30
-      true -> Types.maybe_to_integer(frame_count / 4)
+      is_number(frame_count) ->
+        Types.maybe_to_integer(frame_count / 2)
+
+      true ->
+        1
     end
     |> IO.inspect(label: "thumbnail_video_frame_to_scrub")
   end
