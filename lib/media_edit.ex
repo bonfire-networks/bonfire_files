@@ -63,6 +63,16 @@ defmodule Bonfire.Files.MediaEdit do
     # TODO: convert in background rather than block publication (but federation would need to be triggered when file is ready)
 
     cond do
+      System.find_executable("ffmpeg") ->
+        {:ffmpeg,
+         fn input, output ->
+           "-hide_banner -i #{input} -frames:v 1 -vf thumbnail=150,scale=#{max_size} #{output}"
+         end, "jpg"}
+
+      # -frames:v 1: number of frames
+      # -vf thumbnail=300: analyse N frames and pick most "significant" one
+      # -vf scale=300: scale while preserving aspect ratio
+
       System.find_executable("ffmpegthumbnailer") ->
         {:ffmpegthumbnailer,
          fn input, output ->
