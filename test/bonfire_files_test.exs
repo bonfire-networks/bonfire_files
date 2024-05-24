@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 defmodule Bonfire.Files.Test do
   use Bonfire.DataCase, async: true
+  @moduletag :backend
 
   import Bonfire.Files.Simulation
 
