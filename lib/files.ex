@@ -246,7 +246,8 @@ defmodule Bonfire.Files do
           {:error, FileDenied.new(media_type)}
         end
     end
-    |> IO.inspect(label: "definition_module")
+
+    # |> IO.inspect(label: "definition_module")
   end
 
   defp definition_module(module, _file_info) do
