@@ -161,14 +161,24 @@ defmodule Bonfire.Files do
           {:error, FileDenied.new(media_type)}
         end
     end
+    |> debug("validated?")
   end
 
   def validate({_file, %{file_info: %{} = file_info}}, allowed_media_types, max_file_size) do
     validate(file_info, allowed_media_types, max_file_size)
   end
 
+  def validate({%{path: path}, _}, allowed_media_types, max_file_size) when is_binary(path) do
+    extract_metadata(path)
+    ~> validate(allowed_media_types, max_file_size)
+  end
+
+  def validate({path, _}, allowed_media_types, max_file_size) when is_binary(path) do
+    extract_metadata(path)
+    ~> validate(allowed_media_types, max_file_size)
+  end
+
   def validate(other, _, _) do
-    # TODO: `Files.extract_metadata` here as fallback?
     error(other, "File info not available so file type and/or size could not be validated")
   end
 

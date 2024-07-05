@@ -56,7 +56,7 @@ defmodule Bonfire.Files.FaviconStore do
   def cached_or_fetch(url, opts \\ [])
 
   def cached_or_fetch(url, opts) do
-    info(url, "url")
+    debug(url, "lookup for url")
     host = URI.parse(url).host
 
     if host && host != "" do
@@ -67,8 +67,10 @@ defmodule Bonfire.Files.FaviconStore do
         debug(host, "favicon already cached :)")
         {:ok, "/" <> path}
       else
-        if File.exists?("#{storage_dir()}/#{filename}_none") do
-          debug(host, "no favicon previously found")
+        path_if_none = "#{path}_none"
+
+        if File.exists?(path_if_none) do
+          debug(path_if_none, "no favicon found previously, skip")
           nil
         else
           debug(host, "first time, try finding a favicon for")
@@ -83,9 +85,7 @@ defmodule Bonfire.Files.FaviconStore do
   defp fetch(url, filename, path, _opts) do
     with {:ok, image} <- FetchFavicon.fetch(url),
          {:ok, filename} <- store(%{filename: filename, binary: image}),
-         path <- "#{storage_dir()}/#{filename}",
-         {:ok, file_info} <- Files.extract_metadata(path),
-         :ok <- Files.verify_media_type(__MODULE__, file_info) do
+         path <- "#{storage_dir()}/#{filename}" do
       # Files.data_url(image, meta.media_type)
       {:ok, "/" <> path}
     else
@@ -93,6 +93,7 @@ defmodule Bonfire.Files.FaviconStore do
         File.write("#{path}_none", "")
         e
     end
+    |> debug()
   end
 
   def storage_dir(_ \\ nil, _ \\ nil) do
