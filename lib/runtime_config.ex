@@ -128,6 +128,9 @@ defmodule Bonfire.Files.RuntimeConfig do
         # "application/x-7z-compressed"=> ["7z"],
         # audio
         "audio/mpeg" => ["mpa", "mp2"],
+        "audio/m4a" => ["m4a"],
+        "audio/mp4" => ["m4a", "mp4"],
+        "audio/x-m4a" => ["m4a"],
         "audio/aac" => ["aac"],
         "audio/mp3" => ["mp3"],
         "audio/ogg" => ["ogg", "oga"],
