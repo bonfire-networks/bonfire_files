@@ -8,6 +8,7 @@ defmodule Bonfire.Files.Definition do
   """
 
   @callback allowed_media_types() :: [binary] | :all
+  @callback max_file_size() :: [integer] | :all
 
   defmacro __using__(_opts) do
     quote do
@@ -25,6 +26,7 @@ defmodule Bonfire.Files.Definition do
       alias Bonfire.Files.FileDenied
 
       @acl :public_read
+
 
       def upload(creator, file, attrs \\ %{}, opts \\ []) do
         Files.upload(__MODULE__, creator, file, attrs, opts)

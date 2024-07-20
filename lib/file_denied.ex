@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 defmodule Bonfire.Files.FileDenied do
   import Untangle
+  alias Sizeable
 
   @enforce_keys [:message, :code, :status]
   defstruct @enforce_keys
@@ -13,7 +14,7 @@ defmodule Bonfire.Files.FileDenied do
 
   def new(size) when is_number(size) do
     %__MODULE__{
-      message: "This file exceeds the maximum upload size #{size}",
+      message: "This file exceeds the maximum upload size #{Sizeable.filesize(size)}",
       code: "file_denied",
       status: 415
     }
