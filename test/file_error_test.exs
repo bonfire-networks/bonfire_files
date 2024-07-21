@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 defmodule Bonfire.Files.Test.FileErrors do
-  use Bonfire.DataCase, async: false
+  use Bonfire.DataCase, async: true
   @moduletag :backend
 
   import Bonfire.Files.Simulation
@@ -17,16 +17,14 @@ defmodule Bonfire.Files.Test.FileErrors do
   alias Bonfire.Files.Media
 
   @doc """
-  This macro temporarily replaces an environment variable for testing purposes.
-  Since the environment is global to the process, this is not async safe and might interfere with other tests if run in parallel.
+  This macro temporarily replaces a config variable for testing purposes.
   """
   defmacro with_var(app, key, value, do: expression) do
     quote do
       {app, key, value} = {unquote(app), unquote(key), unquote(value)}
-      old_value = Application.get_env(app, key)
-      Application.put_env(app, key, value)
+      Process.put([app, key], value)
       result = unquote(expression)
-      Application.put_env(app, key, old_value)
+      Process.delete([app, key])
 
       result
     end

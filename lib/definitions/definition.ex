@@ -27,7 +27,6 @@ defmodule Bonfire.Files.Definition do
 
       @acl :public_read
 
-
       def upload(creator, file, attrs \\ %{}, opts \\ []) do
         Files.upload(__MODULE__, creator, file, attrs, opts)
       end
