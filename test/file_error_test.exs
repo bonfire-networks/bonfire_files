@@ -16,31 +16,18 @@ defmodule Bonfire.Files.Test.FileErrors do
   alias Bonfire.Files.ImageUploader
   alias Bonfire.Files.Media
 
-  @doc """
-  This macro temporarily replaces a config variable for testing purposes.
-  """
-  defmacro with_var(app, key, value, do: expression) do
-    quote do
-      {app, key, value} = {unquote(app), unquote(key), unquote(value)}
-      Process.put([app, key], value)
-      result = unquote(expression)
-      Process.delete([app, key])
-
-      result
-    end
-  end
-
   describe "file size check" do
+    setup do
+      Process.put([:bonfire_files, :max_user_images_file_size], 0.0001)
+      on_exit(fn -> Process.delete([:bonfire_files, :max_user_images_file_size]) end)
+    end
+
     test "file is too big" do
-      max_size = 0.0001
+      {:error, %FileDenied{message: message, code: code}} =
+        Files.upload(ImageUploader, fake_user!(), icon_file())
 
-      with_var(:bonfire_files, :max_user_images_file_size, 0.0001) do
-        {:error, %FileDenied{message: message, code: code}} =
-          Files.upload(ImageUploader, fake_user!(), icon_file())
-
-        assert message == "This file exceeds the maximum upload size 100 B"
-        assert code == "file_denied"
-      end
+      assert message == "This file exceeds the maximum upload size 100 B"
+      assert code == "file_denied"
     end
   end
 
