@@ -8,6 +8,7 @@ defmodule Bonfire.Files.Definition do
   """
 
   @callback allowed_media_types() :: [binary] | :all
+  @callback max_file_size() :: [integer] | :all
 
   defmacro __using__(_opts) do
     quote do
