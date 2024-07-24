@@ -2,6 +2,7 @@
 defmodule Bonfire.Files.FileDenied do
   import Untangle
   alias Sizeable
+  use Bonfire.Common.Localise
 
   @enforce_keys [:message, :code, :status]
   defstruct @enforce_keys
@@ -14,7 +15,7 @@ defmodule Bonfire.Files.FileDenied do
 
   def new(size) when is_number(size) do
     %__MODULE__{
-      message: "This file exceeds the maximum upload size #{Sizeable.filesize(size)}",
+      message: l("This file exceeds the maximum upload size of %{size}", size: Sizeable.filesize(size)),
       code: "file_denied",
       status: 415
     }
@@ -22,7 +23,7 @@ defmodule Bonfire.Files.FileDenied do
 
   def new(mime_type) when is_binary(mime_type) do
     %__MODULE__{
-      message: "Files with the format of #{mime_type} are not allowed",
+      message: l("Files with the format of %{type} are not allowed", type: mime_type),
       code: "file_denied",
       status: 415
     }
@@ -32,7 +33,7 @@ defmodule Bonfire.Files.FileDenied do
     warn(other, "unknown mime or size")
 
     %__MODULE__{
-      message: "Files with an unrecognised format or size are not allowed",
+      message: l("Files with an unrecognised format or size are not allowed"),
       code: "file_denied",
       status: 415
     }

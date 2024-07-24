@@ -26,7 +26,7 @@ defmodule Bonfire.Files.Test.FileErrors do
       {:error, %FileDenied{message: message, code: code}} =
         Files.upload(ImageUploader, fake_user!(), icon_file())
 
-      assert message == "This file exceeds the maximum upload size 100 B"
+      assert message == "This file exceeds the maximum upload size of 100 B"
       assert code == "file_denied"
     end
   end
