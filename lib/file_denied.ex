@@ -15,7 +15,8 @@ defmodule Bonfire.Files.FileDenied do
 
   def new(size) when is_number(size) do
     %__MODULE__{
-      message: l("This file exceeds the maximum upload size of %{size}", size: Sizeable.filesize(size)),
+      message:
+        l("This file exceeds the maximum upload size of %{size}", size: Sizeable.filesize(size)),
       code: "file_denied",
       status: 415
     }

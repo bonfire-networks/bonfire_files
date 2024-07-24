@@ -53,7 +53,7 @@ defmodule Bonfire.Files.ResponsiveImage do
   end
 
   defmacro __before_compile__(_env) do
-    ResponsiveImage.resize_timed(Module.get_attribute(__CALLER__.module, :image))
+    Bonfire.Files.ResponsiveImage.resize_timed(Module.get_attribute(__CALLER__.module, :image))
   end
 
   def resize_timed(images) do

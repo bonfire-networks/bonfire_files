@@ -37,6 +37,7 @@ defmodule Bonfire.Files.IconUploader do
     "icons"
   end
 
+  @impl true
   def allowed_media_types do
     Bonfire.Common.Config.get_ext(
       :bonfire_files,
@@ -47,6 +48,7 @@ defmodule Bonfire.Files.IconUploader do
     )
   end
 
+  @impl true
   def max_file_size do
     Files.normalise_size(
       Bonfire.Common.Config.get([:bonfire_files, :max_user_images_file_size]),

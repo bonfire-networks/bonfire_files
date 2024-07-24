@@ -28,7 +28,9 @@ defmodule Bonfire.Files.LiveHandler do
     set_field = e(socket.assigns, :set_field, nil)
     set_fn = e(socket.assigns, :set_fn, &set_fallback/5)
 
-    if user && (id(user) == id(object) or Bonfire.Boundaries.can?(user, boundary_verb, object)) &&
+    if user &&
+         (id(user) == id(object) or
+            maybe_apply(Bonfire.Boundaries, :can?, [user, boundary_verb, object])) &&
          entry.done? do
       with %{} = uploaded_media <-
              maybe_consume_uploaded_entry(socket, entry, fn %{path: path} = metadata ->
