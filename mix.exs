@@ -29,8 +29,7 @@ defmodule Bonfire.Files.MixProject do
           {:image, "~> 0.37", optional: true},
           {:evision, "~> 0.1", optional: true},
           {:ex_aws_s3, "~> 2.3", optional: true},
-          {:blurhash, "~> 0.1.0", hex: :rinpatch_blurhash},
-          {:sizeable, "~>1.0 "}
+          {:blurhash, "~> 0.1.0", hex: :rinpatch_blurhash}
         ])
     ]
   end
