@@ -15,13 +15,11 @@ defmodule Bonfire.Files do
 
   To use the uploader:
 
-  ```
-  iex> {:ok, media} = Bonfire.Files.upload(MyUploader, creator_or_context, %{path: "./150.png"})
-  iex> media.media_type
-  "image/png"
-  iex> Bonfire.Files.remote_url(MyUploader, media)
-  "/uploads/my/01F3AY6JV30G06BY4DR9BTW5EH"
-  ```
+      iex> {:ok, media} = Bonfire.Files.upload(MyUploader, creator_or_context, %{path: "./150.png"})
+      iex> media.media_type
+    "image/png"
+      iex> Bonfire.Files.remote_url(MyUploader, media)
+    "/uploads/my/01F3AY6JV30G06BY4DR9BTW5EH"
   """
 
   use Needle.Mixin,
