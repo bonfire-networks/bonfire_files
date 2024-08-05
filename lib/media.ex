@@ -235,7 +235,7 @@ defmodule Bonfire.Files.Media do
     if verb == :edit, do: ActivityPub.update(params), else: ActivityPub.create(params)
   end
 
-  def ap_receive_activity(creator, activity, object) do
+  def ap_receive_activity(_creator, _activity, _object) do
     error("TODO")
   end
 end

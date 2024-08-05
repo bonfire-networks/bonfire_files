@@ -18,7 +18,7 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled do
       end
     end
 
-    def upload(creator, _params, _info) do
+    def upload(_creator, _params, _info) do
       {:ok, %{}}
     end
 

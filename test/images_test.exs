@@ -37,7 +37,7 @@ defmodule Bonfire.Files.ImagesTest do
       assert {:ok, upload} = fake_upload(image_file(), ImageUploader)
 
       if !System.get_env("CI") do
-        w =
+        _w =
           Bonfire.Common.Config.get_ext(
             :bonfire_files,
             [__MODULE__, :max_width],
