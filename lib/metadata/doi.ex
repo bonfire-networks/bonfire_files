@@ -1,5 +1,5 @@
 defmodule Bonfire.Files.DOI do
-  alias Furlex.Fetcher
+  alias Unfurl.Fetcher
   alias Bonfire.Common.Utils
   alias Bonfire.Common.HTTP
   import Untangle

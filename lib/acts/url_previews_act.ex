@@ -100,7 +100,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
 
   defp do_maybe_fetch_and_save(current_user, url, opts) do
     with {:ok, meta} <-
-           if(opts[:fetch_fn], do: opts[:fetch_fn].(url, opts), else: Furlex.unfurl(url, opts)),
+           if(opts[:fetch_fn], do: opts[:fetch_fn].(url, opts), else: Unfurl.unfurl(url, opts)),
          # note: canonical url is only set if different from original url, so we only check each unique url once
          canonical_url <- Map.get(meta, :canonical_url),
          media_type <-

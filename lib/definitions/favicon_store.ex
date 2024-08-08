@@ -83,7 +83,7 @@ defmodule Bonfire.Files.FaviconStore do
   end
 
   defp fetch(url, filename, path, _opts) do
-    with {:ok, image} <- FetchFavicon.fetch(url),
+    with {:ok, image} <- Faviconic.fetch(url),
          {:ok, filename} <- store(%{filename: filename, binary: image}),
          path <- "#{storage_dir()}/#{filename}" do
       # Files.data_url(image, meta.media_type)

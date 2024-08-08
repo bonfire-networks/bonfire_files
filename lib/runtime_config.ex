@@ -5,7 +5,7 @@ defmodule Bonfire.Files.RuntimeConfig do
   def config do
     import Config
 
-    config :furlex, Furlex.Oembed,
+    config :unfurl, Unfurl.Oembed,
       extra_providers: [
         %{
           "provider_name" => "Crossref",
