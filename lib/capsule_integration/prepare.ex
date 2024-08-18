@@ -47,8 +47,8 @@ defmodule Bonfire.Files.Prepare do
   defp put_versions(definition, {file, scope}) do
     process_timeout = version_timeout(definition)
 
-    if definition.async do
-      definition.__versions
+    if definition.async() do
+      definition.__versions()
       # |> IO.inspect()
       |> Enum.map(fn version -> async_process_version(definition, scope, version, file) end)
       # |> IO.inspect()
@@ -60,7 +60,7 @@ defmodule Bonfire.Files.Prepare do
       # |> IO.inspect()
       |> handle_responses()
     else
-      definition.__versions
+      definition.__versions()
       |> Enum.map(fn version -> process_version(definition, scope, version, file) end)
       |> ensure_all_success()
       |> Enum.map(fn result -> put_version(definition, scope, result) end)

@@ -155,7 +155,7 @@ defmodule Bonfire.Files.MediaEdit do
       System.find_executable("pdftocairo") ->
         {:pdftocairo,
          fn original_path, new_path ->
-           " -png -singlefile -scale-to #{max_size} #{original_path} #{String.slice(new_path, 0..-5)}"
+           " -png -singlefile -scale-to #{max_size} #{original_path} #{String.slice(new_path, 0..-5//1)}"
          end, :png}
 
       System.find_executable("vips") ->

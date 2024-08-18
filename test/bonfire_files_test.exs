@@ -80,12 +80,16 @@ defmodule Bonfire.Files.Test do
   end
 
   describe "soft_delete" do
-    test "updates the deletion date of the upload" do
+    test "updates the deletion date of the upload, leaves files in place" do
       assert {:ok, upload} = Files.upload(IconUploader, fake_user!(), icon_file())
+
+      assert path = Files.local_path(DocumentUploader, upload)
+      assert File.exists?(path)
 
       refute upload.deleted_at
       assert {:ok, deleted_upload} = Media.soft_delete(upload)
       assert deleted_upload.deleted_at
+      assert File.exists?(path)
     end
   end
 
@@ -93,7 +97,11 @@ defmodule Bonfire.Files.Test do
     test "removes the upload, including files" do
       assert {:ok, upload} = Files.upload(ImageUploader, fake_user!(), icon_file())
 
+      assert path = Files.local_path(ImageUploader, upload)
+      assert File.exists?(path)
+
       assert {:ok, _} = Media.hard_delete(ImageUploader, upload)
+      refute File.exists?(path)
     end
   end
 end

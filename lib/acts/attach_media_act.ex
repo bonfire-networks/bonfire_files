@@ -32,7 +32,10 @@ defmodule Bonfire.Files.Acts.AttachMedia do
         attrs = Keyword.get(epic.assigns[:options], attrs_key, %{})
         uploads_key = Keyword.get(act.options, :uploads, :uploaded_media)
 
-        uploaded_media = e(attrs, uploads_key, []) ++ e(epic.assigns, uploads_key, [])
+        uploaded_media =
+          e(attrs, uploads_key, []) ++
+            e(epic.assigns, uploads_key, []) ++
+            Keyword.get(epic.assigns[:options], uploads_key, [])
 
         case changeset do
           %Changeset{valid?: true} = changeset ->

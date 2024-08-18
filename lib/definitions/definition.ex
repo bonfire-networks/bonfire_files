@@ -36,6 +36,10 @@ defmodule Bonfire.Files.Definition do
       def remote_url(media, version),
         do: Files.remote_url(__MODULE__, media, version)
 
+      # def delete_files(media, opts \\ [])
+      # def delete_files(%Entrepot.Locator{}=media, opts), do: Bonfire.Files.entrepot_storage_apply(:delete, media)
+      # def delete_files(%{path: path}, opts), do: delete({path, opts[:creator_id]}) # for old Waffle uploads
+
       def blurred(media), do: Files.Blurred.blurred(media, definition: __MODULE__)
 
       def blurhash(media), do: Files.Blurred.blurhash(media, definition: __MODULE__)

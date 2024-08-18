@@ -75,70 +75,13 @@ defmodule Bonfire.Files.RuntimeConfig do
         asset_host: "/"
     end
 
-    # TODO: how can we make this configurable from ENV vars?
-
-    image_media = %{
-      "image/png" => "png",
-      "image/jpeg" => ["jpg", "jpeg"],
-      "image/gif" => "gif",
-      "image/svg+xml" => "svg",
-      "image/webp" => ["webp"]
-      # "image/tiff"=> "tiff"
-    }
-
-    video_media = %{
-      "video/mp4" => ["mp4", "mp4v", "mpg4"],
-      "video/mpeg" => ["mpeg", "m1v", "m2v", "mpa", "mpe", "mpg"],
-      "video/ogg" => ["ogg", "ogv"],
-      "video/x-matroska" => ["mkv"],
-      "application/x-matroska" => ["mkv"],
-      "video/webm" => ["webm"],
-      "video/3gpp" => ["3gp"],
-      "video/3gpp2" => ["3g2"],
-      "video/x-msvideo" => ["avi"],
-      "video/quicktime" => ["mov", "qt"]
-    }
+    image_media = Bonfire.Files.MimeTypes.image_media()
+    video_media = Bonfire.Files.MimeTypes.video_media()
+    extra_media = Bonfire.Files.MimeTypes.extra_media()
 
     all_allowed_media =
       Map.merge(image_media, video_media)
-      |> Map.merge(%{
-        "text/plain" => ["txt"],
-        "text/markdown" => ["md"],
-        # doc
-        "text/csv" => ["csv"],
-        "text/tab-separated-values" => ["tsv"],
-        "application/pdf" => ["pdf"],
-        "application/rtf" => "rtf",
-        # "application/msword"=> ["doc", "dot"],
-        # "application/vnd.openxmlformats-officedocument.wordprocessingml.document"=> ["docx"],
-        # "application/vnd.ms-excel"=> ["xls"],
-        # "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"=> ["xlsx"],
-        # "application/vnd.oasis.opendocument.presentation"=> ["odp"],
-        # "application/vnd.oasis.opendocument.spreadsheet"=> ["ods"],
-        # "application/vnd.oasis.opendocument.text"=> ["odt"],
-        "application/epub+zip" => ["epub"],
-        # archives
-        # "application/x-tar"=> ["tar"],
-        # "application/x-bzip"=> ["bzip"],
-        # "application/x-bzip2"=> ["bzip2"],
-        # "application/gzip"=> ["gz", "gzip"],
-        # "application/zip"=> ["zip"],
-        # "application/rar"=> ["rar"],
-        # "application/vnd.rar"=> ["rar"],
-        # "application/x-7z-compressed"=> ["7z"],
-        # audio
-        "audio/mpeg" => ["mpa", "mp2"],
-        "audio/m4a" => ["m4a"],
-        "audio/mp4" => ["m4a", "mp4"],
-        "audio/x-m4a" => ["m4a"],
-        "audio/aac" => ["aac"],
-        "audio/mp3" => ["mp3"],
-        "audio/ogg" => ["ogg", "oga"],
-        "audio/wav" => ["wav"],
-        "audio/webm" => ["webm"],
-        "audio/opus" => ["opus"],
-        "audio/flac" => ["flac"]
-      })
+      |> Map.merge(extra_media)
 
     all_allowed_media_types = all_allowed_media |> Map.keys()
 

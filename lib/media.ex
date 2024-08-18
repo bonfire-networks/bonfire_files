@@ -8,8 +8,10 @@ defmodule Bonfire.Files.Media do
   use Bonfire.Common.Utils
 
   import Bonfire.Common.Config, only: [repo: 0]
+  import Ecto.Query, only: [select: 3]
 
   alias Ecto.Changeset
+  alias Bonfire.Files
   alias Bonfire.Files.Media
   alias Bonfire.Files.Media.Queries
 
@@ -151,10 +153,12 @@ defmodule Bonfire.Files.Media do
   Delete an upload, removing any associated files.
   """
   @spec hard_delete(atom, Media.t()) :: :ok | {:error, Changeset.t()}
-  def hard_delete(module, %Media{} = media) do
+  def hard_delete(module \\ nil, %Media{} = media) do
     repo().transaction(fn ->
       with {:ok, media} <- repo().delete(media),
-           {:ok, deleted} <- module.delete({media.path, media.creator_id}) do
+           {:ok, deleted} <-
+             Files.delete_files(module, media |> debug("sddssd"), creator_id: media.creator_id)
+             |> debug("deletttt") do
         {:ok, deleted}
       end
     end)
@@ -162,14 +166,19 @@ defmodule Bonfire.Files.Media do
 
   @doc false
   def hard_delete_soft_deleted_files() do
-    delete_by(deleted: true)
+    hard_delete_by(deleted: true)
   end
 
-  # FIXME: doesn't cleanup files
-  defp delete_by(filters) do
-    Queries.query(Media)
-    |> Queries.filter(filters)
-    |> repo().delete_all()
+  defp hard_delete_by(filters) do
+    {_num, list} =
+      Queries.query(Media)
+      |> select([c], c)
+      |> Queries.filter(filters)
+      |> repo().delete_all()
+
+    # FIXME: doesn't cleanup files
+    list
+    |> Enum.map(&Files.delete_files/1)
   end
 
   def media_label(%{} = media) do
