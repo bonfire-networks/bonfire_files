@@ -20,7 +20,7 @@ defmodule Bonfire.Files.Test do
   #       for _ <- 1..5 do
   #         creator = fake_user!()
 
-  #         {:ok, upload} =
+  #         {:ok, upload} = 
   #           Files.upload(Bonfire.Files.IconUploader, creator, icon_file(), %{})
 
   #         upload

@@ -291,7 +291,7 @@ defmodule Bonfire.Files do
     do: module.url({media.path, %{creator_id: media.creator_id}}, version)
 
   def remote_url(module, media_id, version)
-      when is_binary(media_id) and is_atom(module) and not is_nil(module) do
+      when is_binary(media_id) and is_atom(module) do
     case Media.one(id: media_id) do
       {:ok, media} ->
         remote_url(module, media, version)
@@ -301,7 +301,7 @@ defmodule Bonfire.Files do
     end
   end
 
-  def remote_url(nil, %Media{metadata: %{"module" => definition}} = media, version) do
+  def remote_url(_, %Media{metadata: %{"module" => definition}} = media, version) do
     case Types.maybe_to_atom(definition) do
       module when is_atom(module) and not is_nil(module) ->
         remote_url(module, media, version)
@@ -311,22 +311,18 @@ defmodule Bonfire.Files do
     end
   end
 
-  def remote_url(nil, media_id, version) when is_binary(media_id) do
-    case Media.one(id: media_id) do
-      {:ok, media} ->
-        remote_url(media, version)
-
-      _ ->
-        nil
-    end
-  end
-
   def remote_url(_, _, _), do: nil
 
-  defp entrepot_remote_url(%Entrepot.Locator{id: id, storage: storage}, :default)
-       when is_atom(storage) and not is_nil(storage) do
-    with {:ok, file} <- storage.url(id) do
-      file
+  defp entrepot_remote_url(%Entrepot.Locator{id: id, storage: storage}, version)
+       when (is_nil(version) or version == :default) and
+              is_atom(storage) and not is_nil(storage) do
+    case storage.url(id) do
+      url when is_binary(url) ->
+        url
+
+      e ->
+        debug(e, "url not found in #{storage}")
+        nil
     end
   end
 
@@ -335,15 +331,17 @@ defmodule Bonfire.Files do
          version
        )
        when is_atom(storage) and not is_nil(storage) do
-    # |> debug("metadata")
-    with {:ok, file} <-
-           (metadata
-            |> Map.get(version) ||
-              metadata
-              |> Map.get(to_string(version)) ||
-              id)
-           |> storage.url() do
-      file
+    case metadata
+         |> debug("metadata")
+         |> Map.get(version) ||
+           metadata
+           |> Map.get(to_string(version)) do
+      version_id when is_binary(version_id) ->
+        storage.url(version_id)
+
+      e ->
+        debug(e, "version '#{inspect(version)}' not found")
+        nil
     end
   end
 
