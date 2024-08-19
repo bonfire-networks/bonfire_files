@@ -54,7 +54,7 @@ defmodule Bonfire.Files.Web.UploadEmojiLive do
     scope = e(socket.assigns, :scope, nil)
     shortcode = ":#{String.trim(shortcode, ":")}:"
 
-    with [%{path: url} = media] <-
+    with [%{id: id, path: url} = media] <-
            live_upload_files(
              Bonfire.Files.EmojiUploader,
              :emoji,
@@ -66,7 +66,7 @@ defmodule Bonfire.Files.Web.UploadEmojiLive do
              },
              socket
            ),
-         meta = %{label: label, url: url},
+         meta = %{id: id, label: label, url: url},
          {:ok, settings} <-
            Bonfire.Common.Settings.put(
              [:custom_emoji, shortcode],
