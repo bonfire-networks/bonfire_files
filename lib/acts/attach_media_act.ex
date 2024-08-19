@@ -27,7 +27,7 @@ defmodule Bonfire.Files.Acts.AttachMedia do
       true ->
         on = Keyword.fetch!(act.options, :on)
         changeset = epic.assigns[on]
-        # current_user = Keyword.fetch!(epic.assigns[:options], :current_user)
+        # current_user = Bonfire.Common.Utils.current_user(epic.assigns[:options])
         attrs_key = Keyword.get(act.options, :attrs, :post_attrs)
         attrs = Keyword.get(epic.assigns[:options], attrs_key, %{})
         uploads_key = Keyword.get(act.options, :uploads, :uploaded_media)
