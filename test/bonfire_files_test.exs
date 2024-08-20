@@ -12,6 +12,8 @@ defmodule Bonfire.Files.Test do
   alias Bonfire.Files.FileDenied
   alias Bonfire.Files.IconUploader
   alias Bonfire.Files.ImageUploader
+  alias Bonfire.Files.EmojiUploader
+
   alias Bonfire.Files.Media
 
   # describe "list_by_parent" do
@@ -64,6 +66,26 @@ defmodule Bonfire.Files.Test do
       file = %{path: "missing.gif", filename: "missing.gif"}
       assert {:error, _} = fake_upload(file)
     end
+
+    test "can define a custom emoji" do
+      me = fake_user!()
+
+      label = "test custom emoji"
+      shortcode = ":test:"
+      metadata = EmojiUploader.prepare_meta(label, shortcode)
+
+      assert {:ok, upload} = Files.upload(EmojiUploader, me, icon_file(), %{metadata: metadata})
+
+      assert path = Files.local_path(EmojiUploader, upload)
+      assert File.exists?(path)
+
+      {:ok, settings} = EmojiUploader.media_put_setting(upload, metadata, current_user: me)
+
+      assert %{url: url} =
+               Bonfire.Common.Settings.get([:custom_emoji, metadata.shortcode], nil, settings)
+
+      assert url =~ path
+    end
   end
 
   describe "remote_url" do
@@ -83,7 +105,7 @@ defmodule Bonfire.Files.Test do
     test "updates the deletion date of the upload, leaves files in place" do
       assert {:ok, upload} = Files.upload(IconUploader, fake_user!(), icon_file())
 
-      assert path = Files.local_path(DocumentUploader, upload)
+      assert path = Files.local_path(IconUploader, upload)
       assert File.exists?(path)
 
       refute upload.deleted_at

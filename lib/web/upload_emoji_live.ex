@@ -1,6 +1,8 @@
 defmodule Bonfire.Files.Web.UploadEmojiLive do
   use Bonfire.UI.Common.Web, :stateful_component
 
+  alias Bonfire.Files.EmojiUploader
+
   prop scope, :any, default: nil
   prop description, :any, default: nil
 
@@ -9,16 +11,7 @@ defmodule Bonfire.Files.Web.UploadEmojiLive do
       socket
       |> assign(assigns)
 
-    emoji =
-      case socket.assigns[:scope] |> debug("scooope") do
-        :instance ->
-          Bonfire.Common.Config.get(:custom_emoji, nil)
-
-        _ ->
-          Bonfire.Common.Settings.get(:custom_emoji, nil,
-            current_user: current_user(socket.assigns)
-          )
-      end
+    emoji = EmojiUploader.list(socket.assigns[:scope] || socket.assigns)
 
     {:ok,
      socket
@@ -33,11 +26,11 @@ defmodule Bonfire.Files.Web.UploadEmojiLive do
        accept:
          Config.get_ext(
            :bonfire_files,
-           [Bonfire.Files.EmojiUploader, :allowed_media_extensions],
+           [EmojiUploader, :allowed_media_extensions],
            ~w(.jpg .jpeg .png .gif .svg .apng)
          ),
        # TODO: make extensions configurable
-       max_file_size: Bonfire.Files.EmojiUploader.max_file_size(),
+       max_file_size: EmojiUploader.max_file_size(),
        max_entries: 1,
        auto_upload: true
        #  progress: &handle_progress/3
@@ -52,25 +45,19 @@ defmodule Bonfire.Files.Web.UploadEmojiLive do
       when is_binary(label) and label != "" and is_binary(shortcode) and shortcode != "" do
     current_user = current_user(socket)
     scope = e(socket.assigns, :scope, nil)
-    shortcode = ":#{String.trim(shortcode, ":")}:"
+    metadata = EmojiUploader.prepare_meta(label, shortcode)
 
-    with [%{id: id, path: url} = media] <-
+    with [media] <-
            live_upload_files(
-             Bonfire.Files.EmojiUploader,
+             EmojiUploader,
              :emoji,
              scope || current_user,
-             %{
-               media_type: "emoji",
-               label: label,
-               shortcode: shortcode
-             },
+             metadata,
              socket
            ),
-         meta = %{id: id, label: label, url: url},
+         setting = EmojiUploader.prepare_setting(media, metadata),
          {:ok, settings} <-
-           Bonfire.Common.Settings.put(
-             [:custom_emoji, shortcode],
-             meta,
+           EmojiUploader.put_setting(metadata, setting,
              scope: scope,
              current_user: current_user
            )
@@ -83,7 +70,7 @@ defmodule Bonfire.Files.Web.UploadEmojiLive do
         |> assign(
           existing_emoji:
             Map.merge(
-              %{shortcode => meta},
+              %{shortcode => setting},
               (socket.assigns[:existing_emoji] || []) |> Enum.into(%{})
             )
         )
