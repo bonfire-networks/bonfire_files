@@ -72,19 +72,13 @@ defmodule Bonfire.Files.Test do
 
       label = "test custom emoji"
       shortcode = ":test:"
-      metadata = EmojiUploader.prepare_meta(label, shortcode)
 
-      assert {:ok, upload} = Files.upload(EmojiUploader, me, icon_file(), %{metadata: metadata})
-
-      assert path = Files.local_path(EmojiUploader, upload)
-      assert File.exists?(path)
-
-      {:ok, settings} = EmojiUploader.media_put_setting(upload, metadata, current_user: me)
+      {:ok, settings} = Bonfire.Files.EmojiUploader.add_emoji(me, icon_file(), label, shortcode)
 
       assert %{url: url} =
-               Bonfire.Common.Settings.get([:custom_emoji, metadata.shortcode], nil, settings)
+               Bonfire.Common.Settings.get([:custom_emoji, shortcode], nil, settings)
 
-      assert url =~ path
+      assert File.exists?(String.trim_leading(url, "/"))
     end
   end
 

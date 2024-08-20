@@ -8,6 +8,7 @@ defmodule Bonfire.Files.EmojiUploader do
 
   use Bonfire.Files.Definition
   alias Bonfire.Common.Utils
+  import Bonfire.Common.Config, only: [repo: 0]
 
   @versions [:default]
 
@@ -41,6 +42,17 @@ defmodule Bonfire.Files.EmojiUploader do
   def list(scope),
     do: Bonfire.Common.Settings.get(:custom_emoji, nil, current_user: Utils.current_user(scope))
 
+  def add_emoji(user, file, label, shortcode) do
+    metadata = prepare_meta(label, shortcode)
+
+    {:ok, emoji} = Bonfire.Data.Social.Emoji.changeset(%{}) |> repo().insert()
+
+    {:ok, upload} =
+      Bonfire.Files.upload(__MODULE__, {user, emoji}, file, %{metadata: metadata})
+
+    media_put_setting(upload, metadata, current_user: user)
+  end
+
   def prepare_meta(label, shortcode) do
     shortcode = ":#{String.trim(shortcode, ":")}:"
 
@@ -52,12 +64,12 @@ defmodule Bonfire.Files.EmojiUploader do
   end
 
   def media_put_setting(media, metadata, opts) do
-    setting = prepare_setting(media, metadata)
+    setting = prepare_setting(media)
     put_setting(metadata, setting, opts)
   end
 
-  def prepare_setting(%{id: id, path: url}, metadata) do
-    %{id: id, label: metadata.label, url: url}
+  def prepare_setting(%{id: media_id, path: url, metadata: metadata}) do
+    %{id: media_id, label: metadata[:label], url: url}
   end
 
   def put_setting(metadata, setting, opts) do

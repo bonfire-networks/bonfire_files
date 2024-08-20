@@ -47,15 +47,16 @@ defmodule Bonfire.Files.Web.UploadEmojiLive do
     scope = e(socket.assigns, :scope, nil)
     metadata = EmojiUploader.prepare_meta(label, shortcode)
 
-    with [media] <-
+    with {:ok, emoji} = Bonfire.Data.Social.Emoji.changeset(%{}) |> repo().insert(),
+         [media] <-
            live_upload_files(
              EmojiUploader,
              :emoji,
-             scope || current_user,
+             {scope || current_user, emoji},
              metadata,
              socket
            ),
-         setting = EmojiUploader.prepare_setting(media, metadata),
+         setting = EmojiUploader.prepare_setting(media),
          {:ok, settings} <-
            EmojiUploader.put_setting(metadata, setting,
              scope: scope,

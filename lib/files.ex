@@ -47,7 +47,7 @@ defmodule Bonfire.Files do
     belongs_to(:media, Media, primary_key: true)
   end
 
-  @cast [:media_id]
+  @cast [:id, :media_id]
   @required [:media_id]
 
   @doc """
@@ -205,8 +205,14 @@ defmodule Bonfire.Files do
   end
 
   defp insert({creator, object}, file, file_info, attrs) do
-    insert(creator, file, file_info, attrs)
-    ~> repo().insert(files_changeset(%{id: Types.ulid(object), media: ...}))
+    # to attach media to an object
+    media = insert(creator, file, file_info, attrs)
+
+    repo().insert(
+      files_changeset(%{id: Types.ulid(object), media: media, media_id: Enums.id(media)})
+    )
+
+    media
   end
 
   defp insert(creator, file, file_info, attrs) do
@@ -267,6 +273,7 @@ defmodule Bonfire.Files do
   # end
 
   defp files_changeset(pub \\ %Files{}, params) do
+    # to attach media to an object
     pub
     |> Changeset.cast(params, @cast)
     |> Changeset.validate_required(@required)
