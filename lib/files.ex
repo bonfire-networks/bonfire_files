@@ -26,6 +26,7 @@ defmodule Bonfire.Files do
     otp_app: :bonfire_files,
     source: "bonfire_files"
 
+  use Bonfire.Common.E
   import Bonfire.Common.Config, only: [repo: 0]
   require Needle.Changesets
   use Arrows
@@ -99,7 +100,7 @@ defmodule Bonfire.Files do
     debug(upload_filename, "upload_filename")
     id = Needle.ULID.generate()
 
-    file_extension = file_extension(Utils.e(attrs, :client_name, nil) || upload_filename)
+    file_extension = file_extension(e(attrs, :client_name, nil) || upload_filename)
 
     final_filename = "#{id}#{file_extension}"
 
@@ -585,7 +586,7 @@ defmodule Bonfire.Files do
     # debug(creator)
     debug(attachment, "handle attachment")
 
-    url = Utils.e(attachment, "href", nil) || Utils.e(attachment, "url", nil)
+    url = e(attachment, "href", nil) || e(attachment, "url", nil)
     type = attachment["mediaType"] || attachment["type"]
 
     with {:ok, uploaded} <-
