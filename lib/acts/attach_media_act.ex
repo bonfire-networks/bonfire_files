@@ -32,17 +32,24 @@ defmodule Bonfire.Files.Acts.AttachMedia do
         attrs = Keyword.get(epic.assigns[:options], attrs_key, %{})
         uploads_key = Keyword.get(act.options, :uploads, :uploaded_media)
 
-        uploaded_media =
-          e(attrs, uploads_key, []) ++
-            e(epic.assigns, uploads_key, []) ++
-            Keyword.get(epic.assigns[:options], uploads_key, [])
-
         case changeset do
           %Changeset{valid?: true} = changeset ->
-            smart(epic, act, uploaded_media, "upload media")
+            uploaded_media =
+              (e(attrs, uploads_key, []) ++
+                 e(epic.assigns, uploads_key, []) ++
+                 Keyword.get(epic.assigns[:options], uploads_key, []))
+              |> List.wrap()
+              |> Enum.reject(&is_nil/1)
 
-            cast(changeset, uploaded_media)
-            |> Epic.assign(epic, on, ...)
+            if uploaded_media != [] do
+              smart(epic, act, uploaded_media, "attach media")
+
+              cast(changeset, uploaded_media)
+              |> Epic.assign(epic, on, ...)
+            else
+              maybe_debug(epic, act, changeset, "Skipping because no media to attach")
+              epic
+            end
 
           %Changeset{valid?: false} = changeset ->
             maybe_debug(epic, act, changeset, "invalid changeset")
@@ -56,7 +63,7 @@ defmodule Bonfire.Files.Acts.AttachMedia do
   end
 
   def cast(changeset, uploaded_media) do
-    List.wrap(uploaded_media)
+    uploaded_media
     |> Enum.map(fn
       {:error, e} -> raise Bonfire.Fail, invalid_argument: e
       m -> %{media: m}
