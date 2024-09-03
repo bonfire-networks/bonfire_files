@@ -40,7 +40,7 @@ defmodule Bonfire.Files.Test do
     end
 
     test "fails when given a missing ID" do
-      assert {:error, :not_found} = Media.one(id: Simulation.ulid())
+      assert {:error, :not_found} = Media.one(id: Simulation.uid())
     end
   end
 

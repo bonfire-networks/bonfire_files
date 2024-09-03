@@ -108,7 +108,7 @@ defmodule Bonfire.Files.Media do
         meta_attrs[:media_type] || attrs[:media_type] || file_info[:media_type]
       )
       |> Map.put(:module, file_info[:module])
-      |> Map.put(:creator_id, Types.ulid(creator) || "0AND0MSTRANGERS0FF1NTERNET")
+      |> Map.put(:creator_id, Types.uid(creator) || "0AND0MSTRANGERS0FF1NTERNET")
       |> Map.put(:metadata, metadata)
 
     with {:ok, media} <- repo().insert(changeset(creator, attrs)) do
@@ -215,7 +215,7 @@ defmodule Bonfire.Files.Media do
 
   def ap_publish_activity(subject, verb, media) do
     # media = repo().preload(media, [:replied, activity: [:tags]])
-    # context = Threads.ap_prepare(Threads.ap_prepare(ulid(e(media, :replied, :thread_id, nil))))
+    # context = Threads.ap_prepare(Threads.ap_prepare(uid(e(media, :replied, :thread_id, nil))))
 
     {:ok, actor} = ActivityPub.Actor.get_cached(pointer: subject)
 
@@ -230,7 +230,7 @@ defmodule Bonfire.Files.Media do
       "url" => Bonfire.Common.Media.media_url(media),
       "to" => to
       # "context" => context,
-      # "inReplyTo" => Threads.ap_prepare(ulid(e(media, :replied, :reply_to_id, nil)))
+      # "inReplyTo" => Threads.ap_prepare(uid(e(media, :replied, :reply_to_id, nil)))
     }
 
     params = %{
@@ -238,7 +238,7 @@ defmodule Bonfire.Files.Media do
       # context: context,
       object: object,
       to: to,
-      pointer: ulid(media)
+      pointer: uid(media)
     }
 
     if verb == :edit, do: ActivityPub.update(params), else: ActivityPub.create(params)

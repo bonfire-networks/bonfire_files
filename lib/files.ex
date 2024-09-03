@@ -210,7 +210,7 @@ defmodule Bonfire.Files do
     media = insert(creator, file, file_info, attrs)
 
     repo().insert(
-      files_changeset(%{id: Types.ulid(object), media: media, media_id: Enums.id(media)})
+      files_changeset(%{id: Types.uid(object), media: media, media_id: Enums.id(media)})
     )
 
     media
@@ -221,11 +221,11 @@ defmodule Bonfire.Files do
   end
 
   defp context_id({creator, _object}) do
-    Types.ulid(creator)
+    Types.uid(creator)
   end
 
   defp context_id(creator) do
-    Types.ulid(creator)
+    Types.uid(creator)
   end
 
   defp definition_module(module \\ nil, file_info)
