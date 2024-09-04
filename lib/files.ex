@@ -98,7 +98,7 @@ defmodule Bonfire.Files do
        when is_binary(upload_filename) do
     debug(attrs, "uploads attrs")
     debug(upload_filename, "upload_filename")
-    id = Needle.ULID.generate()
+    id = Needle.UID.generate(Bonfire.Files.Media)
 
     file_extension = file_extension(e(attrs, :client_name, nil) || upload_filename)
 
