@@ -1,5 +1,5 @@
 defmodule Bonfire.UI.Files.Web.MediaFeedLive do
-  use Bonfire.UI.Common.Web, {:surface_live_view, []}
+  use Bonfire.UI.Common.Web, :surface_live_view
 
   declare_nav_link(l("Media"),
     page: "media",

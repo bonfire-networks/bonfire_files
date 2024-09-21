@@ -51,7 +51,10 @@
           {!-- <FileInput field="file" class="mt-4 file-input file-input-bordered w-full max-w-md" opts={"accepts": ".csv"} /> --}
           <label for={@uploads.emoji.ref} class="w-full max-w-md">
             <div class="text-sm py-1">{l("Select or drop a file (eg. SVG or PNG) to upload")}</div>
-            <.live_file_input upload={@uploads.emoji} class="file-input file-input-bordered" />
+            <Phoenix.Component.live_file_input
+              upload={@uploads.emoji}
+              class="file-input file-input-bordered"
+            />
           </label>
         </div>
       </div>

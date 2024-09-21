@@ -11,7 +11,7 @@ defmodule Bonfire.Files.Web.UploadEmojiLive do
       socket
       |> assign(assigns)
 
-    emoji = EmojiUploader.list(socket.assigns[:scope] || socket.assigns)
+    emoji = EmojiUploader.list(assigns(socket)[:scope] || assigns(socket))
 
     {:ok,
      socket
@@ -44,7 +44,7 @@ defmodule Bonfire.Files.Web.UploadEmojiLive do
   def handle_event("upload", %{"label" => label, "shortcode" => shortcode} = params, socket)
       when is_binary(label) and label != "" and is_binary(shortcode) and shortcode != "" do
     current_user = current_user(socket)
-    scope = e(socket.assigns, :scope, nil)
+    scope = e(assigns(socket), :scope, nil)
     metadata = EmojiUploader.prepare_meta(label, shortcode)
 
     with {:ok, emoji} = Bonfire.Data.Social.Emoji.changeset(%{}) |> repo().insert(),
@@ -72,7 +72,7 @@ defmodule Bonfire.Files.Web.UploadEmojiLive do
           existing_emoji:
             Map.merge(
               %{shortcode => setting},
-              (socket.assigns[:existing_emoji] || []) |> Enum.into(%{})
+              (assigns(socket)[:existing_emoji] || []) |> Enum.into(%{})
             )
         )
         |> assign_flash(:info, "Emoji added :-)")

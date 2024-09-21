@@ -23,10 +23,10 @@ defmodule Bonfire.Files.LiveHandler do
 
   defp do_handle_progress(mod, type, entry, socket) do
     user = current_user_required!(socket)
-    object = e(socket.assigns, :object, nil)
-    boundary_verb = e(socket.assigns, :boundary_verb, nil) || :edit
-    set_field = e(socket.assigns, :set_field, nil)
-    set_fn = e(socket.assigns, :set_fn, &set_fallback/5)
+    object = e(assigns(socket), :object, nil)
+    boundary_verb = e(assigns(socket), :boundary_verb, nil) || :edit
+    set_field = e(assigns(socket), :set_field, nil)
+    set_fn = e(assigns(socket), :set_fn, &set_fallback/5)
 
     if user &&
          (id(user) == id(object) or

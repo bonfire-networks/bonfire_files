@@ -27,7 +27,7 @@
         <span>{l("Upload or drop")}</span>
         <span class="sr-only">{@label || l("avatar")}</span>
       {/if}
-      <.live_file_input upload={@uploads.icon} class="sr-only" />
+      <Phoenix.Component.live_file_input upload={@uploads.icon} class="sr-only" />
       {#if length(@uploads.icon.entries) > 0}
         {#for entry <- @uploads.icon.entries}
           <div
