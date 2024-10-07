@@ -23,6 +23,7 @@ defmodule Bonfire.Files.Media do
   def query_module, do: Queries
 
   @behaviour Bonfire.Federate.ActivityPub.FederationModules
+  # NOTE: Page objects are a reference to an external resource (eg. a link or media) as as opposed to an Article object which comes with contents.
   def federation_module, do: ["Page"]
 
   @type t :: %__MODULE__{}
@@ -181,25 +182,30 @@ defmodule Bonfire.Files.Media do
     |> Enum.map(&Files.delete_files/1)
   end
 
-  def media_label(%{} = media) do
-    (e(media.metadata, "label", nil) || e(media.metadata, "wikibase", "title", nil) ||
-       e(media.metadata, "crossref", "title", nil) || e(media.metadata, "oembed", "title", nil) ||
-       e(media.metadata, "facebook", "title", nil) ||
-       e(media.metadata, "twitter", "title", nil) ||
-       e(media.metadata, "other", "title", nil) ||
-       e(media.metadata, "orcid", "title", "title", "value", nil))
+  def media_label(%{metadata: metadata} = _media), do: media_label(metadata)
+
+  def media_label(%{} = metadata) do
+    (e(metadata, "label", nil) || e(metadata, "wikibase", "title", nil) ||
+       e(metadata, "crossref", "title", nil) || e(metadata, "oembed", "title", nil) ||
+       e(metadata, "json_ld", "name", nil) ||
+       e(metadata, "facebook", "title", nil) ||
+       e(metadata, "twitter", "title", nil) ||
+       e(metadata, "other", "title", nil) ||
+       e(metadata, "orcid", "title", "title", "value", nil))
     |> unwrap()
   end
 
-  def description(%{} = media) do
-    json_ld = e(media.metadata, "json_ld", nil)
+  def description(%{metadata: metadata} = _media), do: description(metadata)
+
+  def description(%{} = metadata) do
+    json_ld = e(metadata, "json_ld", nil)
 
     (e(json_ld, "description", nil) ||
-       e(media.metadata, "facebook", "description", nil) ||
-       e(media.metadata, "twitter", "description", nil) ||
-       e(media.metadata, "other", "description", nil) ||
-       e(json_ld, "headline", nil) ||
-       e(media.metadata, "oembed", "abstract", nil))
+       e(metadata, "facebook", "description", nil) ||
+       e(metadata, "twitter", "description", nil) ||
+       e(metadata, "other", "description", nil) ||
+       e(json_ld, "headline", nil) || ed(json_ld, "attachment", "name", nil) ||
+       e(metadata, "oembed", "abstract", nil))
     |> unwrap()
   end
 
@@ -244,7 +250,70 @@ defmodule Bonfire.Files.Media do
     if verb == :edit, do: ActivityPub.update(params), else: ActivityPub.create(params)
   end
 
-  def ap_receive_activity(_creator, _activity, _object) do
-    error("TODO")
+  def ap_receive_activity(
+        creator,
+        activity,
+        %{data: %{"image" => %{"url" => media_url}} = object} = _ap_object
+      ) do
+    debug(activity, "activity")
+    warn(object, "WIP")
+
+    with {:ok, media} <-
+           Bonfire.Files.Media.insert(
+             creator,
+             media_url,
+             %{media_type: e(object, "image", "type", nil), size: 0},
+             %{metadata: %{json_ld: object}}
+           )
+           |> debug(),
+         {:ok, activity} <-
+           Bonfire.Social.Objects.publish(
+             creator,
+             :create,
+             media,
+             [boundary: "public"],
+             __MODULE__
+           )
+           |> debug() do
+      {:ok, activity}
+    end
+  end
+
+  # def ap_receive_activity(_creator, activity, %{data: %{"some_other_media"=>%{"url"=> media_url}}} = object) do
+  #   debug(activity, "activity")
+  #   warn(object, "WIP")
+
+  #   Bonfire.Files.Acts.URLPreviews.maybe_fetch_and_save(
+  #           user,
+  #           e(summary, "url", "value", nil) || "https://orcid.org/#{e(summary, "path", nil)}",
+  #           opts
+  #           #  to upsert metadata
+  #           |> Keyword.put_new(:update_existing, true)
+  #           # to (re)publish the activity
+  #           # |> Keyword.put_new(:update_existing, :force)
+  #           |> Keyword.merge(
+  #             id:
+  #               DatesTimes.maybe_generate_ulid(
+  #                 # e(summary, "publication-date", nil) ||
+  #                 e(summary, "created-date", "value", nil)
+  #               ),
+  #             post_create_fn: fn current_user, media, opts ->
+  #               Bonfire.Social.Objects.publish(
+  #                 current_user,
+  #                 :create,
+  #                 media,
+  #                 [boundary: "public"],
+  #                 __MODULE__
+  #               )
+  #             end,
+  #             extra: %{orcid: summary}
+  #           )
+  #         )
+  # end
+
+  def ap_receive_activity(creator, activity, object) do
+    debug(activity, "activity")
+    warn(object, "WIP: could not find media in the Page, so save as Note")
+    maybe_apply(Bonfire.Posts, :ap_receive_activity, [creator, activity, object])
   end
 end

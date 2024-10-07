@@ -77,6 +77,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
   def maybe_fetch_and_save(current_user, url, opts \\ [])
 
   def maybe_fetch_and_save(current_user, urls, opts) when is_list(urls) do
+    # TODO: optimise by using Unfurl.apply_many instead? or use async_stream here
     urls
     |> Enum.map(&maybe_fetch_and_save(current_user, &1, opts))
   end
