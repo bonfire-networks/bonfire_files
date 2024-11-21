@@ -44,7 +44,6 @@ defmodule Bonfire.Files.EmojiUploader do
 
   def add_emoji(user, file, label, shortcode) do
     metadata = prepare_meta(label, shortcode)
-
     {:ok, emoji} = Bonfire.Data.Social.Emoji.changeset(%{}) |> repo().insert()
 
     {:ok, upload} =

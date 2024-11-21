@@ -63,6 +63,8 @@ defmodule Bonfire.Files.Acts.AttachMedia do
   end
 
   def cast(changeset, uploaded_media) do
+    debug(uploaded_media, "uploaded_media")
+
     uploaded_media
     |> Enum.map(fn
       {:error, e} -> raise Bonfire.Fail, invalid_argument: e

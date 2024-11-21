@@ -113,7 +113,7 @@ defmodule Bonfire.Files.MediaEdit do
     # {
     #  to VP9 webm, see https://trac.ffmpeg.org/wiki/Encode/VP9
     # :ffmpeg,
-    #      fn original_path, new_path -> 
+    #      fn original_path, new_path ->
     #        " -i #{original_path} -c:v libvpx-vp9 -b:v 0 -crf 30 -pass 1 -an -f null /dev/null && \
     # ffmpeg -i #{original_path} -c:v libvpx-vp9 -b:v 0 -crf 30 -pass 2 -c:a libopus #{new_path}"
     #      end, :webm}
@@ -130,16 +130,16 @@ defmodule Bonfire.Files.MediaEdit do
         # -pix_fmt yuv420p (pixel format) is a trick to reduce the size of a video. Basically, it uses full resolution for brightness and a smaller resolution for color. It is a way to fool a human eye, and you can safely remove this argument if it does not work in your case.
         # -movflags +faststart moves the important information to the beginning of the file. It allows browser to start playing video during downloading.
         # -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" is a way to ensure the produced video will always have an even size (some codecs will only work with sizes like 300x200 and 302x200, but not with 301x200). This option tells FFmpeg to scale the source to the closest even resolution. If your video dimensions were even in the first place, it would not do anything.
-        " -i #{original_path} 
-        -map_metadata -1 
-        -c:a libopus 
-        -c:v librav1e 
-        -qp 80 
-        -tile-columns 2 
-        -tile-rows 2 
-        -pix_fmt yuv420p 
-        -movflags +faststart 
-        -vf scale=trunc(iw/2)*2:trunc(ih/2)*2 
+        " -i #{original_path}
+        -map_metadata -1
+        -c:a libopus
+        -c:v librav1e
+        -qp 80
+        -tile-columns 2
+        -tile-rows 2
+        -pix_fmt yuv420p
+        -movflags +faststart
+        -vf scale=trunc(iw/2)*2:trunc(ih/2)*2
         #{new_path}"
       end,
       :mp4
@@ -286,9 +286,11 @@ defmodule Bonfire.Files.MediaEdit do
   end
 
   def image_save_temp_file(image, waffle_file \\ %Waffle.File{}, tmp_path \\ nil) do
-    tmp_path = tmp_path || Waffle.File.generate_temporary_path(waffle_file)
+    tmp_path = tmp_path || Waffle.File.generate_temporary_path(waffle_file.file_name)
 
-    with {:ok, _} <- Image.write(image, tmp_path) |> IO.inspect(label: "thumbnail_video_write") do
+    with {:ok, _} <-
+           Image.write(image, tmp_path, minimize_file_size: true)
+           |> IO.inspect(label: "thumbnail_video_write") do
       {:ok, %Waffle.File{waffle_file | path: tmp_path, is_tempfile?: true}}
     else
       e ->
