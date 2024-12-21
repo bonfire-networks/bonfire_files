@@ -185,14 +185,17 @@ defmodule Bonfire.Files.Media do
   def media_label(%{metadata: metadata} = _media), do: media_label(metadata)
 
   def media_label(%{} = metadata) do
-    (e(metadata, "label", nil) || e(metadata, "wikibase", "title", nil) ||
-       e(metadata, "crossref", "title", nil) || e(metadata, "oembed", "title", nil) ||
-       e(metadata, "json_ld", "name", nil) ||
-       e(metadata, "facebook", "title", nil) ||
-       e(metadata, "twitter", "title", nil) ||
-       e(metadata, "other", "title", nil) ||
-       e(metadata, "orcid", "title", "title", "value", nil))
-    |> unwrap()
+    case (e(metadata, "label", nil) || e(metadata, "wikibase", "title", nil) ||
+            e(metadata, "crossref", "title", nil) || e(metadata, "oembed", "title", nil) ||
+            e(metadata, "json_ld", "name", nil) ||
+            e(metadata, "facebook", "title", nil) ||
+            e(metadata, "twitter", "title", nil) ||
+            e(metadata, "other", "title", nil) ||
+            e(metadata, "orcid", "title", "title", "value", nil))
+         |> unwrap() do
+      "Just a moment" <> _ -> nil
+      other -> other
+    end
   end
 
   def description(%{metadata: metadata} = _media), do: description(metadata)
