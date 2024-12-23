@@ -1,5 +1,6 @@
 defmodule Bonfire.Files.MediaEdit do
   import Untangle
+  # use Arrows
   alias Bonfire.Files
   alias Bonfire.Common.Extend
   alias Bonfire.Common.Types
@@ -307,11 +308,9 @@ defmodule Bonfire.Files.MediaEdit do
   def dominant_color(file_path_or_binary_or_stream, bins \\ 15, fallback \\ "#FFF8E7") do
     with true <- Extend.module_exists?(Image),
          {:ok, img} <- Image.open(file_path_or_binary_or_stream),
-         {:ok, color} <-
-           Image.dominant_color(img, [{:bins, bins}])
-           |> debug()
-           |> Image.Color.rgb_to_hex()
-           |> debug() do
+         {:ok, rgb} <-
+           Image.dominant_color(img, [{:bins, bins}]),
+         {:ok, color} <- Image.Color.rgb_to_hex(rgb) do
       color
     else
       e ->
