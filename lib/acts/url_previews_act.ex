@@ -114,11 +114,11 @@ defmodule Bonfire.Files.Acts.URLPreviews do
          extra <- %{
            media_type: media_type,
            metadata:
-             Enum.into(
+             Enums.deep_merge(
                opts[:extra] || %{},
                meta
                |> Map.drop([:canonical_url])
-               |> Enums.filter_empty(nil)
+               |> Enums.filter_empty(%{})
              )
          },
          {{:error, :not_found}, _} <-
