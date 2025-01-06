@@ -26,7 +26,7 @@ defmodule Bonfire.Files.Media do
   # NOTE: Page objects are a reference to an external resource (eg. a link or media) as as opposed to an Article object which comes with contents.
   def federation_module, do: ["Page"]
 
-  @type t :: %__MODULE__{}
+  # @type t :: %__MODULE__{}
 
   pointable_schema do
     # has_one(:preview, __MODULE__)
