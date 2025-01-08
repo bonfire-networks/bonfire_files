@@ -11,7 +11,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
   alias Bonfire.Epics
   alias Bonfire.Epics.Epic
 
-  # alias Bonfire.Files
+  alias Bonfire.Files
   alias Ecto.Changeset
   # alias Needle.Changesets
   # import Bonfire.Common.Config, only: [repo: 0]
@@ -107,9 +107,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
          media_type <-
            if(opts[:type_fn],
              do: opts[:type_fn].(meta),
-             else:
-               e(meta, :facebook, "type", nil) || e(meta, :oembed, "type", nil) ||
-                 e(meta, :wikidata, "itemType", nil) || "link"
+             else: Files.link_type(url, meta)
            ),
          extra <- %{
            media_type: media_type,

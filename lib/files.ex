@@ -648,4 +648,23 @@ defmodule Bonfire.Files do
     Types.maybe_to_float(size, default)
     |> normalise_size(default)
   end
+
+  def link_type(url, meta) do
+    if is_research(url, meta) do
+      "research"
+    else
+      e(meta, :facebook, "type", nil) || e(meta, :oembed, "type", nil) ||
+        e(meta, :wikidata, "itemType", nil) || "link"
+    end
+  end
+
+  def is_research(url, meta) do
+    (e(meta, "wikibase", "itemType", nil) in ["journalArticle"] or
+       e(meta, "wikibase", "identifiers", "doi", nil)) ||
+      e(meta, "crossref", "DOI", nil) || e(meta, "oembed", "DOI", nil) ||
+      e(meta, "other", "prism.doi", nil) ||
+      e(meta, "other", "citation_doi", nil) || e(meta, "other", "citation_doi", nil) ||
+      ed(meta, "json_ld", "@type", nil) in ["ScholarlyArticle", "Dataset"] ||
+      String.starts_with?(url || "", "https://doi.org/")
+  end
 end
