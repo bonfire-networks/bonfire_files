@@ -1,4 +1,5 @@
 defmodule Bonfire.Files.Routes do
+  @behaviour Bonfire.UI.Common.RoutesModule
   alias Bonfire.Common.Config
 
   defmacro __using__(_) do

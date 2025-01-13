@@ -93,7 +93,7 @@ defmodule Bonfire.Files.MediaEdit do
         # TODO: support other sources, or extract thumbnail from converted video instead
         nil
 
-      Extend.module_exists?(Image.Video) ->
+      Extend.module_available?(Image.Video) ->
         {fn _version, %{path: filename} = waffle_file ->
            video_image_thumbnail(filename, max_size, scrub_opts, waffle_file)
            |> IO.inspect(label: "thumbnail_video_ran")
@@ -209,7 +209,7 @@ defmodule Bonfire.Files.MediaEdit do
     filename
     |> IO.inspect(label: "thumbnail_video_run")
 
-    with true <- Extend.module_exists?(Image.Video),
+    with true <- Extend.module_available?(Image.Video),
          {:ok, %{fps: fps, frame_count: frame_count} = video} <-
            Image.Video.open(filename)
            #  video <- Image.Video.stream!(frame: scrub_frames..scrub_frames//2) # TODO?
@@ -268,7 +268,7 @@ defmodule Bonfire.Files.MediaEdit do
 
   def image_resize_thumbnail(image, max_size, waffle_file \\ %Waffle.File{}, tmp_path \\ nil) do
     # TODO: return a Stream instead of creating a temp file: https://hexdocs.pm/image/Image.html#stream!/2
-    with true <- Extend.module_exists?(Image),
+    with true <- Extend.module_available?(Image),
          {:ok, image} <- Image.thumbnail(image, max_size, crop: :attention) do
       image_save_temp_file(image, waffle_file, tmp_path)
     else
@@ -306,7 +306,7 @@ defmodule Bonfire.Files.MediaEdit do
   `bins` is an integer number of color frequency bins the image is divided into. The default is 10.
   """
   def dominant_color(file_path_or_binary_or_stream, bins \\ 15, fallback \\ "#FFF8E7") do
-    with true <- Extend.module_exists?(Image),
+    with true <- Extend.module_available?(Image),
          {:ok, img} <- Image.open(file_path_or_binary_or_stream),
          {:ok, rgb} <-
            Image.dominant_color(img, [{:bins, bins}]),
