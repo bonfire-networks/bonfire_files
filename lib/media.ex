@@ -188,10 +188,12 @@ defmodule Bonfire.Files.Media do
     case (e(metadata, "label", nil) || e(metadata, "wikibase", "title", nil) ||
             e(metadata, "crossref", "title", nil) || e(metadata, "oembed", "title", nil) ||
             e(metadata, "json_ld", "name", nil) ||
+            e(metadata, "rss", "title", nil) ||
             e(metadata, "facebook", "title", nil) ||
             e(metadata, "twitter", "title", nil) ||
             e(metadata, "other", "title", nil) ||
-            e(metadata, "orcid", "title", "title", "value", nil))
+            e(metadata, "orcid", "title", "title", "value", nil) ||
+            e(metadata, "rss", "channel", "title", nil))
          |> unwrap() do
       "Just a moment" <> _ -> nil
       other -> other
@@ -206,9 +208,11 @@ defmodule Bonfire.Files.Media do
     (e(json_ld, "description", nil) ||
        e(metadata, "facebook", "description", nil) ||
        e(metadata, "twitter", "description", nil) ||
+       e(metadata, "rss", "description", nil) ||
        e(metadata, "other", "description", nil) ||
        e(json_ld, "headline", nil) || ed(json_ld, "attachment", "name", nil) ||
-       e(metadata, "oembed", "abstract", nil))
+       e(metadata, "oembed", "abstract", nil) ||
+       e(metadata, "rss", "channel", "description", nil))
     |> unwrap()
   end
 
@@ -259,7 +263,7 @@ defmodule Bonfire.Files.Media do
         %{data: %{"image" => %{"url" => media_url}} = object} = _ap_object
       ) do
     debug(activity, "activity")
-    warn(object, "WIP")
+    warn(object, "WIP - lemmy posts")
 
     with {:ok, media} <-
            Bonfire.Files.Media.insert(

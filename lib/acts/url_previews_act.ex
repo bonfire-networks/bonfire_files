@@ -101,9 +101,27 @@ defmodule Bonfire.Files.Acts.URLPreviews do
 
   defp do_maybe_fetch_and_save(current_user, url, opts) do
     with {:ok, meta} <-
-           if(opts[:fetch_fn], do: opts[:fetch_fn].(url, opts), else: Unfurl.unfurl(url, opts)),
-         # note: canonical url is only set if different from original url, so we only check each unique url once
-         canonical_url <- Map.get(meta, :canonical_url),
+           if(opts[:fetch_fn], do: opts[:fetch_fn].(url, opts), else: Unfurl.unfurl(url, opts)) do
+      maybe_save(current_user, url, meta, opts)
+    else
+      other ->
+        error(other)
+        nil
+    end
+  catch
+    e ->
+      # workaround for badly-parsed webpages in non-UTF8 encodings
+      error(e, "Could not save the URL preview")
+      nil
+  rescue
+    e ->
+      error(e, "Could not save the URL preview")
+      nil
+  end
+
+  def maybe_save(current_user, url, meta, opts \\ []) do
+    with canonical_url <- Map.get(meta, :canonical_url),
+         # ^ note: canonical url is only set if different from original url, so we only check each unique url once
          media_type <-
            if(opts[:type_fn],
              do: opts[:type_fn].(meta),
@@ -154,7 +172,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
         end
 
       other ->
-        # error(other)
+        error(other)
         nil
     end
   catch
