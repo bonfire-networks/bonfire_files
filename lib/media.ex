@@ -188,7 +188,7 @@ defmodule Bonfire.Files.Media do
     case (e(metadata, "label", nil) || e(metadata, "wikibase", "title", nil) ||
             e(metadata, "crossref", "title", nil) || e(metadata, "oembed", "title", nil) ||
             e(metadata, "json_ld", "name", nil) ||
-            e(metadata, "rss", "title", nil) ||
+            e(metadata, "atom", "title", "value", nil) || e(metadata, "rss", "title", nil) ||
             e(metadata, "facebook", "title", nil) ||
             e(metadata, "twitter", "title", nil) ||
             e(metadata, "other", "title", nil) ||
@@ -212,6 +212,8 @@ defmodule Bonfire.Files.Media do
        e(metadata, "other", "description", nil) ||
        e(json_ld, "headline", nil) || ed(json_ld, "attachment", "name", nil) ||
        e(metadata, "oembed", "abstract", nil) ||
+       e(metadata, "atom", "summary", "value", nil) ||
+       e(metadata, "atom", "content", "value", nil) ||
        e(metadata, "rss", "channel", "description", nil))
     |> unwrap()
   end
