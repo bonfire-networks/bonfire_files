@@ -9,11 +9,11 @@ defmodule Bonfire.Files.Web.UploadBannerLive do
   # prop uploads, :any, default: nil
 
   prop container_class, :css_class,
-    default: ["relative flex justify-center px-6 py-10 bg-center bg-cover h-[200px]"]
+    default: ["relative rounded-xl flex justify-center px-6 py-10 bg-center bg-cover h-[200px]"]
 
   prop label_class, :css_class,
     default: [
-      "absolute inset-0 flex flex-col items-center justify-center w-full h-full text-sm font-medium text-white rounded-lg cursor-pointer bg-base-100 bg-opacity-40 opacity-60"
+      "absolute inset-0 flex flex-col items-center justify-center w-full h-full text-sm font-medium text-white rounded-lg cursor-pointer bg-base-100/30 hover:bg-base-100/60"
     ]
 
   # prop label_class, :css_class, default: ["absolute inset-0 flex flex-col items-center justify-center w-full h-full text-sm font-medium text-white transition duration-150 ease-in-out rounded-lg opacity-0 cursor-pointer bg-base-100 bg-opacity-40 hover:opacity-60 focus-within:opacity-60"]
