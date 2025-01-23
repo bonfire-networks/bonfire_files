@@ -25,3 +25,5 @@ bonfire_files-*.tar
 
 # Temporary files for e.g. tests
 /tmp
+
+/data
