@@ -17,7 +17,7 @@
           <b>1</b>
         </span>
         <div class="flex flex-col gap-1 w-full" phx-update="ignore">
-          <h2 class="font-semibold">{l("Enter a label or description of the emoji")}</h2>
+          <h2 class="font-semibold text-sm">{l("Enter a label or description of the emoji")}</h2>
           <input
             name="label"
             type="text"
@@ -32,7 +32,7 @@
           <b>2</b>
         </span>
         <div class="flex flex-col gap-1 w-full" phx-update="ignore">
-          <h2 class="font-semibold">{l("Choose a shortcode to enter when inserting this emoji")}</h2>
+          <h2 class="font-semibold text-sm">{l("Choose a shortcode to enter when inserting this emoji")}</h2>
           <input
             name="shortcode"
             type="text"
@@ -59,13 +59,13 @@
         </div>
       </div>
 
-      <button class="btn mt-12 btn-primary w-full rounded-full normal-case">{l("Add")}</button>
+      <button class="btn mt-6 btn-wide btn-primary">{l("Add custom emoji")}</button>
     </div>
   </Form>
 
   {#if not is_nil(@existing_emoji)}
-    <div class="ml-6">
-      <h2 class="my-2 text-xl text-bold">Existing custom emoji</h2>
+    <div class="p-4 border-t border-base-content/10">
+      <h2 class="mb-4 text-sm uppercase text-base-content/50 font-bold">{l("Existing custom emoji")}</h2>
       {#for {shortcode, meta} <- @existing_emoji}
         <p class="mt-1 flex gap-2"><img src={e(meta, :url, nil)} class="w-5 h-auto max-h-5"> <code>{shortcode}</code> <span class="">({e(meta, :label, nil)})</span></p>
       {/for}
