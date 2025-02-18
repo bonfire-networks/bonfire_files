@@ -17,6 +17,21 @@
           src={@object}
           opts={@opts}
         />
+
+        {#for entry <- @uploads.icon.entries}
+          <div class="absolute inset-0 bg-base-100 bg-opacity-75 flex items-center justify-center">
+            <div class="text-center">
+              <div class="loading loading-spinner loading-md" />
+              <div class="text-sm mt-2">{entry.progress}%</div>
+            </div>
+          </div>
+        {/for}
+        <!-- Add debug info temporarily -->
+        <!-- <div class="text-xs mt-2">
+          <div>Entries: {length(@uploads.icon.entries)}</div>
+          <div>Has set_fn: {@set_fn != nil}</div>
+          <div>Upload ref: {@uploads.icon.ref}</div>
+        </div> -->
       {#match _}
         <span class={@class}>
           <img class="object-cover w-full h-full" src={@src} {...@opts}>

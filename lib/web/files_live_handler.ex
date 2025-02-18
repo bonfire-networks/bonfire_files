@@ -30,6 +30,7 @@ defmodule Bonfire.Files.LiveHandler do
 
     if user &&
          (id(user) == id(object) or
+            (object && is_atom(object) && object == :pandora_list) or
             maybe_apply(Bonfire.Boundaries, :can?, [user, boundary_verb, object])) &&
          entry.done? do
       with %{} = uploaded_media <-
