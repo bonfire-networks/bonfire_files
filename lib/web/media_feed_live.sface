@@ -9,6 +9,6 @@
     id={ComponentID.new(Bonfire.UI.Social.FeedLive, @feed_id, __MODULE__)}
     feed_name={@feed_id}
     showing_within={@feed_id}
-    hide_tabs
+    hide_filters
   />
 </div>
