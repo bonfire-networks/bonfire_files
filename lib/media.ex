@@ -185,7 +185,8 @@ defmodule Bonfire.Files.Media do
   def media_label(%{metadata: metadata} = _media), do: media_label(metadata)
 
   def media_label(%{} = metadata) do
-    case (e(metadata, "label", nil) || e(metadata, "wikibase", "title", nil) ||
+    case (e(metadata, "label", nil) || e(metadata, "title", nil) ||
+            e(metadata, "wikibase", "title", nil) ||
             e(metadata, "crossref", "title", nil) || e(metadata, "oembed", "title", nil) ||
             e(metadata, "json_ld", "name", nil) ||
             e(metadata, "atom", "title", "value", nil) || e(metadata, "rss", "title", nil) ||
@@ -268,7 +269,7 @@ defmodule Bonfire.Files.Media do
     warn(object, "WIP - lemmy posts")
 
     with {:ok, media} <-
-           Bonfire.Files.Media.insert(
+           insert(
              creator,
              media_url,
              %{media_type: e(object, "image", "type", nil), size: 0},
