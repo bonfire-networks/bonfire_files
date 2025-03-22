@@ -96,6 +96,7 @@ defmodule Bonfire.Files do
 
   defp maybe_do_upload(module, context, upload_filename, attrs, opts)
        when is_binary(upload_filename) do
+    opts = Utils.to_options(opts)
     debug(attrs, "uploads attrs")
     debug(upload_filename, "upload_filename")
     id = Needle.UID.generate(Bonfire.Files.Media)
