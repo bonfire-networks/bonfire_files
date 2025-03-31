@@ -96,7 +96,7 @@ defmodule Bonfire.Files.MediaEdit do
       Extend.module_available?(Image.Video) ->
         {fn _version, %{path: filename} = waffle_file ->
            video_image_thumbnail(filename, max_size, scrub_opts, waffle_file)
-           |> IO.inspect(label: "thumbnail_video_ran")
+           |> debug("thumbnail_video_ran")
          end, fn _version, _file -> "jpg" end}
 
       # System.find_executable("convert") ->
@@ -106,7 +106,7 @@ defmodule Bonfire.Files.MediaEdit do
       true ->
         nil
     end
-    |> IO.inspect(label: "thumbnail_video")
+    |> debug("thumbnail_video")
   end
 
   @doc "Converts video into a browser-supported format. NOTE: in dev mode on OSX, you can install ffmpeg with maximal features using https://gist.github.com/Piasy/b5dfd5c048eb69d1b91719988c0325d8?permalink_comment_id=3812563#gistcomment-3812563"
@@ -145,7 +145,7 @@ defmodule Bonfire.Files.MediaEdit do
       end,
       :mp4
     }
-    |> IO.inspect()
+    |> debug()
   end
 
   def thumbnail_pdf(_filename) do
@@ -207,18 +207,18 @@ defmodule Bonfire.Files.MediaEdit do
 
   def video_image_thumbnail(filename, max_size, scrub_opts, waffle_file \\ %Waffle.File{}) do
     filename
-    |> IO.inspect(label: "thumbnail_video_run")
+    |> debug("thumbnail_video_run")
 
     with true <- Extend.module_available?(Image.Video),
          {:ok, %{fps: fps, frame_count: frame_count} = video} <-
            Image.Video.open(filename)
            #  video <- Image.Video.stream!(frame: scrub_frames..scrub_frames//2) # TODO?
-           |> IO.inspect(label: "thumbnail_video_open"),
+           |> debug("thumbnail_video_open"),
          {:ok, image} <-
            Image.Video.image_from_video(video,
              frame: frame_to_scrub(fps, frame_count, scrub_opts)
            )
-           |> IO.inspect(label: "thumbnail_video_image") do
+           |> debug("thumbnail_video_image") do
       temp_thumb = "#{Waffle.File.generate_temporary_path()}.jpg"
 
       image_resize_thumbnail(
@@ -263,7 +263,7 @@ defmodule Bonfire.Files.MediaEdit do
       true ->
         1
     end
-    |> IO.inspect(label: "thumbnail_video_frame_to_scrub")
+    |> debug("thumbnail_video_frame_to_scrub")
   end
 
   def image_resize_thumbnail(image, max_size, waffle_file \\ %Waffle.File{}, tmp_path \\ nil) do
@@ -291,7 +291,7 @@ defmodule Bonfire.Files.MediaEdit do
 
     with {:ok, _} <-
            Image.write(image, tmp_path, minimize_file_size: true)
-           |> IO.inspect(label: "thumbnail_video_write") do
+           |> debug("thumbnail_video_write") do
       {:ok, %Waffle.File{waffle_file | path: tmp_path, is_tempfile?: true}}
     else
       e ->
@@ -338,7 +338,7 @@ defmodule Bonfire.Files.MediaEdit do
         |> Mogrify.custom("blur", "2x2")
         |> Mogrify.quality("20")
         |> Mogrify.format(format)
-        # |> IO.inspect
+        # |> debug()
         |> Mogrify.save(path: final_path)
         |> Map.get(:path)
 

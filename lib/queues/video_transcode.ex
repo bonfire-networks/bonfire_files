@@ -18,6 +18,6 @@ defmodule Bonfire.Files.Queues.VideoTranscode do
   end
 
   def transcode(job) do
-    IO.inspect(job)
+    debug(job)
   end
 end
