@@ -62,7 +62,10 @@ defmodule Bonfire.Files.Acts.AttachMedia do
     end
   end
 
-  def cast(changeset, uploaded_media) do
+  def cast(changeset, uploaded_media) when is_map(uploaded_media),
+    do: cast(changeset, [uploaded_media])
+
+  def cast(changeset, uploaded_media) when is_list(uploaded_media) do
     debug(uploaded_media, "uploaded_media")
 
     uploaded_media

@@ -24,7 +24,7 @@ defmodule Bonfire.Files.Media do
 
   @behaviour Bonfire.Federate.ActivityPub.FederationModules
   # NOTE: Page objects are a reference to an external resource (eg. a link or media) as as opposed to an Article object which comes with contents.
-  def federation_module, do: ["Page"]
+  def federation_module, do: ["Page", "Video", "Image", "Document"]
 
   # @type t :: %__MODULE__{}
 
@@ -260,13 +260,14 @@ defmodule Bonfire.Files.Media do
     if verb == :edit, do: ActivityPub.update(params), else: ActivityPub.create(params)
   end
 
+  # handle images from Lemmy and the like
   def ap_receive_activity(
         creator,
         activity,
-        %{data: %{"image" => %{"url" => media_url}} = object} = _ap_object
+        %{data: %{"type" => "Page", "image" => %{"url" => media_url}} = object} = _ap_object
       ) do
     debug(activity, "activity")
-    warn(object, "WIP - lemmy posts")
+    warn(object, "WIP - for lemmy 'Page' links")
 
     with {:ok, media} <-
            insert(
@@ -281,6 +282,7 @@ defmodule Bonfire.Files.Media do
              creator,
              :create,
              media,
+             #  TODO: boundary should be computed like for Posts
              [boundary: "public"],
              __MODULE__
            )
@@ -289,6 +291,92 @@ defmodule Bonfire.Files.Media do
     end
   end
 
+  # handle Video from Peertube
+  def ap_receive_activity(
+        creator,
+        activity,
+        %{data: %{"type" => "Video", "url" => urls} = data} = _object
+      )
+      when is_list(urls) do
+    # debug(activity, "activity")
+    debug(data, "PeerTube video")
+
+    # Find the highest quality video URL
+    with {media_url, size, media_type} <- extract_best_video_url(urls),
+         {:ok, media} <-
+           insert(
+             creator,
+             media_url || data["id"],
+             %{
+               media_type: media_type,
+               size: size || 0
+             },
+             %{metadata: %{json_ld: data}}
+           )
+           |> debug(),
+         {:ok, activity} <-
+           Bonfire.Social.Objects.publish(
+             creator,
+             :create,
+             media,
+             #  TODO: boundary should be computed like for Posts
+             [boundary: "public"],
+             __MODULE__
+           )
+           |> debug() do
+      {:ok, activity}
+    end
+  end
+
+  # Helper to extract the highest quality video URL, size and media type from PeerTube "url" array
+  defp extract_best_video_url(urls) when is_list(urls) do
+    urls
+    |> Enum.filter(fn url ->
+      # Filter for direct video links (excluding torrents, magnets and HLS fragments)
+      is_map(url) &&
+        String.starts_with?(url["mediaType"] || "", "video/") &&
+        !String.contains?(url["href"] || "", ["-fragmented.mp4", "streaming-playlists"])
+    end)
+    |> Enum.sort_by(fn url ->
+      # Sort by height (resolution) in descending order
+      -(url["height"] || 0)
+    end)
+    |> List.first()
+    |> case do
+      %{"href" => href, "size" => size, "mediaType" => media_type}
+      when is_binary(href) and is_integer(size) and is_binary(media_type) ->
+        {href, size, media_type}
+
+      %{"href" => href, "mediaType" => media_type}
+      when is_binary(href) and is_binary(media_type) ->
+        {href, 0, media_type}
+
+      %{"href" => href} when is_binary(href) ->
+        # Default to mp4 if no media type specified
+        {href, 0, "video/mp4"}
+
+      _ ->
+        # If no direct video link found, try to find a preview image instead?
+        # case find_preview_image(urls) do
+        #   {image_url, image_type} when is_binary(image_url) -> 
+        #     {image_url, 0, image_type}
+        #   _ ->
+        {nil, 0, nil}
+        # end
+    end
+  end
+
+  # Helper to find the size of the selected video
+  defp find_video_size(urls, selected_url) when is_list(urls) and is_binary(selected_url) do
+    urls
+    |> Enum.find(fn url -> url["href"] == selected_url end)
+    |> case do
+      %{"size" => size} when is_integer(size) -> size
+      _ -> 0
+    end
+  end
+
+  # TODO for Bookwyrm, etc
   # def ap_receive_activity(_creator, activity, %{data: %{"some_other_media"=>%{"url"=> media_url}}} = object) do
   #   debug(activity, "activity")
   #   warn(object, "WIP")
@@ -321,9 +409,20 @@ defmodule Bonfire.Files.Media do
   #         )
   # end
 
+  def ap_receive_activity(creator, activity, %{data: %{"type" => "Page"}} = object) do
+    debug(activity, "activity")
+
+    warn(
+      object,
+      "WIP: could not recognise a Lemmy style image in this Page, so save as Post (possibly with Media as attachment)"
+    )
+
+    maybe_apply(Bonfire.Posts, :ap_receive_activity, [creator, activity, object])
+  end
+
   def ap_receive_activity(creator, activity, object) do
     debug(activity, "activity")
-    warn(object, "WIP: could not find media in the Page, so save as Note")
-    maybe_apply(Bonfire.Posts, :ap_receive_activity, [creator, activity, object])
+    warn(object, "WIP: could not recognise media, so save as APActivities")
+    maybe_apply(Bonfire.Social.APActivities, :ap_receive_activity, [creator, activity, object])
   end
 end
