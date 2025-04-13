@@ -3,7 +3,7 @@ bonfire_ui_common = "https://github.com/bonfire-networks/bonfire_ui_common"
 bonfire_epics = "https://github.com/bonfire-networks/bonfire_epics"
 twinkle_star = "https://github.com/bonfire-networks/twinkle_star"
 # faviconic = "https://github.com/bonfire-networks/faviconic"
-# unfurl = "https://github.com/bonfire-networks/unfurl"
+unfurl = "https://github.com/bonfire-networks/unfurl"
 entrepot = "https://github.com/bonfire-networks/entrepot"
 entrepot_ecto = "https://github.com/bonfire-networks/entrepot_ecto"
 
