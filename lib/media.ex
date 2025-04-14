@@ -334,7 +334,7 @@ defmodule Bonfire.Files.Media do
     |> Enum.filter(fn url ->
       # Filter for direct video links (excluding torrents, magnets and HLS fragments)
       is_map(url) &&
-        String.starts_with?(url["mediaType"] || "", "video/") &&
+        String.starts_with?(url["mediaType"] || url["mimeType"] || "", "video/") &&
         !String.contains?(url["href"] || "", ["-fragmented.mp4", "streaming-playlists"])
     end)
     |> Enum.sort_by(fn url ->
@@ -343,11 +343,20 @@ defmodule Bonfire.Files.Media do
     end)
     |> List.first()
     |> case do
+      # TODO: consolidate to using only mediaType or mimeType in AP Transformer
       %{"href" => href, "size" => size, "mediaType" => media_type}
       when is_binary(href) and is_integer(size) and is_binary(media_type) ->
         {href, size, media_type}
 
+      %{"href" => href, "size" => size, "mimeType" => media_type}
+      when is_binary(href) and is_integer(size) and is_binary(media_type) ->
+        {href, size, media_type}
+
       %{"href" => href, "mediaType" => media_type}
+      when is_binary(href) and is_binary(media_type) ->
+        {href, 0, media_type}
+
+      %{"href" => href, "mimeType" => media_type}
       when is_binary(href) and is_binary(media_type) ->
         {href, 0, media_type}
 
