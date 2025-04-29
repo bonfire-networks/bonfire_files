@@ -4,7 +4,8 @@ defmodule Bonfire.Files.FaviconStore do
   Definition for storing media types for a URL
   """
 
-  use Bonfire.Files.Definition
+  # use Bonfire.Files.Definition # NOTE: not using entrepot to keep it simple and store files on disk for now
+
   alias Bonfire.Common.Text
   import Untangle
 
@@ -84,8 +85,9 @@ defmodule Bonfire.Files.FaviconStore do
 
   defp fetch(url, filename, path, _opts) do
     with {:ok, image} <- Faviconic.fetch(url),
-         {:ok, filename} <- store(%{filename: filename, binary: image}),
-         path <- "#{storage_dir()}/#{filename}" do
+         path <- "#{storage_dir()}/#{filename}",
+         #  {:ok, filename} <- store(%{filename: filename, binary: image}),
+         :ok <- File.write(path, image) do
       # Files.data_url(image, meta.media_type)
       {:ok, "/" <> path}
     else

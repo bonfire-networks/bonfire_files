@@ -2,9 +2,16 @@ defmodule Bonfire.Files.CapsuleIntegration.Attacher do
   import Untangle
   alias Bonfire.Common.Config
 
+  def storages(upload, Bonfire.Files.FaviconStore) do
+    [
+      cache: Entrepot.Storages.Disk,
+      store: Entrepot.Storages.Disk
+    ]
+  end
+
   def storages(upload, module) do
-    debug(upload)
-    debug(module)
+    IO.inspect(upload, label: "uuuu")
+    IO.inspect(module, label: "mmmm")
 
     if Config.get([:bonfire_files, :storage], :local) == :s3 do
       [
