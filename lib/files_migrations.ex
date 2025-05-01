@@ -73,7 +73,7 @@ defmodule Bonfire.Files.Media.Migrations do
         #  FYI user_id is renamed to creator_id in a migration
         # Ecto.Migration.add(:creator_id, Needle.Migration.strong_pointer(), null: false) 
 
-        Ecto.Migration.add(:path, :text, null: false)
+        Ecto.Migration.add(:path, :text, null: true)
         Ecto.Migration.add(:file, :jsonb)
         Ecto.Migration.add(:size, :integer, null: false)
         # see https://stackoverflow.com/a/643772 for size
@@ -126,4 +126,13 @@ defmodule Bonfire.Files.Media.Migrations do
   end
 
   defmacro migrate_media(dir), do: mc(dir)
+
+  @doc """
+  Alters the path column in bonfire_files_media table to allow NULL values.
+  """
+  def change_path_to_nullable() do
+    alter table("bonfire_files_media") do
+      modify :path, :text, null: true
+    end
+  end
 end

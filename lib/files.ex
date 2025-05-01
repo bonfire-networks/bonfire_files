@@ -420,8 +420,11 @@ defmodule Bonfire.Files do
       url when is_binary(url) ->
         url
 
+      {:ok, url} when is_binary(url) ->
+        url
+
       e ->
-        debug(e, "url not found in #{storage}")
+        error(e, "url not found in #{storage}")
         nil
     end
   end
