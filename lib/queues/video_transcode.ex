@@ -5,7 +5,7 @@ defmodule Bonfire.Files.Queues.VideoTranscode do
   # import Plug.Conn
   import Phoenix.ConnTest
   use Untangle
-  alias Bonfire.Common.Config
+  use Bonfire.Common.Config
 
   use Oban.Worker,
     queue: :video_transcode,

@@ -22,6 +22,7 @@ defmodule Bonfire.Files.Definition do
         storages: {Bonfire.Files.CapsuleIntegration.Attacher, :storages, [__MODULE__]}
 
       import Untangle
+      use Bonfire.Common.Config
       alias Bonfire.Files
       alias Bonfire.Files.FileDenied
 

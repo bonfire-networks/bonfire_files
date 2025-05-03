@@ -7,7 +7,10 @@ defmodule Bonfire.Files.EmojiUploader do
   """
 
   use Bonfire.Files.Definition
+  use Bonfire.Common.Settings
+
   alias Bonfire.Common.Utils
+  use Bonfire.Common.Config
   import Bonfire.Common.Config, only: [repo: 0]
 
   @versions [:default]

@@ -27,6 +27,7 @@ defmodule Bonfire.Files do
     source: "bonfire_files"
 
   use Bonfire.Common.E
+  use Bonfire.Common.Config
   import Bonfire.Common.Config, only: [repo: 0]
   require Needle.Changesets
   use Arrows

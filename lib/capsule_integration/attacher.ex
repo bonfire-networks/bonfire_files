@@ -1,6 +1,6 @@
 defmodule Bonfire.Files.CapsuleIntegration.Attacher do
   import Untangle
-  alias Bonfire.Common.Config
+  use Bonfire.Common.Config
 
   def storages(upload, Bonfire.Files.FaviconStore) do
     [
