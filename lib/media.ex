@@ -269,24 +269,16 @@ defmodule Bonfire.Files.Media do
     debug(activity, "activity")
     warn(object, "WIP - for lemmy 'Page' links")
 
-    with {:ok, media} <-
-           insert(
+    with {:ok, activity} <-
+           create_and_publish(
              creator,
-             media_url,
-             %{media_type: e(object, "image", "type", nil), size: 0},
-             %{metadata: %{json_ld: object}}
-           )
-           |> debug(),
-         {:ok, activity} <-
-           Bonfire.Social.Objects.publish(
-             creator,
-             :create,
-             media,
+             media_url || object["id"],
+             e(object, "image", "type", nil),
+             0,
+             %{json_ld: object},
              #  TODO: boundary should be computed like for Posts
-             [boundary: "public"],
-             __MODULE__
-           )
-           |> debug() do
+             boundary: "public_remote"
+           ) do
       {:ok, activity}
     end
   end
@@ -303,29 +295,113 @@ defmodule Bonfire.Files.Media do
 
     # Find the highest quality video URL
     with {media_url, size, media_type} <- extract_best_video_url(urls),
-         {:ok, media} <-
-           insert(
+         {:ok, activity} <-
+           create_and_publish(
              creator,
              media_url || data["id"],
+             media_type,
+             size,
+             %{json_ld: data},
+             #  TODO: boundary should be computed like for Posts
+             boundary: "public_remote"
+           ) do
+      {:ok, activity}
+    end
+  end
+
+  # TODO for Bookwyrm, etc
+  # def ap_receive_activity(_creator, activity, %{data: %{"some_other_media"=>%{"url"=> media_url}}} = object) do
+  #   debug(activity, "activity")
+  #   warn(object, "WIP")
+
+  #   Bonfire.Files.Acts.URLPreviews.maybe_fetch_and_save(
+  #           user,
+  #           e(summary, "url", "value", nil) || "https://orcid.org/#{e(summary, "path", nil)}",
+  #           opts
+  #           #  to upsert metadata
+  #           |> Keyword.put_new(:update_existing, true)
+  #           # to (re)publish the activity
+  #           # |> Keyword.put_new(:update_existing, :force)
+  #           |> Keyword.merge(
+  #             id:
+  #               DatesTimes.maybe_generate_ulid(
+  #                 # e(summary, "publication-date", nil) ||
+  #                 e(summary, "created-date", "value", nil)
+  #               ),
+  #             post_create_fn: fn current_user, media, opts ->
+  #               Bonfire.Social.Objects.publish(
+  #                 current_user,
+  #                 :create,
+  #                 media,
+  #                 [boundary: "public"],
+  #                 __MODULE__
+  #               )
+  #             end,
+  #             extra: %{orcid: summary}
+  #           )
+  #         )
+  # end
+
+  def ap_receive_activity(creator, activity, %{data: %{"type" => "Page"}} = object) do
+    debug(activity, "activity")
+
+    warn(
+      object,
+      "WIP: could not recognise a Lemmy style image in this Page, so save as Post (possibly with Media as attachment)"
+    )
+
+    maybe_apply(Bonfire.Posts, :ap_receive_activity, [creator, activity, object])
+  end
+
+  def ap_receive_activity(creator, activity, object) do
+    debug(activity, "activity")
+    warn(object, "WIP: could not recognise media, so save as APActivities")
+    maybe_apply(Bonfire.Social.APActivities, :ap_receive_activity, [creator, activity, object])
+  end
+
+  def create_and_publish(
+        creator,
+        media_url,
+        media_type,
+        size,
+        metadata,
+        opts
+      ) do
+    # Find the highest quality video URL
+    with {:ok, media} <-
+           insert(
+             creator,
+             media_url,
              %{
                media_type: media_type,
                size: size || 0
              },
-             %{metadata: %{json_ld: data}}
+             %{metadata: metadata}
            )
-           |> debug(),
+           |> debug("created"),
          {:ok, activity} <-
-           Bonfire.Social.Objects.publish(
+           publish(
              creator,
-             :create,
              media,
-             #  TODO: boundary should be computed like for Posts
-             [boundary: "public"],
-             __MODULE__
-           )
-           |> debug() do
+             opts
+           ) do
       {:ok, activity}
     end
+  end
+
+  def publish(
+        creator,
+        media,
+        opts
+      ) do
+    Bonfire.Social.Objects.publish(
+      creator,
+      :create,
+      media,
+      opts,
+      __MODULE__
+    )
+    |> debug("published")
   end
 
   # Helper to extract the highest quality video URL, size and media type from PeerTube "url" array
@@ -383,55 +459,5 @@ defmodule Bonfire.Files.Media do
       %{"size" => size} when is_integer(size) -> size
       _ -> 0
     end
-  end
-
-  # TODO for Bookwyrm, etc
-  # def ap_receive_activity(_creator, activity, %{data: %{"some_other_media"=>%{"url"=> media_url}}} = object) do
-  #   debug(activity, "activity")
-  #   warn(object, "WIP")
-
-  #   Bonfire.Files.Acts.URLPreviews.maybe_fetch_and_save(
-  #           user,
-  #           e(summary, "url", "value", nil) || "https://orcid.org/#{e(summary, "path", nil)}",
-  #           opts
-  #           #  to upsert metadata
-  #           |> Keyword.put_new(:update_existing, true)
-  #           # to (re)publish the activity
-  #           # |> Keyword.put_new(:update_existing, :force)
-  #           |> Keyword.merge(
-  #             id:
-  #               DatesTimes.maybe_generate_ulid(
-  #                 # e(summary, "publication-date", nil) ||
-  #                 e(summary, "created-date", "value", nil)
-  #               ),
-  #             post_create_fn: fn current_user, media, opts ->
-  #               Bonfire.Social.Objects.publish(
-  #                 current_user,
-  #                 :create,
-  #                 media,
-  #                 [boundary: "public"],
-  #                 __MODULE__
-  #               )
-  #             end,
-  #             extra: %{orcid: summary}
-  #           )
-  #         )
-  # end
-
-  def ap_receive_activity(creator, activity, %{data: %{"type" => "Page"}} = object) do
-    debug(activity, "activity")
-
-    warn(
-      object,
-      "WIP: could not recognise a Lemmy style image in this Page, so save as Post (possibly with Media as attachment)"
-    )
-
-    maybe_apply(Bonfire.Posts, :ap_receive_activity, [creator, activity, object])
-  end
-
-  def ap_receive_activity(creator, activity, object) do
-    debug(activity, "activity")
-    warn(object, "WIP: could not recognise media, so save as APActivities")
-    maybe_apply(Bonfire.Social.APActivities, :ap_receive_activity, [creator, activity, object])
   end
 end

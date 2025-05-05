@@ -10,8 +10,8 @@ defmodule Bonfire.Files.CapsuleIntegration.Attacher do
   end
 
   def storages(upload, module) do
-    IO.inspect(upload, label: "uuuu")
-    IO.inspect(module, label: "mmmm")
+    # IO.inspect(upload, label: "uuuu")
+    # IO.inspect(module, label: "mmmm")
 
     if Config.get([:bonfire_files, :storage], :local) == :s3 do
       [
