@@ -324,7 +324,7 @@ defmodule Bonfire.Files.Media do
   #           # |> Keyword.put_new(:update_existing, :force)
   #           |> Keyword.merge(
   #             id:
-  #               DatesTimes.maybe_generate_ulid(
+  #               DatesTimes.generate_ulid_if_past(
   #                 # e(summary, "publication-date", nil) ||
   #                 e(summary, "created-date", "value", nil)
   #               ),
