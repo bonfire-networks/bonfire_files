@@ -2,6 +2,7 @@ defmodule Bonfire.Files.MediaEdit do
   import Untangle
   # use Arrows
   use Bonfire.Common.Localise
+  use Bonfire.Common.Settings
   alias Bonfire.Files
   alias Bonfire.Common.Extend
   alias Bonfire.Common.Types
