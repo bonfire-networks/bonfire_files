@@ -23,6 +23,7 @@ defmodule Bonfire.Files.Definition do
 
       import Untangle
       use Bonfire.Common.Config
+      use Bonfire.Common.Localise
       alias Bonfire.Files
       alias Bonfire.Files.FileDenied
 

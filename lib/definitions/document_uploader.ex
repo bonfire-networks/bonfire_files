@@ -17,10 +17,10 @@ defmodule Bonfire.Files.DocumentUploader do
     :skip
   end
 
-  def transform(:thumbnail, {%{file_name: filename}, _scope}) do
+  def transform(:thumbnail, {%{file_name: filename}, scope}) do
     if String.ends_with?(filename, ".pdf") do
       debug(filename, "extract a thumbnail")
-      Bonfire.Files.MediaEdit.thumbnail_pdf(filename) || :skip
+      Bonfire.Files.MediaEdit.thumbnail_pdf(filename, scope) || :skip
     else
       debug(filename, "do not transform")
       :skip

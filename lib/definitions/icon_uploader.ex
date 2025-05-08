@@ -20,8 +20,12 @@ defmodule Bonfire.Files.IconUploader do
   def transform(:default, {%{file_name: filename}, _scope}) do
     debug(filename, "transform")
 
-    # TODO: configurable
-    max_size = 142
+    max_size =
+      Config.get([Bonfire.Files, :max_sizes, :banner, :height], 142,
+        name: l("Icon/avatar max size"),
+        description:
+          l("Set a maximum width/height for automatically resizing avatar or icon images")
+      )
 
     Bonfire.Files.MediaEdit.thumbnail(filename, max_size)
     |> debug() ||
@@ -29,7 +33,7 @@ defmodule Bonfire.Files.IconUploader do
   end
 
   # def transform(:small, _) do
-  #   max_size = 48 # TODO: configurable
+  #   max_size = 48
   #   {:convert, "-strip -thumbnail #{max_size}x#{max_size} -gravity center -crop #{max_size}x#{max_size}+0+0 -limit area 50MB -limit disk 2MB"}
   # end
 

@@ -1,6 +1,7 @@
 defmodule Bonfire.Files.MediaEdit do
   import Untangle
   # use Arrows
+  use Bonfire.Common.Localise
   alias Bonfire.Files
   alias Bonfire.Common.Extend
   alias Bonfire.Common.Types
@@ -148,9 +149,13 @@ defmodule Bonfire.Files.MediaEdit do
     |> debug()
   end
 
-  def thumbnail_pdf(_filename) do
-    # TODO: configurable
-    max_size = 1024
+  def thumbnail_pdf(_filename, scope) do
+    max_size =
+      Settings.get([Bonfire.Files, :max_sizes, :pdf], 1024,
+        context: scope,
+        name: l("PDF preview max size"),
+        description: l("Set a maximum width/height for preview images generated for PDFs")
+      )
 
     cond do
       System.find_executable("pdftocairo") ->

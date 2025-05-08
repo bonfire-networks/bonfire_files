@@ -17,14 +17,26 @@ defmodule Bonfire.Files.BannerUploader do
     :noaction
   end
 
-  def transform(:default, {%{file_name: filename}, _scope}) do
-    Bonfire.Files.MediaEdit.banner(filename, max_width(), max_height()) ||
+  def transform(:default, {%{file_name: filename}, scope}) do
+    Bonfire.Files.MediaEdit.banner(filename, max_width(scope), max_height(scope)) ||
       :noaction
   end
 
-  # TODO: configurable
-  def max_width, do: 580
-  def max_height, do: 200
+  def max_width(scope \\ nil),
+    do:
+      Settings.get([Bonfire.Files, :max_sizes, :banner, :width], 580,
+        context: scope,
+        name: l("Banner max width"),
+        description: l("Set a maximum width for automatically resizing banner images")
+      )
+
+  def max_height(scope \\ nil),
+    do:
+      Settings.get([Bonfire.Files, :max_sizes, :banner, :height], 200,
+        context: scope,
+        name: l("Banner max height"),
+        description: l("Set a maximum height for automatically resizing banner images")
+      )
 
   def prefix_dir() do
     "banners"

@@ -26,14 +26,25 @@ defmodule Bonfire.Files.VideoUploader do
     :skip
   end
 
-  def transform(:thumbnail, {%{file_name: filename}, _scope}) do
+  def transform(:thumbnail, {%{file_name: filename}, scope}) do
     debug(filename, "transform")
 
-    # TODO: configurable
-    scrub_seconds = 10
-    scrub_percent = 15
+    scrub_seconds =
+      Settings.get([Bonfire.Files, :video, :scrub, :seconds], 10,
+        scope: scope,
+        name: l("Video thumbnail generation scrubbing"),
+        unit: "seconds"
+      )
+
+    scrub_percent =
+      Settings.get([Bonfire.Files, :video, :scrub, :percent], 15,
+        scope: scope,
+        name: l("Video thumbnail generation scrubbing"),
+        unit: "%"
+      )
+
     scrub_frames = nil
-    max_size = "#{max_width()}x#{max_height()}"
+    max_size = "#{max_width(scope)}x#{max_height(scope)}"
 
     Bonfire.Files.MediaEdit.thumbnail_video(filename, max_size,
       seconds: scrub_seconds,
@@ -44,11 +55,24 @@ defmodule Bonfire.Files.VideoUploader do
       :skip
   end
 
-  # TODO: configurable
   # small timeout, enough only for small videos (need to refactor to convert videos async instead)
   def transform_timeout, do: 30_000
-  def max_width, do: 644
-  def max_height, do: 362
+
+  def max_width(scope \\ nil),
+    do:
+      Settings.get([Bonfire.Files, :max_sizes, :video, :width], 644,
+        scope: scope,
+        name: l("Video thumbnail generation max width"),
+        unit: "pixels"
+      )
+
+  def max_height(scope \\ nil),
+    do:
+      Settings.get([Bonfire.Files, :max_sizes, :video, :height], 362,
+        scope: scope,
+        name: l("Video thumbnail generation max height"),
+        unit: "pixels"
+      )
 
   def prefix_dir() do
     "videos"
