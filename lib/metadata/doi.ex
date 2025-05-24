@@ -4,17 +4,24 @@ defmodule Bonfire.Files.DOI do
   alias Bonfire.Common.HTTP
   import Untangle
 
-  @doi_matcher "10.\d{4,9}\/[-._;()\/:A-Z0-9]+$"
-  @pub_id_matchers %{
-    # :doi => ~r/10.+\/.+/,
-    doi: ~r/^#{@doi_matcher}/i,
-    # doi_prefixed: ~r/doi:^#{@doi_matcher}/i
-    doi_prefixed: ~r/^doi:([^\s]+)/i
-  }
-  @pub_uri_matchers %{
-    doi_url: ~r/doi\.org([^\s]+)/i
-  }
-  @pub_id_and_uri_matchers Map.merge(@pub_id_matchers, @pub_uri_matchers)
+  def doi_matcher, do: "10.\d{4,9}\/[-._;()\/:A-Z0-9]+$"
+
+  def pub_id_matchers,
+    do: %{
+      # :doi => ~r/10.+\/.+/,
+      doi: ~r/^#{doi_matcher()}/i,
+      # doi_prefixed: ~r/doi:^#{doi_matcher()}/i
+      doi_prefixed: ~r/^doi:([^\s]+)/i
+    }
+
+  def pub_uri_matchers,
+    do: %{
+      doi_url: ~r/doi\.org([^\s]+)/i
+    }
+
+  def pub_id_and_uri_matchers, do: Map.merge(pub_id_matchers(), pub_uri_matchers())
+
+  def pub_id_matcher(type), do: pub_id_and_uri_matchers()[type]
 
   def maybe_fetch(url) do
     if is_pub_id_or_uri_match?(url), do: fetch(url)
@@ -67,9 +74,4 @@ defmodule Bonfire.Files.DOI do
         String.match?(url, scheme)
     end)
   end
-
-  def pub_id_matchers(), do: @pub_id_matchers
-  def pub_uri_matchers(), do: @pub_uri_matchers
-  def pub_id_and_uri_matchers(), do: @pub_id_and_uri_matchers
-  def pub_id_matcher(type), do: pub_id_and_uri_matchers()[type]
 end
