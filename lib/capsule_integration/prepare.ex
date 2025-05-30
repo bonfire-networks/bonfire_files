@@ -99,7 +99,8 @@ defmodule Bonfire.Files.Prepare do
 
     if Enum.empty?(errors) do
       # Filter out nil values before attempting to merge
-      oks = oks
+      oks =
+        oks
         |> Enum.map(fn
           {%Task{}, {:ok, {:ok, result}}} -> result
           {%Task{}, {:ok, result}} -> result
@@ -107,14 +108,16 @@ defmodule Bonfire.Files.Prepare do
           result -> result
         end)
         |> Enum.reject(&is_nil/1)
-      
+
       # Only proceed with merging if we have results to merge
-      result = if Enum.empty?(oks) do
-        %{}  # Return empty map if all were nil
-      else
-        Enums.deep_merge_reduce(oks)
-      end
-      
+      result =
+        if Enum.empty?(oks) do
+          # Return empty map if all were nil
+          %{}
+        else
+          Enums.deep_merge_reduce(oks)
+        end
+
       {
         :ok,
         #  Enums.unwrap_tuples(responses, :ok)
