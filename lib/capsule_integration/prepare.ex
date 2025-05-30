@@ -185,7 +185,8 @@ defmodule Bonfire.Files.Prepare do
          }}
 
       nil ->
-        error(:timeout)
+        #  no transformation, no file
+        {:ok, nil}
 
       other ->
         error(other)
