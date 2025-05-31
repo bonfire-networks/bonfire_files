@@ -189,14 +189,15 @@ defmodule Bonfire.Files.Media do
             e(metadata, "wikibase", "title", nil) ||
             e(metadata, "crossref", "title", nil) || e(metadata, "oembed", "title", nil) ||
             e(metadata, "json_ld", "name", nil) ||
-            e(metadata, "atom", "title", "value", nil) || e(metadata, "rss", "title", nil) ||
+            e(metadata, "atom", "title", nil) || e(metadata, "rss", "title", nil) ||
             e(metadata, "facebook", "title", nil) ||
             e(metadata, "twitter", "title", nil) ||
             e(metadata, "other", "title", nil) ||
-            e(metadata, "orcid", "title", "title", "value", nil) ||
+            e(metadata, "orcid", "title", "title", nil) ||
             e(metadata, "rss", "channel", "title", nil))
          |> unwrap() do
       "Just a moment" <> _ -> nil
+      %{"value" => value} -> value
       other -> other
     end
   end
