@@ -265,20 +265,24 @@ defmodule Bonfire.Files.Media do
   def ap_receive_activity(
         creator,
         activity,
-        %{data: %{"type" => "Page", "image" => %{"url" => media_url}} = object} = _ap_object
+        %{data: %{"type" => "Page", "image" => %{"url" => media_url}} = object_data} = ap_object
       ) do
     debug(activity, "activity")
-    warn(object, "WIP - for lemmy 'Page' links")
+    warn(object_data, "WIP - for lemmy 'Page' links")
+
+    {boundary, to_circles} =
+      Bonfire.Federate.ActivityPub.AdapterUtils.incoming_boundary_circles(activity, ap_object)
 
     with {:ok, activity} <-
            create_and_publish(
              creator,
-             media_url || object["id"],
-             e(object, "image", "type", nil),
+             media_url || object_data["id"],
+             e(object_data, "image", "type", nil),
              0,
-             %{json_ld: object},
+             %{json_ld: object_data},
              #  TODO: boundary should be computed like for Posts
-             boundary: "public_remote"
+             boundary: boundary,
+             to_circles: to_circles
            ) do
       {:ok, activity}
     end
@@ -288,23 +292,27 @@ defmodule Bonfire.Files.Media do
   def ap_receive_activity(
         creator,
         activity,
-        %{data: %{"type" => "Video", "url" => urls} = data} = _object
+        %{data: %{"type" => "Video", "url" => urls} = object_data} = ap_object
       )
       when is_list(urls) do
     # debug(activity, "activity")
-    debug(data, "PeerTube video")
+    debug(object_data, "PeerTube video")
+
+    {boundary, to_circles} =
+      Bonfire.Federate.ActivityPub.AdapterUtils.incoming_boundary_circles(activity, ap_object)
+      |> debug("incoming_boundary_circles")
 
     # Find the highest quality video URL
     with {media_url, size, media_type} <- extract_best_video_url(urls),
          {:ok, activity} <-
            create_and_publish(
              creator,
-             media_url || data["id"],
+             media_url || object_data["id"],
              media_type,
              size,
-             %{json_ld: data},
-             #  TODO: boundary should be computed like for Posts
-             boundary: "public_remote"
+             %{json_ld: object_data},
+             boundary: boundary,
+             to_circles: to_circles
            ) do
       {:ok, activity}
     end
