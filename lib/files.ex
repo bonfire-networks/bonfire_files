@@ -292,10 +292,10 @@ defmodule Bonfire.Files do
 
   def remote_url(module, %{file: %Entrepot.Locator{id: id} = locator}, version)
       when is_binary(id),
-      do: entrepot_storage_apply(:url, locator, version)
+      do: entrepot_storage_apply(:url, locator, version) |> Utils.ok_unwrap()
 
   def remote_url(_module, %Entrepot.Locator{id: id} = locator, version) when is_binary(id),
-    do: entrepot_storage_apply(:url, locator, version)
+    do: entrepot_storage_apply(:url, locator, version) |> Utils.ok_unwrap()
 
   def remote_url(module, %Media{} = media, version) when is_atom(module) and not is_nil(module),
     do: module.url({media.path, %{creator_id: media.creator_id}}, version)
