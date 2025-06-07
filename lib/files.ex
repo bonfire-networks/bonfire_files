@@ -287,15 +287,31 @@ defmodule Bonfire.Files do
   @doc """
   Return the URL that a local file has.
   """
-  @spec remote_url(atom, Media.t()) :: binary
+  # 6 hours in seconds
+  @url_expiration_ttl 60 * 60 * 6
+  # 10 minutes in ms less to allow for cache expiry
+  @url_cache_ttl (@url_expiration_ttl - 60 * 10) * 1_000
+
   def remote_url(module \\ nil, media, version \\ :default)
 
-  def remote_url(module, %{file: %Entrepot.Locator{id: id} = locator}, version)
-      when is_binary(id),
-      do: entrepot_storage_apply(:url, locator, version) |> Utils.ok_unwrap()
+  def remote_url(_module, %{file: %Entrepot.Locator{id: id} = locator}, version)
+      when is_binary(id) do
+    Bonfire.Common.Cache.maybe_apply_cached(
+      &entrepot_storage_apply/4,
+      [:url, locator, version, [expires_in: @url_expiration_ttl]],
+      expire: @url_cache_ttl
+    )
+    |> Utils.ok_unwrap()
+  end
 
-  def remote_url(_module, %Entrepot.Locator{id: id} = locator, version) when is_binary(id),
-    do: entrepot_storage_apply(:url, locator, version) |> Utils.ok_unwrap()
+  def remote_url(_module, %Entrepot.Locator{id: id} = locator, version) when is_binary(id) do
+    Bonfire.Common.Cache.maybe_apply_cached(
+      &entrepot_storage_apply/4,
+      [:url, locator, version, [expires_in: @url_expiration_ttl]],
+      expire: @url_cache_ttl
+    )
+    |> Utils.ok_unwrap()
+  end
 
   def remote_url(module, %Media{} = media, version) when is_atom(module) and not is_nil(module) do
     info(module, "remote_url module")
@@ -323,16 +339,23 @@ defmodule Bonfire.Files do
     end
   end
 
-  def remote_url(_, _, _), do: nil
+  def remote_url(_, media, _) do
+    IO.inspect(
+      media,
+      label: "remote_url called with unexpected arguments"
+    )
+
+    nil
+  end
 
   def local_path(module \\ nil, media, version \\ :default)
 
   def local_path(module, %{file: %Entrepot.Locator{id: id} = locator}, version)
       when is_binary(id),
-      do: entrepot_storage_apply(:path, locator, version)
+      do: entrepot_storage_apply(:path, locator, version, [])
 
   def local_path(_module, %Entrepot.Locator{id: id} = locator, version) when is_binary(id),
-    do: entrepot_storage_apply(:path, locator, version)
+    do: entrepot_storage_apply(:path, locator, version, [])
 
   def local_path(module, %Media{} = media, version) when is_atom(module) and not is_nil(module),
     do: module.path({media.path, %{creator_id: media.creator_id}}, version)
@@ -396,7 +419,9 @@ defmodule Bonfire.Files do
 
   def delete_files(_, _, _), do: nil
 
-  defp entrepot_storage_apply(fun, %{storage: storage} = locator, opts)
+  defp entrepot_storage_apply(fun, locator, version \\ nil, opts)
+
+  defp entrepot_storage_apply(fun, %{storage: storage} = locator, version, opts)
        when is_binary(storage) do
     case storage
          # temporary
@@ -406,39 +431,23 @@ defmodule Bonfire.Files do
         error(storage, "Storage module not found")
 
       storage ->
-        entrepot_storage_apply(fun, Map.put(locator, :storage, storage), opts)
+        entrepot_storage_apply(fun, Map.put(locator, :storage, storage), version, opts)
     end
   end
 
-  defp entrepot_storage_apply(fun, %Entrepot.Locator{id: id, storage: storage}, opts)
-       when is_list(opts) and
-              is_atom(storage) and not is_nil(storage) do
-    info(storage, "storage module")
-    Utils.maybe_apply(storage, fun, [id, opts])
-  end
-
-  defp entrepot_storage_apply(fun, %Entrepot.Locator{id: id, storage: storage}, version)
+  defp entrepot_storage_apply(fun, %Entrepot.Locator{id: id, storage: storage}, version, opts)
        when (is_nil(version) or version == :default) and
               is_atom(storage) and not is_nil(storage) do
     info(storage, "storage module")
 
-    case Utils.maybe_apply(storage, fun, id) do
-      url when is_binary(url) ->
-        url
-
-      {:ok, url} when is_binary(url) ->
-        url
-
-      e ->
-        error(e, "url not found in #{storage}")
-        nil
-    end
+    Utils.maybe_apply(storage, fun, [id, opts])
   end
 
   defp entrepot_storage_apply(
          fun,
          %Entrepot.Locator{id: id, storage: storage, metadata: %{} = metadata},
-         version
+         version,
+         opts
        )
        when is_atom(storage) and not is_nil(storage) do
     info(storage, "storage module")
@@ -449,7 +458,7 @@ defmodule Bonfire.Files do
            metadata
            |> Map.get(to_string(version)) do
       version_id when is_binary(version_id) ->
-        Utils.maybe_apply(storage, fun, version_id)
+        Utils.maybe_apply(storage, fun, [version_id, opts])
 
       e ->
         debug(e, "version '#{inspect(version)}' not found")

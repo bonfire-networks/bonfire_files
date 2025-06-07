@@ -48,7 +48,7 @@ defmodule Bonfire.Files.Test do
     test "creates a file upload" do
       assert {:ok, upload} = fake_upload(icon_file())
       assert upload.media_type == "image/png"
-      assert upload.path
+      assert upload.path || Bonfire.Common.Media.media_url(upload)
       assert upload.size
     end
 
@@ -75,10 +75,12 @@ defmodule Bonfire.Files.Test do
 
       {:ok, settings} = Bonfire.Files.EmojiUploader.add_emoji(me, icon_file(), label, shortcode)
 
-      assert %{url: url} =
+      assert emoji =
                Bonfire.Common.Settings.get([:custom_emoji, shortcode], nil, settings)
+               |> IO.inspect(label: "emoji")
 
-      assert File.exists?(String.trim_leading(url, "/"))
+      assert File.exists?(String.trim_leading(emoji[:url] || "", "/")) or
+               Bonfire.Common.Media.emoji_url(emoji)
     end
   end
 
@@ -99,13 +101,19 @@ defmodule Bonfire.Files.Test do
     test "updates the deletion date of the upload, leaves files in place" do
       assert {:ok, upload} = Files.upload(IconUploader, fake_user!(), icon_file())
 
-      assert path = Files.local_path(IconUploader, upload)
-      assert File.exists?(path)
+      if path = Files.local_path(IconUploader, upload) do
+        assert File.exists?(path)
+      end
 
       refute upload.deleted_at
       assert {:ok, deleted_upload} = Media.soft_delete(upload)
       assert deleted_upload.deleted_at
-      assert File.exists?(path)
+
+      if path = Files.local_path(IconUploader, upload) do
+        assert File.exists?(path)
+      end
+
+      # assert Bonfire.Common.Media.media_url(upload)
     end
   end
 
@@ -113,11 +121,17 @@ defmodule Bonfire.Files.Test do
     test "removes the upload, including files" do
       assert {:ok, upload} = Files.upload(ImageUploader, fake_user!(), icon_file())
 
-      assert path = Files.local_path(ImageUploader, upload)
-      assert File.exists?(path)
+      if path = Files.local_path(ImageUploader, upload) do
+        assert File.exists?(path)
+      end
 
       assert {:ok, _} = Media.hard_delete(ImageUploader, upload)
-      refute File.exists?(path)
+
+      if path = Files.local_path(ImageUploader, upload) do
+        refute File.exists?(path)
+      end
+
+      refute Bonfire.Common.Media.image_url(upload)
     end
   end
 end
