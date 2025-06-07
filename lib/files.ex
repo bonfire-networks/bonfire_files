@@ -297,8 +297,10 @@ defmodule Bonfire.Files do
   def remote_url(_module, %Entrepot.Locator{id: id} = locator, version) when is_binary(id),
     do: entrepot_storage_apply(:url, locator, version) |> Utils.ok_unwrap()
 
-  def remote_url(module, %Media{} = media, version) when is_atom(module) and not is_nil(module),
-    do: module.url({media.path, %{creator_id: media.creator_id}}, version)
+  def remote_url(module, %Media{} = media, version) when is_atom(module) and not is_nil(module) do
+    info(module, "remote_url module")
+    module.url({media.path, %{creator_id: media.creator_id}}, version)
+  end
 
   def remote_url(module, media_id, version)
       when is_binary(media_id) and is_atom(module) do
@@ -411,12 +413,15 @@ defmodule Bonfire.Files do
   defp entrepot_storage_apply(fun, %Entrepot.Locator{id: id, storage: storage}, opts)
        when is_list(opts) and
               is_atom(storage) and not is_nil(storage) do
+    info(storage, "storage module")
     Utils.maybe_apply(storage, fun, [id, opts])
   end
 
   defp entrepot_storage_apply(fun, %Entrepot.Locator{id: id, storage: storage}, version)
        when (is_nil(version) or version == :default) and
               is_atom(storage) and not is_nil(storage) do
+    info(storage, "storage module")
+
     case Utils.maybe_apply(storage, fun, id) do
       url when is_binary(url) ->
         url
@@ -436,6 +441,8 @@ defmodule Bonfire.Files do
          version
        )
        when is_atom(storage) and not is_nil(storage) do
+    info(storage, "storage module")
+
     case metadata
          |> debug("metadata")
          |> Map.get(version) ||
