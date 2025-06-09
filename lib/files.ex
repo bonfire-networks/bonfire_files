@@ -340,9 +340,9 @@ defmodule Bonfire.Files do
   end
 
   def remote_url(_, media, _) do
-    IO.inspect(
+    debug(
       media,
-      label: "remote_url called with unexpected arguments"
+      "remote_url called with unexpected arguments"
     )
 
     nil

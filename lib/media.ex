@@ -396,7 +396,7 @@ defmodule Bonfire.Files.Media do
                media_type: media_type,
                size: size || 0
              },
-             %{metadata: metadata}
+             %{metadata: metadata, url: media_url}
            )
            |> debug("created"),
          {:ok, activity} <-
