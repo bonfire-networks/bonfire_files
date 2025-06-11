@@ -42,7 +42,7 @@ defmodule Bonfire.Files.RuntimeConfig do
       scheme = System.get_env("UPLOADS_S3_SCHEME", "https://")
       port = System.get_env("UPLOADS_S3_PORT", "443")
 
-      if config_env() not in [:test, :dev] || System.get_env("USE_S3") do
+      if config_env() not in [:test, :dev] || System.get_env("USE_S3") in ["true", "1", "yes"] do
         IO.puts("Note: uploads will be stored in s3: #{bucket} at #{host}")
         config :bonfire_files, :storage, :s3
       end

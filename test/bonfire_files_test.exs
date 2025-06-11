@@ -103,7 +103,7 @@ defmodule Bonfire.Files.Test do
 
       if path = Files.local_path(IconUploader, upload) do
         assert File.exists?(path)
-      end
+      end || assert Bonfire.Common.Media.avatar_url(upload)
 
       refute upload.deleted_at
       assert {:ok, deleted_upload} = Media.soft_delete(upload)
@@ -123,7 +123,8 @@ defmodule Bonfire.Files.Test do
 
       if path = Files.local_path(ImageUploader, upload) do
         assert File.exists?(path)
-      end
+        true
+      end || assert Bonfire.Common.Media.image_url(upload)
 
       assert {:ok, _} = Media.hard_delete(ImageUploader, upload)
 
@@ -131,7 +132,8 @@ defmodule Bonfire.Files.Test do
         refute File.exists?(path)
       end
 
-      refute Bonfire.Common.Media.image_url(upload)
+      assert {:error, _} = Media.one(id: upload.id)
+      # refute Bonfire.Common.Media.image_url(upload)
     end
   end
 end
