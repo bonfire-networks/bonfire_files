@@ -200,12 +200,26 @@ defmodule Bonfire.Files do
   defp maybe_move(_, upload_filename, _), do: {:ok, upload_filename}
 
   def file_extension(path) when is_binary(path) do
-    path |> Path.extname() |> String.downcase()
+    path
+    |> URI.parse()
+    |> Map.get(:path, path)
+    |> Path.extname()
+    |> String.downcase()
   end
 
   def file_extension_only(path) do
     file_extension(path) |> String.trim_leading(".")
   end
+
+  def has_extension?(url, extensions)
+      when is_binary(url) and (is_list(extensions) or is_binary(extensions)) do
+    url
+    |> URI.parse()
+    |> Map.get(:path, url)
+    |> String.ends_with?(extensions)
+  end
+
+  def has_extension?(_, _), do: false
 
   defp insert({creator, object}, file, file_info, attrs) do
     # to attach media to an object

@@ -24,7 +24,7 @@ defmodule Bonfire.Files.Media do
 
   @behaviour Bonfire.Federate.ActivityPub.FederationModules
   # NOTE: Page objects are a reference to an external resource (eg. a link or media) as as opposed to an Article object which comes with contents.
-  def federation_module, do: ["Page", "Video", "Image", "Document"]
+  def federation_module, do: ["Page", "Video", "Image", "Document", "PodcastEpisode", "Audio"]
 
   # @type t :: %__MODULE__{}
 
@@ -299,6 +299,35 @@ defmodule Bonfire.Files.Media do
     end
   end
 
+  # handle Audio from Funkwhale, etc
+  def ap_receive_activity(
+        creator,
+        activity,
+        %{data: %{"type" => audio_type, "url" => urls} = object_data} = ap_object
+      )
+      when audio_type in ["Audio", "PodcastEpisode"] and is_list(urls) do
+    # debug(activity, "activity")
+    debug(object_data, "Funkwhale audio")
+
+    {boundary, to_circles} =
+      Bonfire.Federate.ActivityPub.AdapterUtils.incoming_boundary_circles(activity, ap_object)
+      |> debug("incoming_boundary_circles")
+
+    with {media_url, size, media_type} <- extract_audio_url(urls),
+         {:ok, activity} <-
+           create_and_publish(
+             creator,
+             media_url || object_data["id"],
+             media_type,
+             size,
+             %{json_ld: object_data},
+             boundary: boundary,
+             to_circles: to_circles
+           ) do
+      {:ok, activity}
+    end
+  end
+
   # handle Video from Peertube
   def ap_receive_activity(
         creator,
@@ -422,6 +451,41 @@ defmodule Bonfire.Files.Media do
       __MODULE__
     )
     |> debug("published")
+  end
+
+  defp extract_audio_url(urls) when is_list(urls) do
+    urls
+    |> Enum.filter(fn url ->
+      # Filter for direct video links (excluding torrents, magnets and HLS fragments)
+      is_map(url) &&
+        String.starts_with?(url["mediaType"] || url["mimeType"] || "", "audio/")
+    end)
+    |> List.first()
+    |> case do
+      # TODO: consolidate to using only mediaType or mimeType in AP Transformer
+      %{"href" => href, "size" => size, "mediaType" => media_type}
+      when is_binary(href) and is_integer(size) and is_binary(media_type) ->
+        {href, size, media_type}
+
+      %{"href" => href, "size" => size, "mimeType" => media_type}
+      when is_binary(href) and is_integer(size) and is_binary(media_type) ->
+        {href, size, media_type}
+
+      %{"href" => href, "mediaType" => media_type}
+      when is_binary(href) and is_binary(media_type) ->
+        {href, 0, media_type}
+
+      %{"href" => href, "mimeType" => media_type}
+      when is_binary(href) and is_binary(media_type) ->
+        {href, 0, media_type}
+
+      %{"href" => href} when is_binary(href) ->
+        # Default to mp3 if no media type specified?
+        {href, 0, "audio/mp3"}
+
+      _ ->
+        {nil, 0, nil}
+    end
   end
 
   # Helper to extract the highest quality video URL, size and media type from PeerTube "url" array
