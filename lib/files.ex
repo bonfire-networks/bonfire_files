@@ -213,9 +213,9 @@ defmodule Bonfire.Files do
 
   def has_extension?(url, extensions)
       when is_binary(url) and (is_list(extensions) or is_binary(extensions)) do
-    url
-    |> URI.parse()
-    |> Map.get(:path, url)
+    (url
+     |> URI.parse()
+     |> Map.get(:path) || url || "")
     |> String.ends_with?(extensions)
   end
 

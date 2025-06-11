@@ -128,6 +128,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
              else: Files.link_type(url, meta)
            ),
          extra <- %{
+           url: url,
            media_type: media_type,
            metadata:
              Enums.deep_merge(
