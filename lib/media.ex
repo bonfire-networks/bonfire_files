@@ -186,7 +186,7 @@ defmodule Bonfire.Files.Media do
       Queries.query(Media)
       |> select([c], c)
       |> Queries.filter(filters)
-      |> repo().delete_all()
+      |> repo().delete_many()
 
     # FIXME: doesn't cleanup files
     list
