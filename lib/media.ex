@@ -218,7 +218,7 @@ defmodule Bonfire.Files.Media do
   def description(%{} = metadata) do
     json_ld = e(metadata, "json_ld", nil)
 
-    (e(json_ld, "description", nil) ||
+    (e(json_ld, "description", "content", nil) || e(json_ld, "description", nil) ||
        e(metadata, "facebook", "description", nil) ||
        e(metadata, "twitter", "description", nil) ||
        e(metadata, "rss", "description", nil) ||
@@ -305,7 +305,8 @@ defmodule Bonfire.Files.Media do
         activity,
         %{data: %{"type" => audio_type, "url" => urls} = object_data} = ap_object
       )
-      when audio_type in ["Audio", "PodcastEpisode"] and is_list(urls) do
+      when (audio_type in ["Audio", "PodcastEpisode"] and is_list(urls)) or is_binary(urls) or
+             is_map(urls) do
     # debug(activity, "activity")
     debug(object_data, "Funkwhale audio")
 
@@ -328,13 +329,27 @@ defmodule Bonfire.Files.Media do
     end
   end
 
+  def ap_receive_activity(
+        creator,
+        activity,
+        %{data: %{"type" => audio_type, "audio" => %{"url" => urls}} = object_data} = ap_object
+      )
+      when (audio_type in ["Audio", "PodcastEpisode"] and is_list(urls)) or is_binary(urls) or
+             is_map(urls) do
+    ap_receive_activity(
+      creator,
+      activity,
+      %{ap_object | data: Map.put(ap_object.data, "url", urls)}
+    )
+  end
+
   # handle Video from Peertube
   def ap_receive_activity(
         creator,
         activity,
         %{data: %{"type" => "Video", "url" => urls} = object_data} = ap_object
       )
-      when is_list(urls) do
+      when (is_list(urls) and is_list(urls)) or is_binary(urls) or is_map(urls) do
     # debug(activity, "activity")
     debug(object_data, "PeerTube video")
 
@@ -453,12 +468,15 @@ defmodule Bonfire.Files.Media do
     |> debug("published")
   end
 
-  defp extract_audio_url(urls) when is_list(urls) do
+  defp extract_audio_url(urls) do
     urls
+    |> List.wrap()
     |> Enum.filter(fn url ->
-      # Filter for direct video links (excluding torrents, magnets and HLS fragments)
-      is_map(url) &&
-        String.starts_with?(url["mediaType"] || url["mimeType"] || "", "audio/")
+      # Filter for direct audio links (excluding torrents, magnets and HLS fragments)
+      # and Files.has_extension?(url, ".mp3") TODO: check file extension if we don't have a mime type
+      is_binary(url) or
+        (is_map(url) and
+           String.starts_with?(url["mediaType"] || url["mimeType"] || "", "audio/"))
     end)
     |> List.first()
     |> case do
@@ -483,19 +501,26 @@ defmodule Bonfire.Files.Media do
         # Default to mp3 if no media type specified?
         {href, 0, "audio/mp3"}
 
+      href when is_binary(href) ->
+        # Default to mp3 if no media type specified?
+        {href, 0, "audio/mp3"}
+
       _ ->
         {nil, 0, nil}
     end
   end
 
   # Helper to extract the highest quality video URL, size and media type from PeerTube "url" array
-  defp extract_best_video_url(urls) when is_list(urls) do
+  defp extract_best_video_url(urls) do
     urls
+    |> List.wrap()
     |> Enum.filter(fn url ->
       # Filter for direct video links (excluding torrents, magnets and HLS fragments)
-      is_map(url) &&
-        String.starts_with?(url["mediaType"] || url["mimeType"] || "", "video/") &&
-        !String.contains?(url["href"] || "", ["-fragmented.mp4", "streaming-playlists"])
+      # and Files.has_extension?(url, ".mp4") TODO: check file extension if we don't have a mime type
+      is_binary(url) or
+        (is_map(url) &&
+           String.starts_with?(url["mediaType"] || url["mimeType"] || "", "video/") &&
+           !String.contains?(url["href"] || "", ["-fragmented.mp4", "streaming-playlists"]))
     end)
     |> Enum.sort_by(fn url ->
       # Sort by height (resolution) in descending order
@@ -521,6 +546,10 @@ defmodule Bonfire.Files.Media do
         {href, 0, media_type}
 
       %{"href" => href} when is_binary(href) ->
+        # Default to mp4 if no media type specified
+        {href, 0, "video/mp4"}
+
+      href when is_binary(href) ->
         # Default to mp4 if no media type specified
         {href, 0, "video/mp4"}
 
