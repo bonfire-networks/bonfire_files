@@ -34,7 +34,11 @@
         </div> -->
       {#match _}
         <span class={@class}>
-          <img class="object-cover w-full h-full" src={@src} {...@opts}>
+          <img
+            class="object-cover w-full h-full"
+            src={"#{@src}?v=#{System.system_time(:second)}"}
+            {...@opts}
+          />
         </span>
     {/case}
     <label for={@uploads.icon.ref} class={@label_class}>

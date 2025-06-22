@@ -8,7 +8,7 @@
     data-id="upload_banner"
     phx-drop-target={@uploads.banner.ref}
     class={@container_class}
-    style={"background-image: url('#{@src || Media.banner_url(@object)}')"}
+    style={"background-image: url('#{@src || Media.banner_url(@object)}?v=#{System.system_time(:second)}')"}
   >
     <div class="space-y-1 text-center">
       <div class="flex text-sm text-base-content">
