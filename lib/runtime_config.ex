@@ -41,19 +41,23 @@ defmodule Bonfire.Files.RuntimeConfig do
       host = System.get_env("UPLOADS_S3_HOST", "s3.#{region}.scw.cloud")
       scheme = System.get_env("UPLOADS_S3_SCHEME", "https://")
       port = System.get_env("UPLOADS_S3_PORT", "443")
+      s3_url = System.get_env("UPLOADS_S3_URL")
 
       if config_env() not in [:test, :dev] || System.get_env("USE_S3") in ["true", "1", "yes"] do
         IO.puts("Note: uploads will be stored in s3: #{bucket} at #{host}")
         config :bonfire_files, :storage, :s3
       end
 
-      config :entrepot, Entrepot.Storages.S3, bucket: bucket
       # config :entrepot, Entrepot.Storages.Disk, root_dir: "data/uploads"
+
+      config :entrepot, Entrepot.Storages.S3,
+        bucket: bucket,
+        bucket_as_host: s3_url == bucket
 
       config :waffle,
         storage: Waffle.Storage.S3,
         bucket: bucket,
-        asset_host: System.get_env("UPLOADS_S3_URL", "#{scheme}#{bucket}.#{host}/")
+        asset_host: s3_url || "#{scheme}#{bucket}.#{host}/"
 
       config :ex_aws,
         json_codec: Jason,
