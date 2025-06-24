@@ -329,7 +329,12 @@ defmodule Bonfire.Files do
 
   def remote_url(module, %Media{} = media, version) when is_atom(module) and not is_nil(module) do
     info(module, "remote_url module")
-    module.url({media.path, %{creator_id: media.creator_id}}, version)
+    
+    # Handle remote media (federated content) - return the original HTTP URL
+    case media.path do
+      "http" <> _ = url -> url
+      _ -> module.url({media.path, %{creator_id: media.creator_id}}, version)
+    end
   end
 
   def remote_url(module, media_id, version)
