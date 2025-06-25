@@ -31,14 +31,31 @@ defmodule Bonfire.Files.Simulation do
   def text_file, do: @text_file
   def pdf_file, do: @pdf_file
 
-  def fake_upload(file, upload_def \\ nil) do
-    creator = fake_user!()
+  def fake_upload(file, upload_def \\ nil, creator \\ nil) do
+    creator = creator || fake_user!()
 
     upload_def =
       upload_def ||
         Faker.Util.pick([IconUploader, ImageUploader, DocumentUploader])
 
     Files.upload(upload_def, creator, file, %{})
+  end
+
+  def fake_user_with_avatar!(user \\ nil) do
+    me = user || fake_user!()
+
+    {:ok, upload} = Files.upload(IconUploader, me, icon_file())
+
+    url = Bonfire.Common.Media.avatar_url(upload)
+
+    path =
+      if path = Files.local_path(IconUploader, upload) do
+        File.exists?(path) && path
+      end
+
+    {:ok, me} = Bonfire.Me.Profiles.set_profile_image(:icon, me, upload)
+
+    %{user: me, upload: upload, path: path, url: url}
   end
 
   def geometry(path) do

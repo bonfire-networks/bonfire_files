@@ -328,12 +328,14 @@ defmodule Bonfire.Files do
   end
 
   def remote_url(module, %Media{} = media, version) when is_atom(module) and not is_nil(module) do
-    info(module, "remote_url module")
-    
-    # Handle remote media (federated content) - return the original HTTP URL
     case media.path do
-      "http" <> _ = url -> url
-      _ -> module.url({media.path, %{creator_id: media.creator_id}}, version)
+      "http" <> _ = url ->
+        # Handle remote media (federated content) - return the original HTTP URL
+        url
+
+      _ ->
+        debug(module, "Media not stored with entrepot, delegating to")
+        module.url({media.path, %{creator_id: media.creator_id}}, version)
     end
   end
 
@@ -344,6 +346,11 @@ defmodule Bonfire.Files do
         remote_url(module, media, version)
 
       _ ->
+        warn(
+          media_id,
+          "Media not found"
+        )
+
         nil
     end
   end
@@ -354,12 +361,20 @@ defmodule Bonfire.Files do
         remote_url(module, media, version)
 
       _ ->
-        nil
+        remote_url_fallback(media)
     end
   end
 
   def remote_url(_, media, _) do
-    debug(
+    remote_url_fallback(media)
+  end
+
+  def remote_url_fallback(%{path: "http" <> _ = url}) do
+    url
+  end
+
+  def remote_url_fallback(media) do
+    warn(
       media,
       "remote_url called with unexpected arguments"
     )
