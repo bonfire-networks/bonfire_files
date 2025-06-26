@@ -594,15 +594,26 @@ defmodule Bonfire.Files do
     nil
   end
 
-  def ap_receive_attachments(creator, attachments) when is_list(attachments),
+  def ap_receive_attachments(creator, primary_image, attachments)
+      when is_binary(primary_image) or is_map(primary_image) or is_list(primary_image) do
+    [
+      ap_receive_attachments(creator, true, primary_image),
+      ap_receive_attachments(creator, false, attachments)
+    ]
+    |> List.flatten()
+    |> Enums.filter_empty([])
+  end
+
+  def ap_receive_attachments(creator, primary_image?, attachments) when is_list(attachments),
     do:
       attachments
-      |> Enum.map(&ap_receive_attachments(creator, &1))
+      |> Enum.map(&ap_receive_attachments(creator, primary_image?, &1))
       |> List.flatten()
       |> Enums.filter_empty([])
 
   def ap_receive_attachments(
         %{character: %{peered: %{canonical_uri: actor_url}}} = creator,
+        _primary_image?,
         %{"name" => "Live stream preview", "url" => _gif_url} = attachment
       ) do
     # special case for owncast stream
@@ -610,16 +621,17 @@ defmodule Bonfire.Files do
     Bonfire.Files.Acts.URLPreviews.maybe_fetch_and_save(creator, actor_url)
   end
 
-  def ap_receive_attachments(creator, %{"url" => urls} = attachment) when is_list(urls) do
+  def ap_receive_attachments(creator, primary_image?, %{"url" => urls} = attachment)
+      when is_list(urls) do
     attachment = Map.drop(attachment, ["url"])
 
     urls
     |> Enum.map(fn
       %{} = url ->
-        ap_receive_attachments(creator, Map.merge(attachment, url))
+        ap_receive_attachments(creator, primary_image?, Map.merge(attachment, url))
 
       url when is_binary(url) ->
-        ap_receive_attachments(creator, Map.merge(attachment, %{"href" => url}))
+        ap_receive_attachments(creator, primary_image?, Map.merge(attachment, %{"href" => url}))
 
       other ->
         error(other, "unexpected url data")
@@ -629,15 +641,19 @@ defmodule Bonfire.Files do
     |> Enums.filter_empty([])
   end
 
-  def ap_receive_attachments(creator, %{"url" => %{} = url} = attachment) do
-    ap_receive_attachments(creator, Map.drop(attachment, ["url"]) |> Map.merge(url))
+  def ap_receive_attachments(creator, primary_image?, %{"url" => %{} = url} = attachment) do
+    ap_receive_attachments(
+      creator,
+      primary_image?,
+      Map.drop(attachment, ["url"]) |> Map.merge(url)
+    )
   end
 
-  def ap_receive_attachments(creator, url) when is_binary(url) do
-    ap_receive_attachments(creator, %{"href" => url})
+  def ap_receive_attachments(creator, primary_image?, url) when is_binary(url) do
+    ap_receive_attachments(creator, primary_image?, %{"href" => url})
   end
 
-  def ap_receive_attachments(creator, %{} = attachment) do
+  def ap_receive_attachments(creator, primary_image?, %{} = attachment) do
     # debug(creator)
     debug(attachment, "handle attachment")
 
@@ -652,10 +668,11 @@ defmodule Bonfire.Files do
              %{
                media_type: type,
                client_name: url,
-               metadata: %{
-                 label: attachment["name"],
-                 blurhash: attachment["blurhash"]
-               }
+               metadata:
+                 %{}
+                 |> Enums.maybe_put(:label, attachment["name"])
+                 |> Enums.maybe_put(:blurhash, attachment["blurhash"])
+                 |> Enums.maybe_put(:primary_image, primary_image?)
              },
              skip_fetching_remote: true
            )
@@ -680,11 +697,11 @@ defmodule Bonfire.Files do
     end
   end
 
-  def ap_receive_attachments(_creator, nil) do
+  def ap_receive_attachments(_creator, _, nil) do
     nil
   end
 
-  def ap_receive_attachments(_creator, attachment) do
+  def ap_receive_attachments(_creator, _, attachment) do
     error(attachment, "Dunno how to handle this")
     nil
   end
