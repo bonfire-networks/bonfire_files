@@ -79,6 +79,12 @@ defmodule Bonfire.Files.MimeTypes do
       "audio/webm" => ["webm"],
       "audio/opus" => ["opus"],
       "audio/flac" => ["flac"],
+
+      # feeds
+      "application/atom+xml" => ["atom+xml"],
+      "application/rss+xml" => ["rss+xml"],
+
+      # json
       "application/json" => ["json"],
       "application/activity+json" => ["activity+json"],
       "application/ld+json" => ["ld+json"],
