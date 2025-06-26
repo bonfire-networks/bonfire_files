@@ -540,6 +540,36 @@ defmodule Bonfire.Files do
     end
   end
 
+  def split_primary_image(files) when is_list(files) do
+    case Enum.split_with(files, &is_primary_image?/1) do
+      {[primary | _rest_primary], others} -> {primary, others}
+      {[], others} -> {nil, others}
+    end
+  end
+
+  def split_primary_image(files) when is_map(files) do
+    # Handle single file case
+    if is_primary_image?(files) do
+      {files, []}
+    else
+      {nil, [files]}
+    end
+  end
+
+  def split_primary_image(_), do: {nil, []}
+
+  defp is_primary_image?(%{media: %{metadata: %{"primary_image" => true_val}}})
+       when true_val in [true, "true"],
+       do: true
+
+  defp is_primary_image?(%{metadata: %{"primary_image" => true_val}})
+       when true_val in [true, "true"],
+       do: true
+
+  defp is_primary_image?(_), do: false
+
+  ### 
+
   def ap_publish_activity(medias) when is_list(medias) do
     Enum.map(medias, &ap_publish_activity/1)
     |> Enums.filter_empty([])
