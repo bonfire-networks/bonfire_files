@@ -200,9 +200,9 @@ defmodule Bonfire.Files do
   defp maybe_move(_, upload_filename, _), do: {:ok, upload_filename}
 
   def file_extension(path) when is_binary(path) do
-    path
-    |> URI.parse()
-    |> Map.get(:path, path)
+    (path
+     |> URI.parse()
+     |> Map.get(:path) || path)
     |> Path.extname()
     |> String.downcase()
   end
