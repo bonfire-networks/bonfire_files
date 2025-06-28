@@ -42,6 +42,7 @@ defmodule Bonfire.Files.RuntimeConfig do
       scheme = System.get_env("UPLOADS_S3_SCHEME", "https://")
       port = System.get_env("UPLOADS_S3_PORT", "443")
       s3_url = System.get_env("UPLOADS_S3_URL")
+      default_asset_url = System.get_env("UPLOADS_S3_DEFAULT_URL", "#{scheme}#{bucket}.#{host}/")
 
       if config_env() not in [:test, :dev] || System.get_env("USE_S3") in ["true", "1", "yes"] do
         IO.puts("Note: uploads will be stored in s3: #{bucket} at #{host}")
@@ -57,7 +58,7 @@ defmodule Bonfire.Files.RuntimeConfig do
       config :waffle,
         storage: Waffle.Storage.S3,
         bucket: bucket,
-        asset_host: s3_url || "#{scheme}#{bucket}.#{host}/"
+        asset_host: s3_url || default_asset_url
 
       config :ex_aws,
         json_codec: Jason,
@@ -70,6 +71,28 @@ defmodule Bonfire.Files.RuntimeConfig do
           region: region,
           port: port
         ]
+
+      url_expiration_ttl =
+        System.get_env("FILES_URL_EXPIRATION_TTL")
+        |> case do
+          # hours
+          nil -> 6
+          val -> String.to_integer(val)
+        end
+
+      url_cache_ttl =
+        System.get_env("FILES_URL_CACHE_TTL")
+        |> case do
+          # a few minutes less to avoid dead links while a page is loading
+          nil -> url_expiration_ttl - 0.2
+          val -> String.to_integer(val)
+        end
+
+      config :bonfire_files,
+        url_expiration_ttl: url_expiration_ttl,
+        url_cache_ttl: url_cache_ttl,
+        default_asset_url: default_asset_url,
+        asset_url: if(s3_url != bucket, do: s3_url)
     else
       config :bonfire_files, :storage, :local
 

@@ -301,30 +301,36 @@ defmodule Bonfire.Files do
   @doc """
   Return the URL that a local file has.
   """
-  # 6 hours in seconds
-  @url_expiration_ttl 60 * 60 * 6
-  # 10 minutes in ms less to allow for cache expiry
-  @url_cache_ttl (@url_expiration_ttl - 60 * 10) * 1_000
+
+  defp url_expiration_ttl do
+    # takes hours, outputs seconds
+    Config.get([:bonfire_files, :url_expiration_ttl], 6) * 60 * 60
+  end
+
+  defp url_cache_ttl do
+    # takes hours, outputs milliseconds
+    Config.get([:bonfire_files, :url_cache_ttl], 6) * 60 * 60 * 1_000
+  end
+
+  defp maybe_rewrite_asset_host(url, host_url) when is_binary(url) and is_binary(host_url) do
+    String.replace(url, Config.get([:bonfire_files, :default_asset_url], ""), host_url)
+  end
+
+  defp maybe_rewrite_asset_host(url, _), do: url
 
   def remote_url(module \\ nil, media, version \\ :default)
 
-  def remote_url(_module, %{file: %Entrepot.Locator{id: id} = locator}, version)
-      when is_binary(id) do
-    Bonfire.Common.Cache.maybe_apply_cached(
-      &entrepot_storage_apply/4,
-      [:url, locator, version, [expires_in: @url_expiration_ttl]],
-      expire: @url_cache_ttl
-    )
-    |> Utils.ok_unwrap()
+  def remote_url(module, %{file: %Entrepot.Locator{id: _} = locator}, version) do
+    remote_url(module, locator, version)
   end
 
   def remote_url(_module, %Entrepot.Locator{id: id} = locator, version) when is_binary(id) do
     Bonfire.Common.Cache.maybe_apply_cached(
       &entrepot_storage_apply/4,
-      [:url, locator, version, [expires_in: @url_expiration_ttl]],
-      expire: @url_cache_ttl
+      [:url, locator, version, [expires_in: url_expiration_ttl()]],
+      expire: url_cache_ttl()
     )
-    |> Utils.ok_unwrap()
+    ~> maybe_rewrite_asset_host(Config.get(:bonfire_files, :asset_host))
   end
 
   def remote_url(module, %Media{} = media, version) when is_atom(module) and not is_nil(module) do
