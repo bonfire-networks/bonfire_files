@@ -2,6 +2,7 @@ waffle = "~> 1.1.3"
 
 entrepot = "~> 0.10.0"
 entrepot_ecto = "~> 0.10.0"
+ex_aws_sts = "~> 2.3"
 
 mogrify = "~> 0.9.3"
 

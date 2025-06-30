@@ -60,7 +60,7 @@ defmodule Bonfire.Files.Media do
       common_changeset(media, creator, attrs)
       |> upload_changeset(attrs)
 
-    case Bonfire.Common.Media.media_url(cs.changes) do
+    case Bonfire.Files.remote_url(nil, cs.changes, nil, cache: false) do
       "http" <> _ = url ->
         #  NOTE: need to avoid storing expiring presigned URLs in DB
         Changeset.cast(cs, %{path: nil}, @cast)

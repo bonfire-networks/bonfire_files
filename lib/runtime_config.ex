@@ -27,12 +27,13 @@ defmodule Bonfire.Files.RuntimeConfig do
     # an example s3 compatible service: https://www.scaleway.com/en/pricing/?tags=storage
     # The default is local storage.
 
-    if System.get_env("UPLOADS_S3_BUCKET") &&
-         System.get_env("UPLOADS_S3_ACCESS_KEY_ID") &&
-         System.get_env("UPLOADS_S3_SECRET_ACCESS_KEY") do
-      # Use s3-compatible cloud storage
+    bucket = System.get_env("UPLOADS_S3_BUCKET")
+    access_key_id = System.get_env("UPLOADS_S3_ACCESS_KEY_ID")
+    secret_access_key = System.get_env("UPLOADS_S3_SECRET_ACCESS_KEY")
+    role_arn = System.get_env("AWS_ROLE_ARN")
 
-      bucket = System.get_env("UPLOADS_S3_BUCKET")
+    if bucket && ((access_key_id && secret_access_key) || role_arn) do
+      # Use s3-compatible cloud storage
 
       # specify the bucket's host and region (defaults to Scaleway Paris), see:
       # https://www.scaleway.com/en/docs/storage/object/quickstart/
@@ -53,7 +54,10 @@ defmodule Bonfire.Files.RuntimeConfig do
 
       config :entrepot, Entrepot.Storages.S3,
         bucket: bucket,
-        bucket_as_host: s3_url == bucket
+        bucket_as_host: s3_url == bucket,
+        # the bucket name should be used in the hostname, along with the `host` name which will look like - <bucket>.<host> (eg `my-bucket.s3.fr-par.scw.cloud`)
+        virtual_host: System.get_env("UPLOADS_S3_BUCKET_IN_HOSTNAME") == "true",
+        unsigned: System.get_env("UPLOADS_S3_UNSIGNED_URLS") == "true"
 
       config :waffle,
         storage: Waffle.Storage.S3,
@@ -62,8 +66,6 @@ defmodule Bonfire.Files.RuntimeConfig do
 
       config :ex_aws,
         json_codec: Jason,
-        access_key_id: System.get_env("UPLOADS_S3_ACCESS_KEY_ID"),
-        secret_access_key: System.get_env("UPLOADS_S3_SECRET_ACCESS_KEY"),
         region: region,
         s3: [
           scheme: scheme,
@@ -72,8 +74,41 @@ defmodule Bonfire.Files.RuntimeConfig do
           port: port
         ]
 
+      if !role_arn do
+        # simple token based auth
+        config :ex_aws,
+          access_key_id: access_key_id,
+          secret_access_key: secret_access_key
+      else
+        #  role-based authentication, see https://hexdocs.pm/ex_aws_sts/readme.html
+
+        if access_key_id && secret_access_key do
+          config :ex_aws,
+            access_key_id: [{:awscli, "default", 30}],
+            secret_access_key: [{:awscli, "default", 30}],
+            awscli_auth_adapter: ExAws.STS.AuthCache.AssumeRoleCredentialsAdapter,
+            awscli_credentials: %{
+              "default" => %{
+                role_arn: role_arn,
+                access_key_id: access_key_id,
+                secret_access_key: secret_access_key,
+                source_profile: "default"
+              }
+            }
+        else
+          # use a web identity token to perform the assume role operation
+          config :ex_aws,
+            secret_access_key: [{:awscli, "default", 30}],
+            access_key_id: [{:awscli, "default", 30}],
+            awscli_auth_adapter: ExAws.STS.AuthCache.AssumeRoleWebIdentityAdapter,
+            awscli_credentials: %{
+              "default" => %{}
+            }
+        end
+      end
+
       url_expiration_ttl =
-        System.get_env("FILES_URL_EXPIRATION_TTL")
+        System.get_env("UPLOADS_S3_URL_EXPIRATION_TTL")
         |> case do
           # hours
           nil -> 6
@@ -81,7 +116,7 @@ defmodule Bonfire.Files.RuntimeConfig do
         end
 
       url_cache_ttl =
-        System.get_env("FILES_URL_CACHE_TTL")
+        System.get_env("UPLOADS_S3_URL_CACHE_TTL")
         |> case do
           # a few minutes less to avoid dead links while a page is loading
           nil -> url_expiration_ttl - 0.2

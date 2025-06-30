@@ -26,19 +26,20 @@
             </div>
           </div>
         {/for}
+
+        {!-- 
         <!-- Add debug info temporarily -->
-        <!-- <div class="text-xs mt-2">
+        <div class="text-xs mt-2">
           <div>Entries: {length(@uploads.icon.entries)}</div>
           <div>Has set_fn: {@set_fn != nil}</div>
           <div>Upload ref: {@uploads.icon.ref}</div>
-        </div> -->
+        </div> --}
       {#match _}
         <span class={@class}>
-          <img
-            class="object-cover w-full h-full"
-            src={"#{@src}?v=#{System.system_time(:second)}"}
-            {...@opts}
-          />
+          <img class="object-cover w-full h-full" src={"#{@src}"} {...@opts}>
+          {!--
+          this broke s3 urls:
+           ?v=#{System.system_time(:second)} --}
         </span>
     {/case}
     <label for={@uploads.icon.ref} class={@label_class}>

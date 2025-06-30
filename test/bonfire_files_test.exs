@@ -33,12 +33,6 @@ defmodule Bonfire.Files.Test do
   # end
 
   describe "one" do
-    test "returns an upload for an existing ID" do
-      assert {:ok, original_upload} = fake_upload(icon_file())
-      assert {:ok, fetched_upload} = Media.one(id: original_upload.id)
-      assert original_upload.id == fetched_upload.id
-    end
-
     test "fails when given a missing ID" do
       assert {:error, :not_found} = Media.one(id: Simulation.uid())
     end
@@ -50,6 +44,9 @@ defmodule Bonfire.Files.Test do
       assert upload.media_type == "image/png"
       assert upload.path || Bonfire.Common.Media.media_url(upload)
       assert upload.size
+
+      assert {:ok, fetched_upload} = Media.one(id: upload.id)
+      assert upload.id == fetched_upload.id
     end
 
     test "fails when the file is a disallowed type" do
@@ -89,11 +86,15 @@ defmodule Bonfire.Files.Test do
       assert {:ok, upload} = Files.upload(DocumentUploader, fake_user!(), text_file())
 
       assert url = Files.remote_url(DocumentUploader, upload)
+      assert url =~ "/docs/"
 
-      uri = URI.parse(url)
-      # assert uri.scheme 
-      # assert uri.host
-      assert uri.path =~ "/docs/"
+      assert url =
+               Files.remote_url(DocumentUploader, upload, nil, federating: true)
+               |> IO.inspect(label: "upload redir url")
+
+      assert url =~ "/files/redir/"
+
+      # Bonfire.Files.Web.UploadRedirectController.maybe_redirect_url(url, DocumentUploader.storage())
     end
   end
 

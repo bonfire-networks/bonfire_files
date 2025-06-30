@@ -46,7 +46,7 @@ defmodule Bonfire.Files.FaviconStore do
           nil
         else
           debug(host, "first time, return URL to FaviconController to try fetching it async")
-          {:ok, "/favicon_fetch?url=#{url}"}
+          {:ok, "/files/favicon?url=#{url}"}
         end
       end
     else

@@ -318,38 +318,36 @@ defmodule Bonfire.Files do
 
   defp maybe_rewrite_asset_host(url, _), do: url
 
-  def remote_url(module \\ nil, media, version \\ :default)
+  def remote_url(module \\ nil, media, version \\ :default, opts \\ [])
 
-  def remote_url(module, %{file: %Entrepot.Locator{id: _} = locator}, version) do
-    remote_url(module, locator, version)
+  def remote_url(_module, %{file: %Entrepot.Locator{id: _} = locator}, version, opts) do
+    maybe_cached_entrepot_url(locator, version, opts)
   end
 
-  def remote_url(_module, %Entrepot.Locator{id: id} = locator, version) when is_binary(id) do
-    Bonfire.Common.Cache.maybe_apply_cached(
-      &entrepot_storage_apply/4,
-      [:url, locator, version, [expires_in: url_expiration_ttl()]],
-      expire: url_cache_ttl()
-    )
-    ~> maybe_rewrite_asset_host(Config.get(:bonfire_files, :asset_host))
+  def remote_url(_module, %Entrepot.Locator{id: id} = locator, version, opts)
+      when is_binary(id) do
+    maybe_cached_entrepot_url(locator, version, opts)
   end
 
-  def remote_url(module, %Media{} = media, version) when is_atom(module) and not is_nil(module) do
+  def remote_url(module, %Media{} = media, version, _opts)
+      when is_atom(module) and not is_nil(module) do
     case media.path do
       "http" <> _ = url ->
         # Handle remote media (federated content) - return the original HTTP URL
         url
 
       _ ->
-        debug(module, "Media not stored with entrepot, delegating to")
+        # backwards compatibility for Waffle uploads
+        debug(module, "Media not stored with entrepot, fallback to delegating to")
         module.url({media.path, %{creator_id: media.creator_id}}, version)
     end
   end
 
-  def remote_url(module, media_id, version)
+  def remote_url(module, media_id, version, opts)
       when is_binary(media_id) and is_atom(module) do
     case Media.one(id: media_id) do
       {:ok, media} ->
-        remote_url(module, media, version)
+        remote_url(module, media, version, opts)
 
       _ ->
         warn(
@@ -361,17 +359,17 @@ defmodule Bonfire.Files do
     end
   end
 
-  def remote_url(_, %Media{metadata: %{"module" => definition}} = media, version) do
+  def remote_url(_, %Media{metadata: %{"module" => definition}} = media, version, opts) do
     case Types.maybe_to_atom(definition) do
       module when is_atom(module) and not is_nil(module) ->
-        remote_url(module, media, version)
+        remote_url(module, media, version, opts)
 
       _ ->
         remote_url_fallback(media)
     end
   end
 
-  def remote_url(_, media, _) do
+  def remote_url(_, media, _, _opts) do
     remote_url_fallback(media)
   end
 
@@ -459,12 +457,78 @@ defmodule Bonfire.Files do
 
   def delete_files(_, _, _), do: nil
 
+  def redirect_entrepot_url(path, storage \\ nil) do
+    "/files/redir/#{entrepot_storage_name(storage)}/#{path}"
+  end
+
+  def cached_entrepot_storage_url(path, storage \\ nil) do
+    storage =
+      entrepot_storage(storage)
+      |> debug("storage")
+
+    cached_entrepot_url(%Entrepot.Locator{id: path, storage: storage})
+  end
+
+  def maybe_cached_entrepot_url(%Entrepot.Locator{id: _} = locator, version \\ nil, opts \\ []) do
+    if opts[:federating] || opts[:cache] == false do
+      # no need to cache the redir URL
+      do_entrepot_url(locator, version, opts)
+    else
+      cached_entrepot_url(locator, version, opts)
+    end
+  end
+
+  def cached_entrepot_url(%Entrepot.Locator{id: id} = locator, version \\ nil, opts \\ []) do
+    cache_key = "e_url:#{id}:#{version}"
+    # debug(cache_key, "cache_key")
+
+    Bonfire.Common.Cache.maybe_apply_cached(
+      &do_entrepot_url/3,
+      [locator, version, opts],
+      cache_key: cache_key,
+      expire: url_cache_ttl()
+    )
+  end
+
+  defp do_entrepot_url(locator, version, opts \\ []) do
+    entrepot_storage_apply(
+      :url,
+      locator,
+      version,
+      opts |> Keyword.put_new(:expires_in, url_expiration_ttl())
+    )
+    # |> debug("entrepot_url")
+    ~> maybe_rewrite_asset_host(Config.get([:bonfire_files, :asset_url]))
+
+    # |> debug("rew_url")
+  end
+
+  @entrepot_storage_map %{
+    "s3" => Entrepot.Storages.S3,
+    "local" => Entrepot.Storages.Disk
+  }
+  @default_storage "s3"
+  @default_storage_module @entrepot_storage_map[@default_storage]
+
+  defp entrepot_storage(str) when is_binary(str),
+    do: Map.get(@entrepot_storage_map, str) || @default_storage_module
+
+  defp entrepot_storage(module) when is_atom(module), do: module || @default_storage_module
+  defp entrepot_storage(_), do: @default_storage_module
+
+  defp entrepot_storage_name(module) when is_atom(module) do
+    Enum.find_value(@entrepot_storage_map, fn {k, v} -> if v == module, do: k end) ||
+      @default_storage
+  end
+
+  defp entrepot_storage_name(_), do: @default_storage
+
   defp entrepot_storage_apply(fun, locator, version \\ nil, opts)
 
   defp entrepot_storage_apply(fun, %{storage: storage} = locator, version, opts)
        when is_binary(storage) do
     case storage
-         # temporary
+         # backward compatibility
          |> String.replace("Capsule", "Entrepot")
          |> Types.maybe_to_module() do
       nil ->
@@ -480,12 +544,12 @@ defmodule Bonfire.Files do
               is_atom(storage) and not is_nil(storage) do
     info(storage, "storage module")
 
-    Utils.maybe_apply(storage, fun, [id, opts])
+    maybe_apply_or_redirect_entrepot(storage, fun, id, opts)
   end
 
   defp entrepot_storage_apply(
          fun,
-         %Entrepot.Locator{id: id, storage: storage, metadata: %{} = metadata},
+         %Entrepot.Locator{id: _id, storage: storage, metadata: %{} = metadata},
          version,
          opts
        )
@@ -498,12 +562,25 @@ defmodule Bonfire.Files do
            metadata
            |> Map.get(to_string(version)) do
       version_id when is_binary(version_id) ->
-        Utils.maybe_apply(storage, fun, [version_id, opts])
+        maybe_apply_or_redirect_entrepot(storage, fun, version_id, opts)
 
       e ->
         debug(e, "version '#{inspect(version)}' not found")
         nil
     end
+  end
+
+  def maybe_apply_or_redirect_entrepot(storage, :url, version_or_id, opts) do
+    if opts[:federating] do
+      # if we are federating, we send a Bonfire URL that can generate and redirect to freshly signed S3 URLs
+      redirect_entrepot_url(version_or_id, storage)
+    else
+      Utils.maybe_apply(storage, :url, [version_or_id, opts])
+    end
+  end
+
+  def maybe_apply_or_redirect_entrepot(storage, fun, version_or_id, opts) do
+    Utils.maybe_apply(storage, fun, [version_or_id, opts])
   end
 
   defp init_file(module, file) do
@@ -539,11 +616,15 @@ defmodule Bonfire.Files do
     ["data:", mime_type, ";base64,", image_base64]
   end
 
-  def full_url(module, media, version \\ nil) do
-    case remote_url(module, media, version) do
+  def full_url(module, media, version \\ nil, opts \\ []) do
+    case remote_url(module, media, version, opts) do
       "/" <> _ = path -> Bonfire.Common.URIs.base_url() <> path
       url -> url
     end
+  end
+
+  def federating_url(module, media, version \\ nil) do
+    full_url(module, media, version, federating: true)
   end
 
   def split_primary_image(files) when is_list(files) do
@@ -585,7 +666,7 @@ defmodule Bonfire.Files do
     %{
       "type" => "Image",
       "mediaType" => media.media_type,
-      "url" => full_url(Bonfire.Files.ImageUploader, media),
+      "url" => federating_url(Bonfire.Files.ImageUploader, media),
       "name" => media.metadata["label"],
       "blurhash" => Bonfire.Files.Blurred.blurhash_cached(media)
     }
@@ -597,7 +678,7 @@ defmodule Bonfire.Files do
     %{
       "type" => "Audio",
       "mediaType" => media.media_type,
-      "url" => full_url(Bonfire.Files.DocumentUploader, media),
+      "url" => federating_url(Bonfire.Files.DocumentUploader, media),
       "name" => media.metadata["label"]
     }
   end
@@ -606,7 +687,7 @@ defmodule Bonfire.Files do
     %{
       "type" => "Video",
       "mediaType" => media.media_type,
-      "url" => full_url(Bonfire.Files.DocumentUploader, media),
+      "url" => federating_url(Bonfire.Files.DocumentUploader, media),
       "name" => media.metadata["label"]
     }
   end
@@ -620,7 +701,7 @@ defmodule Bonfire.Files do
     %{
       "type" => "Document",
       "mediaType" => media.media_type,
-      "url" => full_url(Bonfire.Files.DocumentUploader, media),
+      "url" => federating_url(Bonfire.Files.DocumentUploader, media),
       "name" => media.metadata["label"]
     }
   end
@@ -628,6 +709,31 @@ defmodule Bonfire.Files do
   def ap_publish_activity(other) do
     debug(other, "Skip unrecognised media")
     nil
+  end
+
+  def ap_transform_url(urls, target_host, target_actor_id) when is_list(urls) do
+    Enum.map(urls, &ap_transform_url(&1, target_host, target_actor_id))
+  end
+
+  def ap_transform_url(attachment, target_host, target_actor_id) do
+    rewrite = fn url ->
+      target = Base.url_encode64(target_actor_id || target_host)
+      String.replace(url, "/files/redir/", "/files/redir/f/#{target}/")
+    end
+
+    cond do
+      is_map(attachment) and is_binary(attachment["href"]) ->
+        %{attachment | "href" => rewrite.(attachment["href"])}
+
+      is_map(attachment) and is_binary(attachment["url"]) ->
+        %{attachment | "url" => rewrite.(attachment["url"])}
+
+      is_binary(attachment) ->
+        rewrite.(attachment)
+
+      true ->
+        attachment
+    end
   end
 
   def ap_receive_attachments(creator, primary_image, attachments)
