@@ -534,7 +534,7 @@ defmodule Bonfire.Files do
   end
 
   def maybe_cached_entrepot_url(%Entrepot.Locator{id: _} = locator, version \\ nil, opts \\ []) do
-    if opts[:federating] || opts[:cache] == false do
+    if opts[:permanent] || opts[:cache] == false do
       # no need to cache the redir URL
       do_entrepot_url(locator, version, opts)
     else
@@ -635,8 +635,8 @@ defmodule Bonfire.Files do
   end
 
   def maybe_apply_or_redirect_entrepot(storage, :url, version_or_id, opts) do
-    if opts[:federating] do
-      # if we are federating, we send a Bonfire URL that can generate and redirect to freshly signed S3 URLs
+    if opts[:permanent] do
+      # if we are federating or otherwise publishing or storing a URL, we use a Bonfire URL that can generate and redirect to freshly signed S3 URLs
       redirect_entrepot_url(version_or_id, storage)
     else
       Utils.maybe_apply(storage, :url, [version_or_id, opts])
@@ -687,8 +687,8 @@ defmodule Bonfire.Files do
     end
   end
 
-  def federating_url(module, media, version \\ nil) do
-    full_url(module, media, version, federating: true)
+  def permanent_url(module, media, version \\ nil) do
+    full_url(module, media, version, permanent: true)
   end
 
   def split_primary_image(files) when is_list(files) do
@@ -732,7 +732,7 @@ defmodule Bonfire.Files do
     %{
       "type" => "Image",
       "mediaType" => media.media_type,
-      "url" => federating_url(Bonfire.Files.ImageUploader, media),
+      "url" => permanent_url(Bonfire.Files.ImageUploader, media),
       "name" => media.metadata["label"],
       "blurhash" => Bonfire.Files.Blurred.blurhash_cached(media)
     }
@@ -744,7 +744,7 @@ defmodule Bonfire.Files do
     %{
       "type" => "Audio",
       "mediaType" => media.media_type,
-      "url" => federating_url(Bonfire.Files.DocumentUploader, media),
+      "url" => permanent_url(Bonfire.Files.DocumentUploader, media),
       "name" => media.metadata["label"]
     }
   end
@@ -753,7 +753,7 @@ defmodule Bonfire.Files do
     %{
       "type" => "Video",
       "mediaType" => media.media_type,
-      "url" => federating_url(Bonfire.Files.DocumentUploader, media),
+      "url" => permanent_url(Bonfire.Files.DocumentUploader, media),
       "name" => media.metadata["label"]
     }
   end
@@ -767,7 +767,7 @@ defmodule Bonfire.Files do
     %{
       "type" => "Document",
       "mediaType" => media.media_type,
-      "url" => federating_url(Bonfire.Files.DocumentUploader, media),
+      "url" => permanent_url(Bonfire.Files.DocumentUploader, media),
       "name" => media.metadata["label"]
     }
   end

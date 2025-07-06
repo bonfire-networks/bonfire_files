@@ -71,15 +71,15 @@ defmodule Bonfire.Files.EmojiUploader do
     put_setting(metadata, setting, opts)
   end
 
-  def prepare_setting(%{id: media_id, path: url, metadata: metadata}) when is_binary(url) do
+  def prepare_setting(%{id: media_id, metadata: metadata} = media) do
     # IO.inspect(url, label: "urlll")
-    %{id: media_id, label: metadata[:label], url: url}
+    %{id: media_id, label: metadata[:label], url: permanent_url(media)}
   end
 
-  def prepare_setting(%{id: media_id, path: url, metadata: metadata, file: %{} = file}) do
-    # IO.inspect(file, label: "fileee")
-    %{id: media_id, label: metadata[:label], file: file}
-  end
+  # def prepare_setting(%{id: media_id, metadata: metadata, file: %{} = file}) do
+  #   # IO.inspect(file, label: "fileee")
+  #   %{id: media_id, label: metadata[:label], file: file}
+  # end
 
   def put_setting(metadata, setting, opts) do
     Bonfire.Common.Settings.put(
