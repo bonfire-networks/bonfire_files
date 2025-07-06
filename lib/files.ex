@@ -60,19 +60,32 @@ defmodule Bonfire.Files do
   def upload(module, creator_or_context, file, attrs \\ %{}, opts \\ [])
 
   def upload(module, context, "http" <> _ = url, attrs, opts) do
-    if opts[:skip_fetching_remote] == true or
-         Bonfire.Common.Config.env() == :test do
-      debug("Files - skip file handling and just insert url or path in DB")
+    # Check if this URL already exists as media to avoid duplicates
+    case Bonfire.Files.Media.get_by_path(url) do
+      {:ok, existing_media} ->
+        # URL already exists, return existing media unless force update is requested
+        if opts[:update_existing] == :force do
+          maybe_do_upload(module, context, url, attrs, opts)
+        else
+          {:ok, existing_media}
+        end
 
-      insert(
-        context,
-        url,
-        %{size: 0, media_type: attrs[:media_type] || "remote"},
-        attrs
-        |> Map.put(:url, url)
-      )
-    else
-      maybe_do_upload(module, context, url, attrs, opts)
+      {:error, :not_found} ->
+        # URL doesn't exist, proceed with upload
+        if opts[:skip_fetching_remote] == true or
+             Bonfire.Common.Config.env() == :test do
+          debug("Files - skip file handling and just insert url or path in DB")
+
+          insert(
+            context,
+            url,
+            %{size: 0, media_type: attrs[:media_type] || "remote"},
+            attrs
+            |> Map.put(:url, url)
+          )
+        else
+          maybe_do_upload(module, context, url, attrs, opts)
+        end
     end
   end
 
@@ -421,6 +434,53 @@ defmodule Bonfire.Files do
 
   def local_path(_, _, _), do: nil
 
+  def maybe_update_media_assoc(creator, %{files: files, media: media} = _object, changeset, attrs)
+      when is_list(files) or (is_nil(files) and is_list(media)) or is_nil(media) do
+    # Preload the current files association - NOTE: should actually be done in the caller of maybe_update_media_assoc before preparing the changeset
+    # object = repo().preload(object, :files)
+
+    # Get the raw attachment data from the update
+    primary_image = attrs[:primary_image]
+    attachments = attrs[:attachments]
+
+    # Process the new attachments to get the expected final state
+    updated_media_list =
+      if primary_image || attachments do
+        ap_receive_attachments(
+          creator,
+          primary_image,
+          attachments
+        )
+      else
+        []
+      end
+
+    # Compare current media with what should be there after the update
+    current_media_ids = (media || []) |> Enums.ids() |> MapSet.new()
+    new_media_ids = updated_media_list |> Enums.ids() |> MapSet.new()
+
+    # Only update if the media has actually changed
+    if not MapSet.equal?(current_media_ids, new_media_ids) do
+      replace_files_assoc(changeset, updated_media_list)
+    end
+  end
+
+  defp replace_files_assoc(changeset, updated_media_list) do
+    # Convert media objects to the format expected by put_assoc
+    files_data =
+      List.wrap(updated_media_list)
+      |> Enum.map(fn
+        {:error, e} -> raise Bonfire.Fail, invalid_argument: e
+        media -> %{media_id: Enums.id(media), media: media}
+      end)
+
+    # Use put_assoc to replace all files (this handles additions, deletions, and replacements)
+    # Now works because we changed :on_replace to :delete in the schema
+    changeset
+    |> Ecto.Changeset.put_assoc(:files, files_data)
+    |> repo().update()
+  end
+
   def delete_files(module \\ nil, media, opts \\ [])
 
   def delete_files(module, %{file: %Entrepot.Locator{id: id} = locator}, opts)
@@ -628,18 +688,20 @@ defmodule Bonfire.Files do
   end
 
   def split_primary_image(files) when is_list(files) do
-    case Enum.split_with(files, &is_primary_image?/1) do
-      {[primary | _rest_primary], others} -> {primary, others}
+    case files
+         |> Enum.sort_by(&Enums.id/1, :desc)
+         |> Enum.split_with(&is_primary_image?/1) do
+      {[primary | more_primaries], others} -> {primary, more_primaries ++ others}
       {[], others} -> {nil, others}
     end
   end
 
-  def split_primary_image(files) when is_map(files) do
+  def split_primary_image(file) when is_map(file) do
     # Handle single file case
-    if is_primary_image?(files) do
-      {files, []}
+    if is_primary_image?(file) do
+      {file, []}
     else
-      {nil, [files]}
+      {nil, [file]}
     end
   end
 
