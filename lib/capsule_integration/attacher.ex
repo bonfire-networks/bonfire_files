@@ -46,8 +46,11 @@ defmodule Bonfire.Files.CapsuleIntegration.Attacher do
   def attach({field, upload}, changeset, module) do
     debug(upload, module)
 
+    # Get media_type from changeset attrs
+    media_type = Ecto.Changeset.get_change(changeset, :media_type)
+
     # TODO: use prefix to put in right folder based on type/definition and user
-    case store(module, upload, changeset) do
+    case store(module, upload, changeset, media_type) do
       {:ok, %Entrepot.Locator{} = locator} ->
         debug(locator)
 
@@ -69,16 +72,22 @@ defmodule Bonfire.Files.CapsuleIntegration.Attacher do
     end
   end
 
-  def store(module, upload, changeset) when is_atom(module) and not is_nil(module) do
-    debug(module)
+  def store(module, upload, changeset, media_type \\ nil)
+
+  def store(module, upload, changeset, media_type) when is_atom(module) and not is_nil(module) do
+    # debug(upload, "store: #{module}")
+
+    content_type = media_type
+    # |> debug("Attacher content_type")
 
     module.store(upload, :store,
-      creator_id: Ecto.Changeset.get_change(changeset, :creator_id) |> debug()
+      creator_id: Ecto.Changeset.get_change(changeset, :creator_id) |> debug(),
+      content_type: content_type
     )
   end
 
-  # def store(_, upload, _) when is_binary(upload), do: store(nil, URI.parse(upload), nil)
-  def store(_, upload, _) do
+  # def store(_, upload, _, _) when is_binary(upload), do: store(nil, URI.parse(upload), nil)
+  def store(_, upload, _, _) do
     case Entrepot.Storages.Disk.put(upload) do
       {:ok, id} ->
         debug(id)

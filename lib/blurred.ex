@@ -55,11 +55,15 @@ defmodule Bonfire.Files.Blurred do
 
   def make_blurhash(path) when is_binary(path) do
     with false <- String.starts_with?(path, "http"),
+         false <- String.ends_with?(String.downcase(path), ".svg"),
          {:ok, blurhash} <- Blurhash.downscale_and_encode(path, 4, 3) do
       # debug(blurhash, path)
 
       blurhash
     else
+      true ->
+        nil
+
       e ->
         error(e, path)
         nil
