@@ -65,27 +65,14 @@ defmodule Bonfire.Files do
       {:ok, existing_media} ->
         # URL already exists, return existing media unless force update is requested
         if opts[:update_existing] == :force do
-          maybe_do_upload(module, context, url, attrs, opts)
+          upload_or_add_url(module, context, url, attrs, opts)
         else
           {:ok, existing_media}
         end
 
       {:error, :not_found} ->
-        # URL doesn't exist, proceed with upload
-        if opts[:skip_fetching_remote] == true or
-             Bonfire.Common.Config.env() == :test do
-          debug("Files - skip file handling and just insert url or path in DB")
-
-          insert(
-            context,
-            url,
-            %{size: 0, media_type: attrs[:media_type] || "remote"},
-            attrs
-            |> Map.put(:url, url)
-          )
-        else
-          maybe_do_upload(module, context, url, attrs, opts)
-        end
+        # URL doesn't exist, proceed 
+        upload_or_add_url(module, context, url, attrs, opts)
     end
   end
 
@@ -99,6 +86,23 @@ defmodule Bonfire.Files do
 
   def upload(module, context, file, attrs, opts),
     do: maybe_do_upload(module, context, file, attrs, opts)
+
+  defp upload_or_add_url(module, context, url, attrs, opts) do
+    if opts[:skip_fetching_remote] == true or
+         Bonfire.Common.Config.env() == :test do
+      debug("Files - skip file handling and just insert url or path in DB")
+
+      insert(
+        context,
+        url,
+        %{size: 0, media_type: attrs[:media_type] || "remote"},
+        attrs
+        |> Map.put(:url, url)
+      )
+    else
+      maybe_do_upload(module, context, url, attrs, opts)
+    end
+  end
 
   defp maybe_do_upload(module, context, %{path: upload_filename}, attrs, opts)
        when is_binary(upload_filename),
