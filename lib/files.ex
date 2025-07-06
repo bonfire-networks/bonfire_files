@@ -473,6 +473,7 @@ defmodule Bonfire.Files do
     # Convert media objects to the format expected by put_assoc
     files_data =
       List.wrap(updated_media_list)
+      |> Enum.uniq_by(&Enums.id/1)
       |> Enum.map(fn
         {:error, e} -> raise Bonfire.Fail, invalid_argument: e
         media -> %{media_id: Enums.id(media), media: media}

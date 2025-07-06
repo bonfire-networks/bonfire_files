@@ -69,6 +69,7 @@ defmodule Bonfire.Files.Acts.AttachMedia do
     debug(uploaded_media, "uploaded_media")
 
     uploaded_media
+    |> Enum.uniq_by(&id/1)
     |> Enum.map(fn
       {:error, e} -> raise Bonfire.Fail, invalid_argument: e
       m -> %{media: m}
