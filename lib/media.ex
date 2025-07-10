@@ -248,7 +248,7 @@ defmodule Bonfire.Files.Media do
     {:ok, actor} = ActivityPub.Actor.get_cached(pointer: subject)
 
     # FIXME: don't assume public
-    to = ["https://www.w3.org/ns/activitystreams#Public"]
+    to = [Bonfire.Federate.ActivityPub.AdapterUtils.public_uri()]
 
     object = %{
       "type" => "Page",
