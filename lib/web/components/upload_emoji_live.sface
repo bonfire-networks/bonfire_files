@@ -66,9 +66,63 @@
   {#if not is_nil(@existing_emoji)}
     <div class="p-4 border-t border-base-content/10">
       <h2 class="mb-4 text-sm uppercase text-base-content/50 font-bold">{l("Existing custom emoji")}</h2>
-      {#for {shortcode, meta} <- @existing_emoji}
-        <p class="mt-1 flex gap-2"><img src={e(meta, :url, nil)} class="w-5 h-auto max-h-5"> <code>{shortcode}</code> <span class="">({e(meta, :label, nil)})</span></p>
-      {/for}
+      <div class="flex flex-col gap-4">
+        {#for {shortcode, %{} = meta} <- @existing_emoji}
+          <div class="flex items-center gap-3 p-2 rounded hover:bg-base-200">
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+              <img
+                src={e(meta, :url, nil)}
+                class="w-7 h-7 rounded bg-base-300 object-contain"
+                alt={e(meta, :label, nil)}
+              />
+              <code class="font-mono text-base-content font-bold">{shortcode}</code>
+              <span class="truncate text-base-content/70">({e(meta, :label, nil)})</span>
+              {#if e(meta, :archived, nil)}
+                <span class="badge badge-warning badge-outline ml-2">{l("Archived")}</span>
+              {/if}
+            </div>
+            <div class="flex-shrink-0">
+              <Bonfire.UI.Common.OpenModalLive
+                id={"remove_emoji_" <> shortcode}
+                title_text={l("Remove Emoji")}
+                no_actions
+                open_btn_wrapper_class="btn btn-xs btn-warning"
+              >
+                <:open_btn>
+                  🗑️
+                </:open_btn>
+                <div class="p-2">
+                  <p class="mb-2" :if={!e(meta, :archived, nil)}>{l("You can either:")}</p>
+                  <ul class="mb-2 text-sm list-disc">
+                    <li :if={!e(meta, :archived, nil)}>{l(
+                        "Archive this emoji (remove from the emoji picker, but keep the image in storage so it doesn't break in places where it is already in use)."
+                      )}</li>
+                    <li>{l("Delete it permanently (remove from picker and delete the image from storage).")}</li>
+                  </ul>
+                  <div class="flex gap-2 justify-end">
+                    <button class="btn btn-sm btn-ghost" phx-click="hide_remove_emoji_modal" phx-target={@myself}>{l("Cancel")}</button>
+                    <button
+                      :if={!e(meta, :archived, nil)}
+                      class="btn btn-sm btn-warning"
+                      phx-click="archive_emoji"
+                      phx-value-id={id(meta)}
+                      phx-value-shortcode={shortcode}
+                      phx-target={@myself}
+                    >{l("Archive")}</button>
+                    <button
+                      class="btn btn-sm btn-error"
+                      phx-click="delete_emoji_permanently"
+                      phx-value-id={id(meta)}
+                      phx-value-shortcode={shortcode}
+                      phx-target={@myself}
+                    >{l("Delete permanently")}</button>
+                  </div>
+                </div>
+              </Bonfire.UI.Common.OpenModalLive>
+            </div>
+          </div>
+        {/for}
+      </div>
     </div>
   {/if}
 </div>

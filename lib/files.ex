@@ -490,7 +490,7 @@ defmodule Bonfire.Files do
 
   def delete_files(module, %{file: %Entrepot.Locator{id: id} = locator}, opts)
       when is_binary(id),
-      do: entrepot_storage_apply(:delete, locator, opts)
+      do: entrepot_storage_apply(:delete, locator, Bonfire.Common.Opts.to_options(opts))
 
   def delete_files(_module, %Entrepot.Locator{id: id} = locator, opts) when is_binary(id),
     do: delete_files(:delete, locator, opts)

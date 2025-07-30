@@ -100,6 +100,39 @@ defmodule Bonfire.Files.Web.UploadEmojiLive do
     }
   end
 
+  def handle_event("archive_emoji", %{"shortcode" => shortcode} = params, socket) do
+    current_user = current_user(socket)
+    scope = e(assigns(socket), :scope, nil)
+    Bonfire.Files.EmojiUploader.archive_emoji(params["id"], shortcode, scope || current_user)
+
+    existing_emoji =
+      Map.update(
+        assigns(socket)[:existing_emoji] || %{},
+        shortcode,
+        %{},
+        &Map.put(&1, :archived, true)
+      )
+
+    Bonfire.UI.Common.OpenModalLive.close()
+    {:noreply, assign(socket, existing_emoji: existing_emoji)}
+  end
+
+  def handle_event("delete_emoji_permanently", %{"shortcode" => shortcode} = params, socket) do
+    current_user = current_user(socket)
+    scope = e(assigns(socket), :scope, nil)
+
+    existing_emoji =
+      Bonfire.Files.EmojiUploader.delete_emoji_permanently(
+        params["id"],
+        shortcode,
+        scope || current_user
+      )
+
+    # existing_emoji = Map.delete(assigns(socket)[:existing_emoji] || %{}, shortcode)
+    Bonfire.UI.Common.OpenModalLive.close()
+    {:noreply, assign(socket, existing_emoji: existing_emoji)}
+  end
+
   # def handle_progress(
   #       type,
   #       entry,

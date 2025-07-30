@@ -88,4 +88,30 @@ defmodule Bonfire.Files.EmojiUploader do
       opts
     )
   end
+
+  def archive_emoji(id, shortcode, user_or_scope) do
+    setting = Bonfire.Common.Settings.get([:custom_emoji, shortcode], nil, user_or_scope)
+
+    if setting do
+      updated = Map.put(setting, :archived, true)
+      Bonfire.Common.Settings.put([:custom_emoji, shortcode], updated, user_or_scope)
+    end
+  end
+
+  # returns new emoji list
+  def delete_emoji_permanently(id, shortcode, user_or_scope) do
+    emojis = Bonfire.Common.Settings.get(:custom_emoji, %{}, user_or_scope)
+    setting = Map.get(emojis, shortcode)
+
+    if id = id || (setting && setting[:id]) do
+      Bonfire.Files.delete_files(__MODULE__, id, user_or_scope)
+    end
+
+    # FIXME: actually remove the entry
+    updated_emojis = Map.update(emojis, shortcode, %{}, fn _ -> :deleted end)
+
+    Bonfire.Common.Settings.put(:custom_emoji, updated_emojis, user_or_scope)
+
+    updated_emojis
+  end
 end
