@@ -71,7 +71,7 @@ defmodule Bonfire.Files do
         end
 
       {:error, :not_found} ->
-        # URL doesn't exist, proceed 
+        # URL doesn't exist, proceed
         upload_or_add_url(module, context, url, attrs, opts)
     end
   end
@@ -722,7 +722,7 @@ defmodule Bonfire.Files do
 
   defp is_primary_image?(_), do: false
 
-  ### 
+  ###
 
   def ap_publish_activity(medias) when is_list(medias) do
     Enum.map(medias, &ap_publish_activity/1)
@@ -940,12 +940,86 @@ defmodule Bonfire.Files do
   end
 
   def is_research(url, meta) do
+    # Check various sources for research indicators
     (e(meta, "wikibase", "itemType", nil) in ["journalArticle"] or
        e(meta, "wikibase", "identifiers", "doi", nil)) ||
       e(meta, "crossref", "DOI", nil) || e(meta, "oembed", "DOI", nil) ||
       e(meta, "other", "prism.doi", nil) ||
-      e(meta, "other", "citation_doi", nil) || e(meta, "other", "citation_doi", nil) ||
-      ed(meta, "json_ld", "@type", nil) in ["ScholarlyArticle", "Dataset"] ||
-      String.starts_with?(url || "", "https://doi.org/")
+      e(meta, "other", "citation_doi", nil) ||
+      # Check ORCID metadata
+      is_academic_orcid_type?(e(meta, "orcid", "type", nil)) ||
+      has_doi_in_orcid?(meta) ||
+      # Check JSON-LD (handle both single object and array)
+      check_json_ld_type(e(meta, "json_ld", nil)) ||
+      # Check URL patterns for academic repositories
+      is_academic_repository_url?(url)
   end
+
+  defp is_academic_orcid_type?(type) when is_binary(type) do
+    type in [
+      "journal-article",
+      "report",
+      "book-chapter",
+      "book",
+      "conference-paper",
+      "dissertation",
+      "preprint",
+      "working-paper",
+      "thesis",
+      "technical-report",
+      "research-tool",
+      "data-set"
+    ]
+  end
+
+  defp is_academic_orcid_type?(_), do: false
+
+  defp has_doi_in_orcid?(meta) do
+    case e(meta, "orcid", "external-ids", "external-id", nil) do
+      external_ids when is_list(external_ids) ->
+        Enum.any?(external_ids, fn ext_id ->
+          e(ext_id, "external-id-type", nil) == "doi"
+        end)
+
+      _ ->
+        false
+    end
+  end
+
+  defp check_json_ld_type(json_ld) when is_list(json_ld) do
+    Enum.any?(json_ld, fn item ->
+      type = e(item, "@type", nil)
+      type in ["ScholarlyArticle", "Dataset", "https://schema.org/ScholarlyArticle", "https://schema.org/Dataset"]
+    end)
+  end
+
+  defp check_json_ld_type(json_ld) when is_map(json_ld) do
+    type = e(json_ld, "@type", nil)
+    type in ["ScholarlyArticle", "Dataset", "https://schema.org/ScholarlyArticle", "https://schema.org/Dataset"]
+  end
+
+  defp check_json_ld_type(_), do: false
+
+  defp is_academic_repository_url?(url) when is_binary(url) do
+    String.starts_with?(url, "https://doi.org/") ||
+      String.starts_with?(url, "https://dx.doi.org/") ||
+      String.contains?(url, "zenodo.org") ||
+      String.contains?(url, "arxiv.org") ||
+      String.contains?(url, "pubmed.ncbi.nlm.nih.gov") ||
+      String.contains?(url, "researchgate.net/publication") ||
+      String.contains?(url, "academia.edu") ||
+      String.contains?(url, "ssrn.com") ||
+      String.contains?(url, "biorxiv.org") ||
+      String.contains?(url, "medrxiv.org") ||
+      String.contains?(url, "mdpi.com") ||
+      String.contains?(url, "nature.com") ||
+      String.contains?(url, "sciencedirect.com") ||
+      String.contains?(url, "springer.com") ||
+      String.contains?(url, "wiley.com") ||
+      String.contains?(url, "plos.org") ||
+      String.contains?(url, "frontiersin.org") ||
+      String.contains?(url, "orcid.org")
+  end
+
+  defp is_academic_repository_url?(_), do: false
 end
