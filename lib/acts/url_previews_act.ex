@@ -44,6 +44,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
 
             urls_media = maybe_fetch_and_save(current_user, urls)
 
+            # TODO: avoid a custom hook here and make generic
             text_media =
               if module = maybe_module(Bonfire.OpenScience.APIs) do
                 (Map.get(epic.assigns, text_key) || epic.assigns[:options][text_key] || "")
@@ -100,7 +101,8 @@ defmodule Bonfire.Files.Acts.URLPreviews do
   end
 
   defp do_maybe_fetch_and_save(current_user, url, opts) do
-    with {:ok, meta} <- fetch_url_metadata(url, opts) do
+    with {:ok, meta} <-
+           if(opts[:fetch_fn], do: opts[:fetch_fn].(url, opts), else: Unfurl.unfurl(url, opts)) do
       maybe_save(current_user, url, meta, opts)
     else
       other ->
@@ -112,39 +114,11 @@ defmodule Bonfire.Files.Acts.URLPreviews do
       # workaround for badly-parsed webpages in non-UTF8 encodings
       error(e, "Could not save the URL preview")
       nil
-  rescue
-    e ->
-      error(e, "Could not save the URL preview")
-      nil
+      # rescue
+      #   e ->
+      #     error(e, "Could not save the URL preview")
+      #     nil
   end
-
-  defp fetch_url_metadata(url, opts) do
-    cond do
-      # Custom fetch function provided
-      opts[:fetch_fn] ->
-        opts[:fetch_fn].(url, opts)
-      
-      # Special handling for ORCID work URLs
-      is_orcid_work_url?(url) ->
-        with {:ok, metadata} <- Bonfire.OpenScience.APIs.fetch_orcid_work_metadata(url) do
-          {:ok, metadata}
-        else
-          _error ->
-            # Fallback to regular web scraping if API fails
-            Unfurl.unfurl(url, opts)
-        end
-      
-      # Default to Unfurl for other URLs
-      true ->
-        Unfurl.unfurl(url, opts)
-    end
-  end
-
-  defp is_orcid_work_url?(url) when is_binary(url) do
-    String.contains?(url, "orcid.org/") and String.contains?(url, "/work/")
-  end
-
-  defp is_orcid_work_url?(_), do: false
 
   def maybe_save(current_user, url, meta, opts \\ []) do
     with canonical_url <- Map.get(meta, :canonical_url),

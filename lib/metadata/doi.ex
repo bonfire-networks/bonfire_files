@@ -4,12 +4,13 @@ defmodule Bonfire.Files.DOI do
   alias Bonfire.Common.HTTP
   import Untangle
 
-  def doi_matcher, do: "10.\d{4,9}\/[-._;()\/:A-Z0-9]+$"
+  @doi_matcher "10.\d{4,9}\/[-._;()\/:A-Z0-9]+$"
+  def doi_matcher(), do: ~r/^#{@doi_matcher}/i
 
   def pub_id_matchers,
     do: %{
       # :doi => ~r/10.+\/.+/,
-      doi: ~r/^#{doi_matcher()}/i,
+      doi: doi_matcher(),
       # doi_prefixed: ~r/doi:^#{doi_matcher()}/i
       doi_prefixed: ~r/^doi:([^\s]+)/i
     }
