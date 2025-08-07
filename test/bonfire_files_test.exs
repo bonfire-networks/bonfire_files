@@ -70,10 +70,11 @@ defmodule Bonfire.Files.Test do
       label = "test custom emoji"
       shortcode = ":test:"
 
-      {:ok, settings} = Bonfire.Files.EmojiUploader.add_emoji(me, icon_file(), label, shortcode)
+      {:ok, context} = Bonfire.Files.EmojiUploader.add_emoji(me, icon_file(), label, shortcode)
+      me = current_user(context)
 
       assert emoji =
-               Bonfire.Common.Settings.get([:custom_emoji, shortcode], nil, settings)
+               Bonfire.Common.Settings.get([:custom_emoji, shortcode], nil, me)
                |> IO.inspect(label: "emoji")
 
       assert File.exists?(String.trim_leading(emoji[:url] || "", "/")) or
