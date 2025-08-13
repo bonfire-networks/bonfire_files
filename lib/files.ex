@@ -238,13 +238,21 @@ defmodule Bonfire.Files do
 
   def has_extension?(_, _), do: false
 
-  defp insert({creator, object}, file, file_info, attrs) do
-    # to attach media to an object
-    media = insert(creator, file, file_info, attrs)
-
+  @doc """
+  Attach a Media to an object.
+  """
+  def attach_media(creator, media, object) do
     repo().insert(
       files_changeset(%{id: Types.uid(object), media: media, media_id: Enums.id(media)})
     )
+  end
+
+  defp insert({creator, object} = _context, file, file_info, attrs) do
+    # first insert media
+    media = insert(creator, file, file_info, attrs)
+
+    # then attach media to object
+    attach_media(creator, media, object)
 
     media
   end

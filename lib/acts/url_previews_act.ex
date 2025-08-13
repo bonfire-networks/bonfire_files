@@ -44,6 +44,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
 
             urls_media = maybe_fetch_and_save(current_user, urls)
 
+            #  support also detecting non-URL strings in the text content
             # TODO: avoid a custom hook here and make generic
             text_media =
               if module = maybe_module(Bonfire.OpenScience.APIs) do

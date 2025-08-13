@@ -205,6 +205,7 @@ defmodule Bonfire.Files.Media do
             e(metadata, "twitter", "title", nil) ||
             e(metadata, "other", "title", nil) ||
             e(metadata, "orcid", "title", "title", nil) ||
+            e(metadata, "zenodo", "title", nil) ||
             e(metadata, "rss", "channel", "title", nil))
          |> unwrap() do
       "Just a moment" <> _ -> nil
