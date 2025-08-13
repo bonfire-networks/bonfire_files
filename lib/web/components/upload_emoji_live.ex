@@ -11,7 +11,7 @@ defmodule Bonfire.Files.Web.UploadEmojiLive do
       socket
       |> assign(assigns)
 
-    emoji = EmojiUploader.list(assigns(socket)[:scope] || assigns(socket))
+    emoji = EmojiUploader.list_for(assigns(socket)[:scope] || current_user(socket))
 
     {:ok,
      socket

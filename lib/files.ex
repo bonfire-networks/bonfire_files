@@ -537,7 +537,7 @@ defmodule Bonfire.Files do
   def cached_entrepot_storage_url(path, storage \\ nil) do
     storage =
       entrepot_storage(storage)
-      |> debug("storage")
+      |> debug("storage for #{storage}")
 
     cached_entrepot_url(%Entrepot.Locator{id: path, storage: storage})
   end

@@ -40,10 +40,17 @@ defmodule Bonfire.Files.EmojiUploader do
     )
   end
 
-  def list(:instance), do: Bonfire.Common.Config.get(:custom_emoji, nil)
+  def list(scope_or_opts),
+    do: Bonfire.Common.Settings.get(:custom_emoji, nil, scope_or_opts)
 
-  def list(scope),
-    do: Bonfire.Common.Settings.get(:custom_emoji, nil, current_user: Utils.current_user(scope))
+  def list_for(:instance), do: Bonfire.Common.Config.get(:custom_emoji, nil)
+
+  def list_for(scope_or_opts),
+    do:
+      Bonfire.Common.Settings.get(:custom_emoji, nil,
+        current_user: Utils.current_user(scope_or_opts),
+        one_scope_only: true
+      )
 
   def add_emoji(user, file, label, shortcode) do
     metadata = prepare_meta(label, shortcode)
