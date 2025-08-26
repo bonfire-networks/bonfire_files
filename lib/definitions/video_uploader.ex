@@ -96,6 +96,7 @@ defmodule Bonfire.Files.VideoUploader do
   def max_file_size do
     Files.normalise_size(
       Bonfire.Common.Config.get([:bonfire_files, :max_user_video_file_size]),
+      # MB
       20
     )
   end

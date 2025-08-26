@@ -44,6 +44,6 @@ defmodule Bonfire.Files.DocumentUploader do
 
   @impl true
   def max_file_size do
-    Files.normalise_size(Bonfire.Common.Config.get([:bonfire_files, :max_docs_file_size]), 8)
+    Files.normalise_size(Bonfire.Common.Config.get([:bonfire_files, :max_upload_size]), 8)
   end
 end

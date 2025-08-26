@@ -163,10 +163,11 @@ defmodule Bonfire.Files.RuntimeConfig do
     config :bonfire_files,
       image_media_types: image_media_types,
       image_media_extensions: image_media_extensions,
-      # TODO: put sizes in env
-      max_user_images_file_size: 8,
-      max_user_video_file_size: 20,
-      max_docs_file_size: 6,
+      max_upload_size: System.get_env("UPLOAD_LIMIT", "20") |> String.to_integer(),
+      max_user_images_file_size:
+        System.get_env("UPLOAD_LIMIT_VIDEOS", "5") |> String.to_integer(),
+      max_user_video_file_size:
+        System.get_env("UPLOAD_LIMIT_VIDEOS", "20") |> String.to_integer(),
       all_allowed_media_types: all_allowed_media_types,
       all_allowed_media_extensions: all_allowed_media_extensions
 

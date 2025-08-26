@@ -59,7 +59,7 @@ defmodule Bonfire.Files.ImageUploader do
   def max_file_size do
     Files.normalise_size(
       Bonfire.Common.Config.get([:bonfire_files, :max_user_images_file_size]),
-      8
+      5
     )
   end
 end
