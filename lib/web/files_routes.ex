@@ -6,7 +6,7 @@ defmodule Bonfire.Files.Routes do
     quote do
       # pages anyone can view
       scope "/" do
-        pipe_through(:basic_html)
+        pipe_through(:basic)
 
         get("/files/favicon", Bonfire.Files.Web.FaviconFetchController, as: :favicon_fetch)
 
