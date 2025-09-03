@@ -40,9 +40,12 @@ defmodule Bonfire.Files.Acts.URLPreviews do
 
             urls =
               (epic.assigns[:options][urls_key] || Map.get(epic.assigns, urls_key, []))
+              |> debug("initial urls")
               |> smart(epic, act, ..., "URLs")
 
-            urls_media = maybe_fetch_and_save(current_user, urls)
+            urls_media =
+              maybe_fetch_and_save(current_user, urls)
+              |> debug("urls media")
 
             #  support also detecting non-URL strings in the text content
             # TODO: avoid a custom hook here and make generic
@@ -55,12 +58,12 @@ defmodule Bonfire.Files.Acts.URLPreviews do
                 |> maybe_fetch_and_save(current_user, ...,
                   fetch_fn: fn url, opts -> module.fetch(url, opts) end
                 )
-                |> Enums.filter_empty([])
               else
                 []
               end
 
             (text_media ++ urls_media)
+            |> Enums.filter_empty([])
             # |> IO.inspect(label: "all media")
             |> smart(epic, act, ..., "metadata")
             |> Epic.assign(epic, media_key, ...)
@@ -96,7 +99,8 @@ defmodule Bonfire.Files.Acts.URLPreviews do
           media
         end
 
-      _ ->
+      other ->
+        error(other, "Could not check existing media")
         nil
     end
   end
@@ -107,7 +111,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
       maybe_save(current_user, url, meta, opts)
     else
       other ->
-        error(other)
+        error(other, "Could not fetch URL preview")
         nil
     end
   catch

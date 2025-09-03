@@ -269,9 +269,9 @@ defmodule Bonfire.Files do
     Types.uid(creator)
   end
 
-  defp definition_module(module \\ nil, file_info)
+  def definition_module(module \\ nil, file_info)
 
-  defp definition_module(nil, %{media_type: media_type}) do
+  def definition_module(fallback, %{media_type: media_type}) when not is_nil(media_type) do
     cond do
       Enum.member?(Bonfire.Files.ImageUploader.allowed_media_types(), media_type) ->
         debug(media_type, "using ImageUploader definition based on file type")
@@ -287,7 +287,7 @@ defmodule Bonfire.Files do
                :bonfire_files,
                # all other
                :all_allowed_media_types,
-               # fallback
+               # fallback:
                ["application/pdf"]
              ),
              media_type
@@ -297,7 +297,7 @@ defmodule Bonfire.Files do
             "using DocumentUploader definition based on file type"
           )
 
-          Bonfire.Files.DocumentUploader
+          fallback || Bonfire.Files.DocumentUploader
         else
           {:error, FileDenied.new(media_type)}
         end
@@ -306,7 +306,7 @@ defmodule Bonfire.Files do
     # |> IO.inspect(label: "definition_module")
   end
 
-  defp definition_module(module, _file_info) do
+  def definition_module(module, _file_info) do
     module
   end
 
@@ -730,6 +730,82 @@ defmodule Bonfire.Files do
 
   defp is_primary_image?(_), do: false
 
+  def split_media_by_type(files) when is_list(files) do
+    files
+    |> Enum.sort_by(&Enums.id/1, :desc)
+    |> Enum.reduce(%{primary_image: nil, images: [], links: []}, fn file, acc ->
+      cond do
+        is_primary_image?(file) ->
+          %{acc | primary_image: file}
+
+        is_publishable_media?(file) ->
+          %{acc | images: [file | acc.images]}
+
+        is_remote_link?(file) ->
+          %{acc | links: [file | acc.links]}
+
+        true ->
+          # Skip files that don't match any criteria
+          acc
+      end
+    end)
+    |> Map.update!(:images, &Enum.reverse/1)
+    |> Map.update!(:links, &Enum.reverse/1)
+  end
+
+  def split_media_by_type(file) when is_map(file) do
+    cond do
+      is_primary_image?(file) ->
+        %{primary_image: file, images: [], links: []}
+
+      is_publishable_media?(file) ->
+        %{primary_image: nil, images: [file], links: []}
+
+      is_remote_link?(file) ->
+        %{primary_image: nil, images: [], links: [file]}
+
+      true ->
+        %{primary_image: nil, images: [], links: []}
+    end
+  end
+
+  def split_media_by_type(_), do: %{primary_image: nil, images: [], links: []}
+
+  # Helper to get media_type from nested structure
+  defp get_media_type(%{media: %{media_type: media_type}}), do: media_type
+  defp get_media_type(%{media_type: media_type}), do: media_type
+  defp get_media_type(_), do: nil
+
+  # Helper to get path from nested structure
+  defp get_path(%{media: %{path: path}}), do: path
+  defp get_path(%{path: path}), do: path
+  defp get_path(_), do: nil
+
+  # Match the same logic as ap_publish_activity - include images, audio, video, and non-HTTP documents
+  defp is_publishable_media?(file) do
+    media_type = get_media_type(file)
+
+    case {media_type, get_path(file)} do
+      # Exclude remote HTTP links
+      {_, "http" <> _} -> false
+      # Include media types that match ap_publish_activity logic
+      {"image" <> _, _} -> true
+      {"audio" <> _, _} -> true
+      {"video" <> _, _} -> true
+      # {media_type, _} when is_binary(media_type) -> true
+      _ -> false
+    end
+  end
+
+  # Separate function for remote links
+  defp is_remote_link?(file) do
+    case {get_path(file), get_media_type(file)} do
+      {"http" <> _, _} -> true
+      {_, "remote"} -> true
+      _ -> false
+    end
+  end
+
   ###
 
   def ap_publish_activity(medias) when is_list(medias) do
@@ -812,7 +888,7 @@ defmodule Bonfire.Files do
   end
 
   def ap_receive_attachments(creator, primary_image, attachments)
-      when is_binary(primary_image) or is_map(primary_image) or is_list(primary_image) do
+      when is_binary(primary_image) or is_map(primary_image) do
     [
       ap_receive_attachments(creator, true, primary_image),
       ap_receive_attachments(creator, false, attachments)
@@ -877,23 +953,29 @@ defmodule Bonfire.Files do
     url = e(attachment, "href", nil) || e(attachment, "url", nil)
     type = attachment["mediaType"] || attachment["type"]
 
-    with {:ok, uploaded} <-
+    with module when is_atom(module) and not is_nil(module) <-
+           if(attachment["type"] == "Link",
+             do: Bonfire.Files.DocumentUploader,
+             else: definition_module(%{media_type: type})
+           ),
+         {:ok, uploaded} <-
            upload(
-             definition_module(%{media_type: type}),
+             module,
              creator,
              url,
              %{
                media_type: type,
                client_name: url,
                metadata:
-                 %{}
+                 attachment
+                 |> Map.drop(["name", "type", "mediaType", "href", "url"])
                  |> Enums.maybe_put(:label, attachment["name"])
-                 |> Enums.maybe_put(:blurhash, attachment["blurhash"])
+                 #  |> Enums.maybe_put(:blurhash, attachment["blurhash"])
                  |> Enums.maybe_put(:primary_image, primary_image?)
              },
              skip_fetching_remote: true
            )
-           |> debug("uploaded") do
+           |> debug("added attachment") do
       uploaded
     else
       list when is_list(list) ->
