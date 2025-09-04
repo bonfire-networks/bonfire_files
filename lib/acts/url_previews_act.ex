@@ -32,6 +32,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
         # attrs = Keyword.get(epic.assigns[:options], attrs_key, %{})
         urls_key = Keyword.get(act.options, :urls, :urls)
         media_key = Keyword.get(act.options, :medias, :uploaded_media)
+        quotes_key = Keyword.get(act.options, :quotes, :quotes)
         text_key = Keyword.get(act.options, :text, :text)
 
         case changeset do
@@ -40,12 +41,12 @@ defmodule Bonfire.Files.Acts.URLPreviews do
 
             urls =
               (epic.assigns[:options][urls_key] || Map.get(epic.assigns, urls_key, []))
-              |> debug("initial urls")
+              |> flood("initial urls")
               |> smart(epic, act, ..., "URLs")
 
             urls_media =
               maybe_fetch_and_save(current_user, urls)
-              |> debug("urls media")
+              |> flood("urls media")
 
             #  support also detecting non-URL strings in the text content
             # TODO: avoid a custom hook here and make generic
@@ -64,9 +65,14 @@ defmodule Bonfire.Files.Acts.URLPreviews do
 
             (text_media ++ urls_media)
             |> Enums.filter_empty([])
-            # |> IO.inspect(label: "all media")
-            |> smart(epic, act, ..., "metadata")
-            |> Epic.assign(epic, media_key, ...)
+            |> Enum.split_with(&is_struct(&1, Bonfire.Files.Media))
+            |> flood("split media and quotes")
+            |> case do
+              {media_objects, quote_objects} ->
+                epic
+                |> Epic.assign(media_key, media_objects)
+                |> Epic.assign(quotes_key, quote_objects)
+            end
 
           %Changeset{valid?: false} = changeset ->
             maybe_debug(epic, act, changeset, "invalid changeset")
@@ -106,10 +112,18 @@ defmodule Bonfire.Files.Acts.URLPreviews do
   end
 
   defp do_maybe_fetch_and_save(current_user, url, opts) do
-    with {:ok, meta} <-
-           if(opts[:fetch_fn], do: opts[:fetch_fn].(url, opts), else: Unfurl.unfurl(url, opts)) do
-      maybe_save(current_user, url, meta, opts)
-    else
+    # Pass our AP-aware fetch function to unfurl so it runs in parallel with oembed
+    opts = Keyword.put(opts, :fetch_html_fn, &ap_aware_fetch/2)
+
+    if(opts[:fetch_fn], do: opts[:fetch_fn].(url, opts), else: Unfurl.unfurl(url, opts))
+    |> case do
+      {:ok, object} when is_struct(object) ->
+        # eg. we got a quoted AP object
+        object
+
+      {:ok, %{} = meta} ->
+        maybe_save(current_user, url, meta, opts)
+
       other ->
         error(other, "Could not fetch URL preview")
         nil
@@ -191,6 +205,29 @@ defmodule Bonfire.Files.Acts.URLPreviews do
     e ->
       error(e, "Could not save the URL preview")
       nil
+  end
+
+  @doc """
+  AP-aware fetch function that tries ActivityPub first, returns HTTP response format.
+  This replaces the standard Unfurl.Fetcher.fetch to detect AP objects or fetch the HTML in a single request.
+  """
+  def ap_aware_fetch(url, opts \\ []) do
+    case Bonfire.Federate.ActivityPub.AdapterUtils.get_or_fetch_and_create_by_uri(
+           url,
+           opts ++ [return_html_as_fallback: true]
+         )
+         |> flood("fetched using AP within Unfurl") do
+      {:ok, object} ->
+        # It's an ActivityPub object - but we want the HTML for unfurl processing
+        {:ok, object, 200}
+
+      {:ok, %{status: status_code, body: body}} ->
+        # Not an AP object, got HTML response - return in format Unfurl expects for further processing
+        {:ok, body, status_code}
+
+      {:error, reason} ->
+        error(reason, "Could not fetch link preview")
+    end
   end
 
   # defp assign_medias(epic, act, _on, meta_key, data) do

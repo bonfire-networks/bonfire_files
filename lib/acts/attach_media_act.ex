@@ -39,7 +39,7 @@ defmodule Bonfire.Files.Acts.AttachMedia do
                  e(epic.assigns, uploads_key, []) ++
                  Keyword.get(epic.assigns[:options], uploads_key, []))
               |> List.wrap()
-              |> Enum.reject(&is_nil/1)
+              |> Enum.filter(&is_struct(&1, Bonfire.Files.Media))
 
             if uploaded_media != [] do
               smart(epic, act, uploaded_media, "attach media")
