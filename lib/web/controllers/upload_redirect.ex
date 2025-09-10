@@ -9,7 +9,7 @@ defmodule Bonfire.Files.Web.UploadRedirectController do
            maybe_redirect_url("/data/uploads/#{creator}/#{type}/#{path}", params["storage"]) do
       if target = params["target"] do
         info(
-          ok_unwrap(Base.url_decode64(target)) || target,
+          from_ok(Base.url_decode64(target)) || target,
           "Redirecting to #{type} URL for #{path} by #{creator} in storage #{params["storage"]} for target"
         )
       end
@@ -28,7 +28,7 @@ defmodule Bonfire.Files.Web.UploadRedirectController do
     with url when is_binary(url) <- maybe_redirect_url(path, params["storage"]) do
       if target = params["target"] do
         info(
-          ok_unwrap(Base.url_decode64(target)) || target,
+          from_ok(Base.url_decode64(target)) || target,
           "Redirecting to upload URL for #{path} in storage #{params["storage"]} for target"
         )
       end

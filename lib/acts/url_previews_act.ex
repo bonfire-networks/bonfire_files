@@ -180,7 +180,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
       {{:ok, media}, extra} ->
         # already exists with same canonical_url
         if opts[:update_existing] do
-          media = ok_unwrap(Bonfire.Files.Media.update(current_user, media, extra))
+          media = from_ok(Bonfire.Files.Media.update(current_user, media, extra))
 
           if opts[:update_existing] == :force and is_function(opts[:post_create_fn], 3) do
             opts[:post_create_fn].(current_user, media, opts)

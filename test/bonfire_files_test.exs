@@ -75,7 +75,8 @@ defmodule Bonfire.Files.Test do
 
       assert emoji =
                Bonfire.Common.Settings.get([:custom_emoji, shortcode], nil, me)
-               |> IO.inspect(label: "emoji")
+
+      #  |> debug("emoji")
 
       assert File.exists?(String.trim_leading(emoji[:url] || "", "/")) or
                emoji[:url] =~ "/files/redir/" or
