@@ -217,13 +217,13 @@ defmodule Bonfire.Files.Acts.URLPreviews do
            opts ++ [return_html_as_fallback: true]
          )
          |> flood("fetched using AP within Unfurl") do
-      {:ok, object} ->
-        # It's an ActivityPub object - but we want the HTML for unfurl processing
-        {:ok, object, 200}
-
       {:ok, %{status: status_code, body: body}} ->
         # Not an AP object, got HTML response - return in format Unfurl expects for further processing
         {:ok, body, status_code}
+
+      {:ok, object} ->
+        # It's an ActivityPub object - but we want the HTML for unfurl processing
+        {:ok, object, 200}
 
       {:error, reason} ->
         error(reason, "Could not fetch link preview")
