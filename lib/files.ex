@@ -127,8 +127,7 @@ defmodule Bonfire.Files do
          {:ok, file} <- init_file(module, tmp_path),
          {:ok, file_info} <- extract_metadata(file),
          module when is_atom(module) and not is_nil(module) <-
-           definition_module(module, file_info),
-         #  :ok <- module.validate(file_info), # note: already called by Waffle
+           module || definition_module(module, file_info),
          upload_source <- %Plug.Upload{
            filename: final_filename,
            path: file.path,
@@ -165,6 +164,7 @@ defmodule Bonfire.Files do
     do: validate(file_info, allowed_media_types, max_file_size)
 
   def validate(%{media_type: media_type, size: size}, allowed_media_types, max_file_size) do
+    # debug(allowed_media_types, "validate_with")
     case {allowed_media_types, max_file_size} |> debug("validate_with") do
       {_, max_file_size} when size > max_file_size ->
         {:error, FileDenied.new(max_file_size)}
@@ -179,7 +179,8 @@ defmodule Bonfire.Files do
           {:error, FileDenied.new(media_type)}
         end
     end
-    |> debug("validated?")
+
+    # |> debug("validated #{inspect media_type}?")
   end
 
   def validate({_file, %{file_info: %{} = file_info}}, allowed_media_types, max_file_size) do

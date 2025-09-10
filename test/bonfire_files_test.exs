@@ -78,6 +78,7 @@ defmodule Bonfire.Files.Test do
                |> IO.inspect(label: "emoji")
 
       assert File.exists?(String.trim_leading(emoji[:url] || "", "/")) or
+               emoji[:url] =~ "/files/redir/" or
                Bonfire.Common.Media.emoji_url(emoji)
     end
   end
@@ -90,7 +91,7 @@ defmodule Bonfire.Files.Test do
       assert url =~ "/docs/"
 
       assert url =
-               Files.remote_url(DocumentUploader, upload, nil, federating: true)
+               Files.remote_url(DocumentUploader, upload, nil, permanent: true)
                |> IO.inspect(label: "upload redir url")
 
       assert url =~ "/files/redir/"
