@@ -41,12 +41,12 @@ defmodule Bonfire.Files.Acts.URLPreviews do
 
             urls =
               (epic.assigns[:options][urls_key] || Map.get(epic.assigns, urls_key, []))
-              |> flood("initial urls")
+              |> debug("initial urls")
               |> smart(epic, act, ..., "URLs")
 
             urls_media =
               maybe_fetch_and_save(current_user, urls)
-              |> flood("urls media")
+              |> debug("urls media")
 
             #  support also detecting non-URL strings in the text content
             # TODO: avoid a custom hook here and make generic
@@ -66,7 +66,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
             (text_media ++ urls_media)
             |> Enums.filter_empty([])
             |> Enum.split_with(&is_struct(&1, Bonfire.Files.Media))
-            |> flood("split media and quotes")
+            |> debug("split media and quotes")
             |> case do
               {media_objects, quote_objects} ->
                 epic
@@ -216,7 +216,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
            url,
            opts ++ [return_html_as_fallback: true]
          )
-         |> flood("fetched using AP within Unfurl") do
+         |> debug("fetched using AP within Unfurl") do
       {:ok, %{status: status_code, body: body}} ->
         # Not an AP object, got HTML response - return in format Unfurl expects for further processing
         {:ok, body, status_code}
