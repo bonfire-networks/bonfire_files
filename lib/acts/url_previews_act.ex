@@ -113,7 +113,15 @@ defmodule Bonfire.Files.Acts.URLPreviews do
 
   defp do_maybe_fetch_and_save(current_user, url, opts) do
     # Pass our AP-aware fetch function to unfurl so it runs in parallel with oembed
-    opts = Keyword.put(opts, :fetch_html_fn, &ap_aware_fetch/2)
+    pid = self()
+    current_endpoint = Process.get(:phoenix_endpoint_module)
+
+    opts =
+      Keyword.put(opts, :fetch_html_fn, fn url, opts ->
+        # Preserve multi-tenancy/context in spawned process
+        Bonfire.Common.TestInstanceRepo.set_child_instance(pid, current_endpoint)
+        ap_aware_fetch(url, opts)
+      end)
 
     if(opts[:fetch_fn], do: opts[:fetch_fn].(url, opts), else: Unfurl.unfurl(url, opts))
     |> case do
@@ -214,7 +222,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
   def ap_aware_fetch(url, opts \\ []) do
     case Bonfire.Federate.ActivityPub.AdapterUtils.get_or_fetch_and_create_by_uri(
            url,
-           opts ++ [return_html_as_fallback: true]
+           opts ++ [return_html_as_fallback: true, repo: Bonfire.Common.Config.repo()]
          )
          |> debug("fetched using AP within Unfurl") do
       {:ok, %{status: status_code, body: body}} ->

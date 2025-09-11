@@ -136,7 +136,7 @@ defmodule Bonfire.Files.Prepare do
   end
 
   defp async_process_version(definition, scope, version, file) do
-    Task.async(fn ->
+    Utils.apply_task(:async, fn ->
       process_version(definition, scope, version, file)
     end)
   end
@@ -146,7 +146,7 @@ defmodule Bonfire.Files.Prepare do
   end
 
   defp async_put_version(definition, scope, result) do
-    Task.async(fn ->
+    Utils.apply_task(:async, fn ->
       put_version(definition, scope, result)
     end)
   end
