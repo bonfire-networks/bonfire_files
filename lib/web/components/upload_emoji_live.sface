@@ -16,7 +16,7 @@
         <span class="w-12 h-12 shrink-0  rounded-full flex place-content-center items-center bg-info/10">
           <b>1</b>
         </span>
-        <div class="flex flex-col gap-1 w-full" phx-update="ignore">
+        <div id="emoji_label_input" class="flex flex-col gap-1 w-full" phx-update="ignore">
           <h2 class="font-semibold text-sm">{l("Enter a label or description of the emoji")}</h2>
           <input
             name="label"
@@ -31,7 +31,7 @@
         <span class="w-12 h-12 shrink-0  rounded-full flex place-content-center items-center bg-info/10">
           <b>2</b>
         </span>
-        <div class="flex flex-col gap-1 w-full" phx-update="ignore">
+        <div id="emoji_shortcode_input" class="flex flex-col gap-1 w-full" phx-update="ignore">
           <h2 class="font-semibold text-sm">{l("Choose a shortcode to enter when inserting this emoji")}</h2>
           <input
             name="shortcode"
