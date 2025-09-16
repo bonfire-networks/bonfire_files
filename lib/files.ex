@@ -863,8 +863,16 @@ defmodule Bonfire.Files do
     nil
   end
 
-  def ap_transform_url(urls, target_host, target_actor_id) when is_list(urls) do
-    Enum.map(urls, &ap_transform_url(&1, target_host, target_actor_id))
+  def ap_transform_url(urls, target_host, target_actor_ids) when is_list(urls) do
+    Enum.map(urls, &ap_transform_url(&1, target_host, target_actor_ids))
+  end
+
+  def ap_transform_url(attachment, target_host, [target_actor_id]) do
+    ap_transform_url(attachment, target_host, target_actor_id)
+  end
+
+  def ap_transform_url(attachment, target_host, more_than_one) when is_list(more_than_one) do
+    ap_transform_url(attachment, target_host, nil)
   end
 
   def ap_transform_url(attachment, target_host, target_actor_id) do
