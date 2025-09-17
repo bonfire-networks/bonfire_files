@@ -978,12 +978,12 @@ defmodule Bonfire.Files do
                metadata:
                  attachment
                  # Keep name now
-                 |> Map.drop(["type", "mediaType", "href", "url"])
+                 |> Map.drop(["name", "type", "mediaType", "href", "url"])
                  |> Enums.maybe_put(:label, attachment["name"])
-                 |> Enums.maybe_put(:duration, attachment["duration"])
-                 |> Enums.maybe_put(:width, attachment["width"])
-                 |> Enums.maybe_put(:height, attachment["height"])
-                 |> Enums.maybe_put(:blurhash, attachment["blurhash"])
+                #  |> Enums.maybe_put(:duration, attachment["duration"])
+                #  |> Enums.maybe_put(:width, attachment["width"])
+                #  |> Enums.maybe_put(:height, attachment["height"])
+                #  |> Enums.maybe_put(:blurhash, attachment["blurhash"])
                  |> Enums.maybe_put(:primary_image, primary_image?)
                  |> Enums.maybe_put(:source_type, "activitypub")
              },
