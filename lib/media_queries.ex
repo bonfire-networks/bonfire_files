@@ -57,6 +57,9 @@ defmodule Bonfire.Files.Media.Queries do
   def filter(q, {:media_type, media_type}) when is_binary(media_type),
     do: where(q, [content: c], c.media_type == ^media_type)
 
+  def filter(q, {:media_type_like, pattern}) when is_binary(pattern),
+    do: where(q, [content: c], like(c.media_type, ^pattern))
+
   def filter(q, {:id, ids}) when is_list(ids),
     do: where(q, [content: c], c.id in ^ids)
 

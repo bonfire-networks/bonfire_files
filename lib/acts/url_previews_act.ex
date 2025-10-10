@@ -45,7 +45,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
               |> smart(epic, act, ..., "URLs")
 
             urls_media =
-              maybe_fetch_and_save(current_user, urls)
+              Bonfire.Files.Media.maybe_fetch_and_save(current_user, urls)
               |> debug("urls media")
 
             #  support also detecting non-URL strings in the text content
@@ -56,7 +56,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
                 |> String.split()
                 |> Enum.reject(&(&1 in urls or !module.is_pub_id_or_uri_match?(&1)))
                 # |> IO.inspect()
-                |> maybe_fetch_and_save(current_user, ...,
+                |> Bonfire.Files.Media.maybe_fetch_and_save(current_user, ...,
                   fetch_fn: fn url, opts -> module.fetch(url, opts) end
                 )
               else
@@ -82,159 +82,6 @@ defmodule Bonfire.Files.Acts.URLPreviews do
             maybe_debug(epic, act, changeset, "Skipping :#{on} due to changeset")
             epic
         end
-    end
-  end
-
-  def maybe_fetch_and_save(current_user, url, opts \\ [])
-
-  def maybe_fetch_and_save(current_user, urls, opts) when is_list(urls) do
-    # TODO: optimise by using Unfurl.apply_many instead? or use async_stream here
-    urls
-    |> Enum.map(&maybe_fetch_and_save(current_user, &1, opts))
-  end
-
-  def maybe_fetch_and_save(current_user, url, opts) when is_binary(url) do
-    with {:error, :not_found} <- Bonfire.Files.Media.get_by_path(url) do
-      do_maybe_fetch_and_save(current_user, url, opts)
-    else
-      {:ok, media} ->
-        # already exists
-        if opts[:update_existing] == :force do
-          do_maybe_fetch_and_save(current_user, url, opts)
-        else
-          media
-        end
-
-      other ->
-        error(other, "Could not check existing media")
-        nil
-    end
-  end
-
-  defp do_maybe_fetch_and_save(current_user, url, opts) do
-    # Pass our AP-aware fetch function to unfurl so it runs in parallel with oembed
-    pid = self()
-    current_endpoint = Process.get(:phoenix_endpoint_module)
-
-    opts =
-      Keyword.put(opts, :fetch_html_fn, fn url, opts ->
-        # Preserve multi-tenancy/context in spawned process
-        Bonfire.Common.TestInstanceRepo.set_child_instance(pid, current_endpoint)
-        ap_aware_fetch(url, opts)
-      end)
-
-    if(opts[:fetch_fn], do: opts[:fetch_fn].(url, opts), else: Unfurl.unfurl(url, opts))
-    |> case do
-      {:ok, object} when is_struct(object) ->
-        # eg. we got a quoted AP object
-        object
-
-      {:ok, %{} = meta} ->
-        maybe_save(current_user, url, meta, opts)
-
-      other ->
-        error(other, "Could not fetch URL preview")
-        nil
-    end
-  catch
-    e ->
-      # workaround for badly-parsed webpages in non-UTF8 encodings
-      error(e, "Could not save the URL preview")
-      nil
-      # rescue
-      #   e ->
-      #     error(e, "Could not save the URL preview")
-      #     nil
-  end
-
-  def maybe_save(current_user, url, meta, opts \\ []) do
-    with canonical_url <- Map.get(meta, :canonical_url),
-         # ^ note: canonical url is only set if different from original url, so we only check each unique url once
-         media_type <-
-           if(opts[:type_fn],
-             do: opts[:type_fn].(meta),
-             else: Files.link_type(url, meta)
-           ),
-         extra <- %{
-           url: url,
-           media_type: media_type,
-           metadata:
-             Enums.deep_merge(
-               opts[:extra] || %{},
-               meta
-               |> Map.drop([:canonical_url])
-               |> Enums.filter_empty(%{})
-             )
-         },
-         {{:error, :not_found}, _} <-
-           {Bonfire.Files.Media.get_by_path(
-              if opts[:update_existing] == :force, do: canonical_url || url, else: canonical_url
-            ), extra},
-         {:ok, media} <-
-           Bonfire.Files.Media.insert(
-             current_user,
-             canonical_url || url,
-             %{id: opts[:id], media_type: media_type, size: 0},
-             extra
-           ) do
-      # |> debug
-      if is_function(opts[:post_create_fn], 3) do
-        opts[:post_create_fn].(current_user, media, opts)
-        |> debug()
-      else
-        media
-      end
-    else
-      {{:ok, media}, extra} ->
-        # already exists with same canonical_url
-        if opts[:update_existing] do
-          media = from_ok(Bonfire.Files.Media.update(current_user, media, extra))
-
-          if opts[:update_existing] == :force and is_function(opts[:post_create_fn], 3) do
-            opts[:post_create_fn].(current_user, media, opts)
-            |> debug()
-          else
-            media
-          end
-        else
-          media
-        end
-
-      other ->
-        error(other)
-        nil
-    end
-  catch
-    e ->
-      # workaround for badly-parsed webpages in non-UTF8 encodings
-      error(e, "Could not save the URL preview")
-      nil
-  rescue
-    e ->
-      error(e, "Could not save the URL preview")
-      nil
-  end
-
-  @doc """
-  AP-aware fetch function that tries ActivityPub first, returns HTTP response format.
-  This replaces the standard Unfurl.Fetcher.fetch to detect AP objects or fetch the HTML in a single request.
-  """
-  def ap_aware_fetch(url, opts \\ []) do
-    case Bonfire.Federate.ActivityPub.AdapterUtils.get_or_fetch_and_create_by_uri(
-           url,
-           opts ++ [return_html_as_fallback: true, repo: Bonfire.Common.Config.repo()]
-         )
-         |> debug("fetched using AP within Unfurl") do
-      {:ok, %{status: status_code, body: body}} ->
-        # Not an AP object, got HTML response - return in format Unfurl expects for further processing
-        {:ok, body, status_code}
-
-      {:ok, object} ->
-        # It's an ActivityPub object - but we want the HTML for unfurl processing
-        {:ok, object, 200}
-
-      {:error, reason} ->
-        error(reason, "Could not fetch link preview")
     end
   end
 

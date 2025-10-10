@@ -920,7 +920,7 @@ defmodule Bonfire.Files do
       ) do
     # special case for owncast stream
     # TODO: a better way?
-    Bonfire.Files.Acts.URLPreviews.maybe_fetch_and_save(creator, actor_url)
+    Bonfire.Files.Media.maybe_fetch_and_save(creator, actor_url)
   end
 
   def ap_receive_attachments(creator, primary_image?, %{"url" => urls} = attachment)
