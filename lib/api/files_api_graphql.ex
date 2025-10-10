@@ -98,7 +98,7 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled and
       end
 
       @desc "Get media items with pagination and filtering"
-      connection field :media_list, node_type: :media do
+      connection field :medias, node_type: :media do
         arg(:filter, :media_filter)
         resolve(&list_media/3)
       end
