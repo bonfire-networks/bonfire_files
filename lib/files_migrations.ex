@@ -10,10 +10,10 @@ defmodule Bonfire.Files.Migrations do
 
   defp make_files_table(exprs) do
     quote do
-      require Needle.Migration
+      import Needle.Migration
 
       Needle.Migration.create_mixin_table Bonfire.Files do
-        Ecto.Migration.add(:media_id, Needle.Migration.strong_pointer(), primary_key: true)
+        add_pointer(:media_id, :strong, Needle.Pointer, primary_key: true)
 
         unquote_splicing(exprs)
       end
@@ -69,9 +69,9 @@ defmodule Bonfire.Files.Media.Migrations do
       require Needle.Migration
 
       Needle.Migration.create_pointable_table Media do
-        Ecto.Migration.add(:user_id, Needle.Migration.strong_pointer(), null: false)
+        add_pointer(:user_id, :strong, Needle.Pointer, null: false)
         #  FYI user_id is renamed to creator_id in a migration
-        # Ecto.Migration.add(:creator_id, Needle.Migration.strong_pointer(), null: false) 
+        # add_pointer(:creator_id, :strong, Needle.Pointer, null: false)
 
         Ecto.Migration.add(:path, :text, null: true)
         Ecto.Migration.add(:file, :jsonb)
