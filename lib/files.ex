@@ -371,17 +371,23 @@ defmodule Bonfire.Files do
 
   def remote_url(module, media_id, version, opts)
       when is_binary(media_id) and is_atom(module) do
-    case Media.one(id: media_id) do
-      {:ok, media} ->
-        remote_url(module, media, version, opts)
+    if opts[:preload_if_needed] == false do
+      # Do not query for media, return error
+      err(media_id, "Media data was not loaded")
+      nil
+    else
+      case Media.one(id: media_id) do
+        {:ok, media} ->
+          remote_url(module, media, version, opts)
 
-      _ ->
-        warn(
-          media_id,
-          "Media not found"
-        )
+        _ ->
+          warn(
+            media_id,
+            "Media not found"
+          )
 
-        nil
+          nil
+      end
     end
   end
 
@@ -697,8 +703,8 @@ defmodule Bonfire.Files do
     end
   end
 
-  def permanent_url(module, media, version \\ nil) do
-    full_url(module, media, version, permanent: true)
+  def permanent_url(module, media, version \\ nil, opts \\ []) do
+    full_url(module, media, version, Keyword.put(opts, :permanent, true))
   end
 
   def split_primary_image(files) when is_list(files) do

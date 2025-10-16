@@ -34,15 +34,15 @@ defmodule Bonfire.Files.Definition do
         Files.upload(__MODULE__, creator, file, attrs, opts)
       end
 
-      def remote_url(media, version \\ nil)
+      def remote_url(media, version \\ nil, opts \\ [])
 
-      def remote_url(media, version),
-        do: Files.remote_url(__MODULE__, media, version)
+      def remote_url(media, version, opts),
+        do: Files.remote_url(__MODULE__, media, version, opts)
 
-      def permanent_url(media, version \\ nil)
+      def permanent_url(media, version \\ nil, opts \\ [])
 
-      def permanent_url(media, version),
-        do: Files.permanent_url(__MODULE__, media, version)
+      def permanent_url(media, version, opts),
+        do: Files.permanent_url(__MODULE__, media, version, opts) |> debug("permanent_url")
 
       # def delete_files(media, opts \\ [])
       # def delete_files(%Entrepot.Locator{}=media, opts), do: Bonfire.Files.entrepot_storage_apply(:delete, media)
