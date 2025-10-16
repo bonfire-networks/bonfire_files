@@ -62,7 +62,10 @@ defmodule Bonfire.Files.Media.Migrations do
   @moduledoc false
   use Ecto.Migration
   import Needle.Migration
+  use Needle.Migration.Indexable
   alias Bonfire.Files.Media
+
+  @media_table Media.__schema__(:source)
 
   defp make_media_table(exprs) do
     quote do
@@ -103,10 +106,15 @@ defmodule Bonfire.Files.Media.Migrations do
     drop_if_exists(Ecto.Migration.constraint("bonfire_files_media", :path, opts))
   end
 
+  def add_media_creator_index do
+    create_index_for_pointer(@media_table, :creator_id)
+  end
+
   defp mc(:up) do
     quote do
       unquote(make_media_table([]))
       unquote(make_media_path_index())
+      Bonfire.Files.Media.Migrations.add_media_creator_index()
     end
   end
 
