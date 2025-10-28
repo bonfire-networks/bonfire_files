@@ -72,9 +72,7 @@ defmodule Bonfire.Files.Media.Migrations do
       require Needle.Migration
 
       Needle.Migration.create_pointable_table Media do
-        add_pointer(:user_id, :strong, Needle.Pointer, null: false)
-        #  FYI user_id is renamed to creator_id in a migration
-        # add_pointer(:creator_id, :strong, Needle.Pointer, null: false)
+        add_pointer(:creator_id, :strong, Needle.Pointer, null: false)
 
         Ecto.Migration.add(:path, :text, null: true)
         Ecto.Migration.add(:file, :jsonb)
