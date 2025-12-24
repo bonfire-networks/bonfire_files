@@ -1,8 +1,17 @@
 defmodule Bonfire.Files.MimeTypes do
-  def supported_media,
+  # TODO: how can we make these editable or at least extensible with ENV vars or in Settings UI?
+
+  # NOTE: first extension will be considered canonical
+
+  def allowed_media,
     do:
       Map.merge(image_media(), video_media())
       |> Map.merge(extra_media())
+
+  def supported_media,
+    do:
+      allowed_media()
+      |> Map.merge(extra_known_types())
 
   # TODO: how can we make these editable or at least extensible with ENV vars?
 
@@ -35,45 +44,28 @@ defmodule Bonfire.Files.MimeTypes do
 
   def extra_media,
     do: %{
+      # docs
       "text/plain" => ["txt", "text", "log", "asc"],
       "text/markdown" => ["md", "mkd", "markdown", "livemd"],
-
-      # doc
       "text/csv" => ["csv"],
       "text/tab-separated-values" => ["tsv"],
       "application/pdf" => ["pdf"],
-      "application/rtf" => ["rtf"],
 
-      # "application/msword"=> ["doc", "dot"],
-      # "application/vnd.openxmlformats-officedocument.wordprocessingml.document"=> ["docx"],
-      # "application/vnd.ms-excel"=> ["xls"],
-      # "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"=> ["xlsx"],
-      # "application/vnd.oasis.opendocument.presentation"=> ["odp"],
-      # "application/vnd.oasis.opendocument.spreadsheet"=> ["ods"],
-      # "application/vnd.oasis.opendocument.text"=> ["odt"],
-
+      # PIM
       "text/x-vcard" => ["vcf"],
       "application/ics" => ["vcs", "ics"],
+
+      # ebooks
       "application/epub+zip" => ["epub"],
       "application/x-mobipocket-ebook" => ["prc", "mobi"],
 
-      # archives
-      # "application/x-tar"=> ["tar"],
-      # "application/x-bzip"=> ["bzip"],
-      # "application/x-bzip2"=> ["bzip2"],
-      # "application/gzip"=> ["gz", "gzip"],
-      # "application/zip"=> ["zip"],
-      # "application/rar"=> ["rar"],
-      # "application/vnd.rar"=> ["rar"],
-      # "application/x-7z-compressed"=> ["7z"],
-
       # audio
+      "audio/mp3" => ["mp3"],
       "audio/mpeg" => ["mpa", "mp2"],
       "audio/m4a" => ["m4a"],
       "audio/mp4" => ["m4a", "mp4"],
       "audio/x-m4a" => ["m4a"],
       "audio/aac" => ["aac"],
-      "audio/mp3" => ["mp3"],
       "audio/ogg" => ["ogg", "oga"],
       "audio/wav" => ["wav"],
       "audio/webm" => ["webm"],
@@ -89,6 +81,37 @@ defmodule Bonfire.Files.MimeTypes do
       "application/activity+json" => ["activity+json"],
       "application/ld+json" => ["ld+json"],
       "application/jrd+json" => ["jrd+json"]
+    }
+
+  # types we want the server to know about but not necessarily allow uploads for
+  def extra_known_types,
+    do: %{
+      "image/tiff" => ["tiff"],
+
+      # archives
+      "application/x-tar" => ["tar"],
+      "application/x-bzip" => ["bzip"],
+      "application/x-bzip2" => ["bzip2"],
+      "application/gzip" => ["gz", "gzip"],
+      "application/zip" => ["zip"],
+      "application/vnd.rar" => ["rar"],
+      "application/x-7z-compressed" => ["7z"],
+      "application/x-bzip2" => ["bzip2"],
+
+      # code
+      "text/swiftui" => ["swiftui"],
+      "text/jetpack" => ["jetpack"],
+      "text/styles" => ["styles"],
+
+      # docs
+      "application/rtf" => ["rtf"],
+      "application/msword" => ["doc", "dot"],
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => ["docx"],
+      "application/vnd.ms-excel" => ["xls"],
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => ["xlsx"],
+      "application/vnd.oasis.opendocument.presentation" => ["odp"],
+      "application/vnd.oasis.opendocument.spreadsheet" => ["ods"],
+      "application/vnd.oasis.opendocument.text" => ["odt"]
     }
 
   # define which is preferred when more than one
