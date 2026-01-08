@@ -26,10 +26,20 @@ defmodule Bonfire.Files.Simulation do
     path: Path.expand("../test/fixtures/doc.pdf", __DIR__),
     filename: "doc.pdf"
   }
+  @audio_file %{
+    path: Path.expand("../test/fixtures/spaghetti.mp3", __DIR__),
+    filename: "spaghetti.mp3"
+  }
+  @video_file %{
+    path: Path.expand("../test/fixtures/spaghetti.mp4", __DIR__),
+    filename: "spaghetti.mp4"
+  }
   def icon_file, do: @icon_file
   def image_file, do: @image_file
   def text_file, do: @text_file
   def pdf_file, do: @pdf_file
+  def audio_file, do: @audio_file
+  def video_file, do: @video_file
 
   def fake_upload(file, upload_def \\ nil, creator \\ nil) do
     creator = creator || fake_user!()
