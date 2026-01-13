@@ -604,12 +604,12 @@ defmodule Bonfire.Files.Media do
   defp do_maybe_fetch_and_save(current_user, url, opts) do
     # Pass our AP-aware fetch function to unfurl so it runs in parallel with oembed
     pid = self()
-    current_endpoint = Process.get(:phoenix_endpoint_module)
+    instance_meta = Bonfire.Common.TestInstanceRepo.get_parent_instance_meta()
 
     opts =
       Keyword.put(opts, :fetch_html_fn, fn url, opts ->
         # Preserve multi-tenancy/context in spawned process
-        Bonfire.Common.TestInstanceRepo.set_child_instance(pid, current_endpoint)
+        Bonfire.Common.TestInstanceRepo.set_child_instance(pid, instance_meta)
         ap_aware_fetch(url, opts)
       end)
 
