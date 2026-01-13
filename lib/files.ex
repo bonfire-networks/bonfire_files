@@ -359,8 +359,9 @@ defmodule Bonfire.Files do
       when is_atom(module) and not is_nil(module) do
     case media.path do
       "http" <> _ = url ->
-        # Handle remote media (federated content) - return the original HTTP URL
-        url
+        # Handle remote media (federated content)
+        # Only return URL for default version - thumbnail versions don't exist for remote content
+        if version in [:default, nil], do: url, else: nil
 
       _ ->
         # backwards compatibility for Waffle uploads
