@@ -33,11 +33,12 @@ defmodule Bonfire.Files.Blurred do
     else
       case blurhash(path, opts) do
         nil ->
-          "L6Pj0^jE.AyE_3t7t7R**0o#DgR4"
+          # Return nil for external URLs so template falls back to skeleton placeholder
+          # instead of showing a misleading gray blur
+          nil
 
-        # TODO: make fallback configurable
         hash ->
-          # save it in DB 
+          # Save generated blurhash to DB for future requests
           Media.update_by([id: media_id], metadata: Map.merge(metadata, %{blurhash: hash}))
           |> debug()
 
@@ -47,10 +48,13 @@ defmodule Bonfire.Files.Blurred do
   end
 
   def blurhash(media_or_path, opts) do
-    Cache.maybe_apply_cached(&make_blurhash/1, [
-      (opts[:src] || media_or_path)
-      |> String.trim_leading("/")
-    ])
+    case opts[:src] || media_or_path do
+      path when is_binary(path) and path != "" ->
+        Cache.maybe_apply_cached(&make_blurhash/1, [String.trim_leading(path, "/")])
+
+      _ ->
+        nil
+    end
   end
 
   def make_blurhash(path) when is_binary(path) do
