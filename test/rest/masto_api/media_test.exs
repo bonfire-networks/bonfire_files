@@ -107,7 +107,7 @@ defmodule Bonfire.Files.MastoApi.MediaTest do
 
       response =
         api_conn
-        |> get("/api/v1/media/01HZNONEXISTENT00000000000")
+        |> get("/api/v1/media/01KFKNQ2NV1673CZGRRHAAMDR5")
         |> json_response(404)
 
       assert response["error"]

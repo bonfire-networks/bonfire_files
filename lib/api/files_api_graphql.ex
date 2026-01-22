@@ -58,7 +58,7 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled and
       #   )
 
       # TODO?
-      #   field(:objects, list_of(:any_context),
+      #   field(:objects, list_of(:any_object),
       #     description: "All objects associated with this media"
       #   )
     end
