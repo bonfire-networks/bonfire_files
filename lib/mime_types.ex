@@ -96,7 +96,6 @@ defmodule Bonfire.Files.MimeTypes do
       "application/zip" => ["zip"],
       "application/vnd.rar" => ["rar"],
       "application/x-7z-compressed" => ["7z"],
-      "application/x-bzip2" => ["bzip2"],
 
       # code
       "text/swiftui" => ["swiftui"],
