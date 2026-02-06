@@ -15,8 +15,7 @@ defmodule Bonfire.UI.Files.Web.MediaFeedLive do
      socket
      |> assign(
        feed_id: :media,
-       page_title: "Media",
-       nav_items: Bonfire.Common.ExtensionModule.default_nav()
+       page_title: "Media"
      )}
   end
 
