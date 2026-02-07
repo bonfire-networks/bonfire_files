@@ -34,8 +34,13 @@ defmodule Bonfire.Files.Simulation do
     path: Path.expand("../test/fixtures/spaghetti.mp4", __DIR__),
     filename: "spaghetti.mp4"
   }
+  @jpeg_exif_file %{
+    path: Path.expand("../test/fixtures/tn_150.jpg", __DIR__),
+    filename: "tn_150.jpg"
+  }
   def icon_file, do: @icon_file
   def image_file, do: @image_file
+  def image_with_exif_file, do: @jpeg_exif_file
   def text_file, do: @text_file
   def pdf_file, do: @pdf_file
   def audio_file, do: @audio_file

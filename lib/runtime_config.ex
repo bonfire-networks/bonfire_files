@@ -2,6 +2,8 @@ defmodule Bonfire.Files.RuntimeConfig do
   @behaviour Bonfire.Common.ConfigModule
   def config_module, do: true
 
+  @yes? ~w(true yes 1)
+
   def config do
     import Config
 
@@ -45,7 +47,7 @@ defmodule Bonfire.Files.RuntimeConfig do
       s3_url = System.get_env("UPLOADS_S3_URL")
       default_asset_url = System.get_env("UPLOADS_S3_DEFAULT_URL", "#{scheme}#{bucket}.#{host}/")
 
-      if config_env() not in [:test, :dev] || System.get_env("USE_S3") in ["true", "1", "yes"] do
+      if config_env() not in [:test, :dev] || System.get_env("USE_S3") in @yes? do
         IO.puts("Note: uploads will be stored in s3: #{bucket} at #{host}")
         config :bonfire_files, :storage, :s3
       end
@@ -161,6 +163,7 @@ defmodule Bonfire.Files.RuntimeConfig do
       video_media |> Map.values() |> List.flatten() |> Enum.uniq() |> Enum.map(&".#{&1}")
 
     config :bonfire_files,
+      strip_author_metadata: System.get_env("STRIP_IMAGE_AUTHOR_METADATA") in @yes?,
       image_media_types: image_media_types,
       image_media_extensions: image_media_extensions,
       max_upload_size: System.get_env("UPLOAD_LIMIT", "20") |> String.to_integer(),

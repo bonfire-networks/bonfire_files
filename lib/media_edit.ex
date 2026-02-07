@@ -2,10 +2,39 @@ defmodule Bonfire.Files.MediaEdit do
   import Untangle
   # use Arrows
   use Bonfire.Common.Localise
+  use Bonfire.Common.Config
   use Bonfire.Common.Settings
   alias Bonfire.Files
   alias Bonfire.Common.Extend
   alias Bonfire.Common.Types
+
+  @doc "Use a small indirection so tests can override tool availability by setting `Process.put([:bonfire_files, :choose_executable, name], value)` where `value` can be `false` (force missing), `true` (force present), or a binary/atom to manually override the path/module.
+  Falls back to `System.find_executable/1` or `Extend.module_available?/1`."
+  def choose_executable(_key, name) when is_binary(name) do
+    case choose_executable_config(name) do
+      nil -> System.find_executable(name)
+      true -> System.find_executable(name) || name
+      false -> nil
+      s when is_binary(s) -> System.find_executable(s) || s
+    end
+    |> debug("choose_executable_#{name}")
+  end
+
+  def choose_executable(_key, name) when is_atom(name) do
+    case choose_executable_config(name) do
+      nil -> Extend.module_available?(name) && name
+      true -> name
+      false -> nil
+      s when is_atom(s) -> s
+    end
+    |> debug("choose_executable_#{name}")
+  end
+
+  defp choose_executable_config(name) do
+    # Config.get([:bonfire_files, :choose_executable, name])
+    ProcessTree.get([:bonfire_files, :choose_executable, name])
+    |> debug("config_executable_#{name}")
+  end
 
   def image(filename, max_width, max_height) do
     ext = Files.file_extension_only(filename)
@@ -17,19 +46,19 @@ defmodule Bonfire.Files.MediaEdit do
         # to avoid error `svgload: operation is blocked`
         nil
 
-      System.find_executable("vipsthumbnail") ->
+      choose_executable(:image, "vipsthumbnail") ->
         {:vipsthumbnail,
          fn input, output ->
            "#{input} --size #{max_size} --linear --export-profile srgb -o #{output}[strip]"
            # |> info()
          end, ext}
 
-      System.find_executable("convert") ->
+      choose_executable(:image, "convert") ->
         {:convert, "-strip -thumbnail #{max_size}> -limit area 10MB -limit disk 50MB"}
 
       true ->
         fn _version, %{path: filename} = waffle_file ->
-          image_resize_thumbnail(filename, max_size, waffle_file)
+          image_resize_thumbnail(filename, max_size, waffle_file, crop: :none, resize: :down)
         end
     end
   end
@@ -42,20 +71,20 @@ defmodule Bonfire.Files.MediaEdit do
         # avoid error `svgload: operation is blocked`
         nil
 
-      System.find_executable("vipsthumbnail") ->
+      choose_executable(:thumbnail, "vipsthumbnail") ->
         {:vipsthumbnail,
          fn input, output ->
            "#{input} --smartcrop attention -s #{max_size} --linear --export-profile srgb -o #{output}[strip]"
            # |> info()
          end, ext}
 
-      System.find_executable("convert") ->
+      choose_executable(:thumbnail, "convert") ->
         {:convert,
          "-strip -thumbnail #{max_size}x#{max_size}^ -gravity center -crop #{max_size}x#{max_size}+0+0 -limit area 10MB -limit disk 20MB"}
 
       true ->
         fn _version, %{path: filename} = waffle_file ->
-          image_resize_thumbnail(filename, max_size, waffle_file)
+          image_resize_thumbnail(filename, max_size, waffle_file, crop: :attention, resize: :down)
         end
     end
   end
@@ -66,7 +95,7 @@ defmodule Bonfire.Files.MediaEdit do
     # TODO: convert in background rather than block publication (but federation would need to be triggered when file is ready)
 
     cond do
-      System.find_executable("ffmpeg") ->
+      choose_executable(:video, "ffmpeg") ->
         {:ffmpeg,
          fn input, output ->
            "-hide_banner -i #{input} -frames:v 1 -vf thumbnail=150,scale=#{max_size} #{output}"
@@ -76,7 +105,7 @@ defmodule Bonfire.Files.MediaEdit do
       # -vf thumbnail=300: analyse N frames and pick most "significant" one
       # -vf scale=300: scale while preserving aspect ratio
 
-      System.find_executable("ffmpegthumbnailer") ->
+      choose_executable(:video, "ffmpegthumbnailer") ->
         {:ffmpegthumbnailer,
          fn input, output ->
            "-i #{input} -t #{scrub_opts[:percent]} -s #{max_size} -q 9 -o #{output}"
@@ -95,13 +124,13 @@ defmodule Bonfire.Files.MediaEdit do
         # TODO: support other sources, or extract thumbnail from converted video instead
         nil
 
-      Extend.module_available?(Image.Video) ->
+      choose_executable(:video, Image.Video) ->
         {fn _version, %{path: filename} = waffle_file ->
            video_image_thumbnail(filename, max_size, scrub_opts, waffle_file)
            |> debug("thumbnail_video_ran")
          end, fn _version, _file -> "jpg" end}
 
-      # System.find_executable("convert") ->
+      # choose_executable(:video, "convert") ->
       #   {:convert,
       #    "[#{scrub*30}] -strip -thumbnail #{max_size}x#{max_size}^ -gravity center -crop #{max_size}x#{max_size}+0+0 -limit area 10MB -limit disk 20MB"}
 
@@ -159,13 +188,13 @@ defmodule Bonfire.Files.MediaEdit do
       )
 
     cond do
-      System.find_executable("pdftocairo") ->
+      choose_executable(:thumbnail_pdf, "pdftocairo") ->
         {:pdftocairo,
          fn original_path, new_path ->
            " -png -singlefile -scale-to #{max_size} #{original_path} #{String.slice(new_path, 0..-5//1)}"
          end, :png}
 
-      System.find_executable("vips") ->
+      choose_executable(:thumbnail_pdf, "vips") ->
         {:vips,
          fn original_path, new_path ->
            " copy #{original_path}[n=1,page=1,dpi=144] #{String.slice(new_path, 0..-5)}"
@@ -194,19 +223,19 @@ defmodule Bonfire.Files.MediaEdit do
         # avoid error `svgload: operation is blocked`
         nil
 
-      System.find_executable("vipsthumbnail") ->
+      choose_executable(:thumbnail, "vipsthumbnail") ->
         {:vipsthumbnail,
          fn input, output ->
            "#{input} --smartcrop attention --size #{max_size} --linear --export-profile srgb -o #{output}[strip]"
            # |> info()
          end, ext}
 
-      System.find_executable("convert") ->
+      choose_executable(:thumbnail, "convert") ->
         {:convert, "-strip -thumbnail #{max_size}> -limit area 10MB -limit disk 50MB"}
 
       true ->
         fn _version, %{path: filename} = waffle_file ->
-          image_resize_thumbnail(filename, max_size, waffle_file)
+          image_resize_thumbnail(filename, max_size, waffle_file, crop: :attention, resize: :down)
         end
     end
   end
@@ -215,7 +244,7 @@ defmodule Bonfire.Files.MediaEdit do
     filename
     |> debug("thumbnail_video_run")
 
-    with true <- Extend.module_available?(Image.Video),
+    with true <- choose_executable(:video, Image.Video),
          {:ok, %{fps: fps, frame_count: frame_count} = video} <-
            Image.Video.open(filename)
            #  video <- Image.Video.stream!(frame: scrub_frames..scrub_frames//2) # TODO?
@@ -231,7 +260,9 @@ defmodule Bonfire.Files.MediaEdit do
         image,
         max_size,
         waffle_file,
-        temp_thumb
+        tmp_path: temp_thumb,
+        crop: :attention,
+        resize: :down
       )
 
       # image_save_temp_file(image, waffle_file, temp_thumb)
@@ -272,12 +303,18 @@ defmodule Bonfire.Files.MediaEdit do
     |> debug("thumbnail_video_frame_to_scrub")
   end
 
-  def image_resize_thumbnail(image, max_size, waffle_file \\ %Waffle.File{}, tmp_path \\ nil) do
+  def image_resize_thumbnail(image, max_size, waffle_file \\ %Waffle.File{}, opts) do
     # TODO: return a Stream instead of creating a temp file: https://hexdocs.pm/image/Image.html#stream!/2
-    with true <- Extend.module_available?(Image),
-         {:ok, image} <- Image.thumbnail(image, max_size, crop: :attention) do
-      image_save_temp_file(image, waffle_file, tmp_path)
+    with true <- !!choose_executable(:thumbnail, Image),
+         {:ok, image} <- Image.thumbnail(image, max_size, opts),
+         {:ok, image} <- image_strip_metadata(image) do
+      image_save_temp_file(image, waffle_file, opts[:tmp_path])
     else
+      false ->
+        # TODO: cleanup the uploaded file if we won't be able to process it, to avoid filling up storage with unprocessable files
+        {:error,
+         "No image processing tool available. Please ask the instance admins to install Vips and/or ImageMagick tools."}
+
       e ->
         error(e, "Could not create or save thumbnail")
         nil
@@ -290,6 +327,14 @@ defmodule Bonfire.Files.MediaEdit do
     e ->
       error(e)
       nil
+  end
+
+  defp image_strip_metadata(image) do
+    if Config.get([:bonfire_files, :strip_author_metadata], true) do
+      Image.remove_metadata(image)
+    else
+      Image.minimize_metadata(image)
+    end
   end
 
   def image_save_temp_file(image, waffle_file \\ %Waffle.File{}, tmp_path \\ nil) do
@@ -312,7 +357,7 @@ defmodule Bonfire.Files.MediaEdit do
   `bins` is an integer number of color frequency bins the image is divided into. The default is 10.
   """
   def dominant_color(file_path_or_binary_or_stream, bins \\ 15, fallback \\ "#FFF8E7") do
-    with true <- Extend.module_available?(Image),
+    with true <- !!choose_executable(:dominant_color, Image),
          {:ok, img} <- Image.open(file_path_or_binary_or_stream),
          {:ok, rgb} <-
            Image.dominant_color(img, [{:bins, bins}]),
@@ -335,7 +380,7 @@ defmodule Bonfire.Files.MediaEdit do
     format = "jpg"
 
     cond do
-      System.find_executable("convert") ->
+      choose_executable(:blur, "convert") ->
         Mogrify.open(path)
         # NOTE: since we're resizing an already resized thumnail, don't worry about cropping, stripping, etc
         |> Mogrify.resize("10%")
@@ -348,7 +393,7 @@ defmodule Bonfire.Files.MediaEdit do
         |> Mogrify.save(path: final_path)
         |> Map.get(:path)
 
-      System.find_executable("vips") ->
+      choose_executable(:blur, "vips") ->
         with {_, 0} <-
                System.cmd("vips", ["resize", path, "#{final_path}", "0.10"]) do
           final_path

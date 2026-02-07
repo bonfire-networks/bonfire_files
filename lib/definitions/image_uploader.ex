@@ -22,11 +22,7 @@ defmodule Bonfire.Files.ImageUploader do
       Bonfire.Files.MediaEdit.image(
         filename,
         max_width(),
-        Bonfire.Common.Config.get_ext(
-          :bonfire_files,
-          [__MODULE__, :max_height],
-          700
-        )
+        max_height()
       )
     end ||
       :noaction
@@ -37,6 +33,14 @@ defmodule Bonfire.Files.ImageUploader do
       :bonfire_files,
       [__MODULE__, :max_width],
       580
+    )
+  end
+
+  def max_height do
+    Bonfire.Common.Config.get_ext(
+      :bonfire_files,
+      [__MODULE__, :max_height],
+      700
     )
   end
 
