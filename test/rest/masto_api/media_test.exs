@@ -61,7 +61,7 @@ defmodule Bonfire.Files.MastoApi.MediaTest do
         |> post("/api/v1/media", %{"file" => upload})
         |> json_response(401)
 
-      assert response["error"] == "Unauthorized"
+      assert response["error"] == "You need to login first."
     end
 
     test "returns error when no file provided", %{conn: conn} do
@@ -142,7 +142,7 @@ defmodule Bonfire.Files.MastoApi.MediaTest do
         |> get("/api/v1/media/#{media.id}")
         |> json_response(401)
 
-      assert response["error"] == "Unauthorized"
+      assert response["error"] == "You need to login first."
     end
   end
 
@@ -210,7 +210,7 @@ defmodule Bonfire.Files.MastoApi.MediaTest do
         |> put("/api/v1/media/#{media.id}", Jason.encode!(%{"description" => "test"}))
         |> json_response(401)
 
-      assert response["error"] == "Unauthorized"
+      assert response["error"] == "You need to login first."
     end
   end
 
