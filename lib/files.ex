@@ -882,7 +882,8 @@ defmodule Bonfire.Files do
     ap_transform_url(attachment, target_host, nil)
   end
 
-  def ap_transform_url(attachment, target_host, target_actor_id) do
+  def ap_transform_url(attachment, target_host, target_actor_id)
+      when is_binary(target_actor_id) or is_binary(target_host) do
     rewrite = fn url ->
       target = Base.url_encode64(target_actor_id || target_host)
       String.replace(url, "/files/redir/", "/files/redir/f/#{target}/")
@@ -902,6 +903,9 @@ defmodule Bonfire.Files do
         attachment
     end
   end
+
+  # no target host or actor ID to encode, return attachment unchanged
+  def ap_transform_url(attachment, _target_host, _target_actor_id), do: attachment
 
   def ap_receive_attachments(creator, primary_image, attachments)
       when is_binary(primary_image) or is_map(primary_image) do
