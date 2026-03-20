@@ -9,6 +9,7 @@ defmodule Bonfire.Files.Media do
 
   import Bonfire.Common.Config, only: [repo: 0]
   import Ecto.Query, only: [select: 3]
+  import ActivityPub.Config, only: [is_in: 2]
 
   alias Ecto.Changeset
   alias Bonfire.Files
@@ -306,7 +307,7 @@ defmodule Bonfire.Files.Media do
         activity,
         %{data: %{"type" => audio_type, "url" => urls} = object_data} = ap_object
       )
-      when (audio_type in ["Audio", "PodcastEpisode"] and is_list(urls)) or is_binary(urls) or
+      when (is_in(audio_type, ["Audio", "PodcastEpisode"]) and is_list(urls)) or is_binary(urls) or
              is_map(urls) do
     # debug(activity, "activity")
     debug(object_data, "Funkwhale audio")
@@ -335,7 +336,7 @@ defmodule Bonfire.Files.Media do
         activity,
         %{data: %{"type" => audio_type, "audio" => %{"url" => urls}} = object_data} = ap_object
       )
-      when (audio_type in ["Audio", "PodcastEpisode"] and is_list(urls)) or is_binary(urls) or
+      when (is_in(audio_type, ["Audio", "PodcastEpisode"]) and is_list(urls)) or is_binary(urls) or
              is_map(urls) do
     ap_receive_activity(
       creator,
