@@ -29,6 +29,8 @@ defmodule Bonfire.Files.MixProject do
           {:image, "~> 0.37", optional: true},
           {:evision, "~> 0.1", optional: true},
           {:ex_aws_s3, "~> 2.3", optional: true},
+          {:activity_pub, git: "https://github.com/bonfire-networks/activity_pub",
+           optional: true, runtime: false},
           {:blurhash, "~> 0.1.0", hex: :rinpatch_blurhash}
         ])
     ]
