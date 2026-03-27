@@ -706,6 +706,59 @@ defmodule Bonfire.Files.Media do
       nil
   end
 
+  def get_or_add_media_by_uri(current_user, uri, to_boundary \\ nil, to_circles \\ [], opts \\ []) do
+    opts =
+      opts
+      |> maybe_add_post_create_fn(
+        current_user,
+        to_boundary,
+        to_circles
+      )
+
+    case maybe_fetch_and_save(current_user, uri, opts) do
+      %Media{} = media ->
+        {:ok, media}
+
+      {:ok, media} ->
+        {:ok, media}
+
+      {:error, reason} ->
+        {:error, reason}
+
+      nil ->
+        {:error, "Could not fetch or save media from URI"}
+
+      other ->
+        error(other, "Unexpected return from maybe_fetch_and_save")
+        {:error, "Could not process media URI"}
+    end
+  end
+
+  # Helper to add post_create_fn if to_boundary or to_circles is provided
+  defp maybe_add_post_create_fn(opts, current_user, to_boundary, to_circles)
+       when is_binary(to_boundary) or (is_list(to_circles) and to_circles != []) do
+    Keyword.put(opts, :post_create_fn, fn user, media, _opts ->
+      publish_opts =
+        []
+        |> Keyword.put(:to_circles, to_circles)
+        |> maybe_add_boundary(to_boundary)
+
+      publish(user, media, publish_opts)
+
+      # return media instead of post
+      media
+    end)
+  end
+
+  defp maybe_add_post_create_fn(opts, _current_user, _to_boundary, _to_circles), do: opts
+
+  # Helper to add boundary if provided
+  def maybe_add_boundary(opts, boundary) when is_binary(boundary) do
+    Keyword.put(opts, :boundary, boundary)
+  end
+
+  def maybe_add_boundary(opts, _), do: opts
+
   @doc """
   AP-aware fetch function that tries ActivityPub first, returns HTTP response format.
   This replaces the standard Unfurl.Fetcher.fetch to detect AP objects or fetch the HTML in a single request.

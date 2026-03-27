@@ -208,7 +208,7 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled and
             publish_opts =
               []
               |> Keyword.put(:to_circles, to_circles)
-              |> maybe_add_boundary(to_boundary)
+              |> Media.maybe_add_boundary(to_boundary)
 
             Media.publish(current_user, media, publish_opts)
           end
@@ -256,68 +256,22 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled and
 
     def add_media_by_uri(%{input: input} = args, info) do
       if current_user = GraphQL.current_user(info) do
-        opts =
-          []
-          |> Keyword.put(
-            :update_existing,
-            if(Map.get(args, :refetch_and_update), do: :force, else: false)
-          )
-          |> maybe_add_post_create_fn(
-            current_user,
-            Map.get(args, :to_boundary),
-            Map.get(args, :to_circles)
-          )
-          |> maybe_add_extra_metadata(input)
-
-        case Media.maybe_fetch_and_save(current_user, input.uri, opts) do
-          %Media{} = media ->
-            {:ok, media}
-
-          {:ok, media} ->
-            {:ok, media}
-
-          {:error, reason} ->
-            {:error, reason}
-
-          nil ->
-            {:error, "Could not fetch or save media from URI"}
-
-          other ->
-            error(other, "Unexpected return from maybe_fetch_and_save")
-            {:error, "Could not process media URI"}
-        end
+        Media.get_or_add_media_by_uri(
+          current_user,
+          input.uri,
+          input,
+          Map.get(args, :to_boundary),
+          Map.get(args, :to_circles),
+          update_existing: if(Map.get(args, :refetch_and_update), do: :force, else: false),
+          extra: maybe_add_extra_metadata(input)
+        )
       else
         {:error, "Not authenticated"}
       end
     end
 
-    # Helper to add post_create_fn if to_boundary or to_circles is provided
-    defp maybe_add_post_create_fn(opts, current_user, to_boundary, to_circles)
-         when is_binary(to_boundary) or (is_list(to_circles) and to_circles != []) do
-      Keyword.put(opts, :post_create_fn, fn user, media, _opts ->
-        publish_opts =
-          []
-          |> Keyword.put(:to_circles, to_circles)
-          |> maybe_add_boundary(to_boundary)
-
-        Media.publish(user, media, publish_opts)
-
-        # return media instead of post
-        media
-      end)
-    end
-
-    defp maybe_add_post_create_fn(opts, _current_user, _to_boundary, _to_circles), do: opts
-
-    # Helper to add boundary if provided
-    defp maybe_add_boundary(opts, boundary) when is_binary(boundary) do
-      Keyword.put(opts, :boundary, boundary)
-    end
-
-    defp maybe_add_boundary(opts, _), do: opts
-
     # Helper to add extra metadata from input
-    defp maybe_add_extra_metadata(opts, input) do
+    defp maybe_add_extra_metadata(input) do
       extra =
         %{}
         |> Map.put("label", Map.get(input, :name))
@@ -325,9 +279,7 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled and
         |> Enums.filter_empty(%{})
 
       if map_size(extra) > 0 do
-        Keyword.put(opts, :extra, extra)
-      else
-        opts
+        extra
       end
     end
 
