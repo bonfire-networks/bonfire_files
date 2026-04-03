@@ -706,7 +706,20 @@ defmodule Bonfire.Files.Media do
       nil
   end
 
-  def get_or_add_media_by_uri(current_user, uri, to_boundary \\ nil, to_circles \\ [], opts \\ []) do
+  def get_or_add_media_by_uri(current_user, uri, to_boundary \\ nil, to_circles \\ [], opts \\ [])
+
+  def get_or_add_media_by_uri(current_user, uri, to_boundary, to_circles, opts)
+      when is_binary(current_user) do
+    case Bonfire.Me.Users.get_current(current_user) do
+      %{} = current_user ->
+        get_or_add_media_by_uri(current_user, uri, to_boundary, to_circles, opts)
+
+      _ ->
+        error(l("Saving a media requires a creator"))
+    end
+  end
+
+  def get_or_add_media_by_uri(%{} = current_user, uri, to_boundary, to_circles, opts) do
     opts =
       opts
       |> maybe_add_post_create_fn(
@@ -726,12 +739,16 @@ defmodule Bonfire.Files.Media do
         {:error, reason}
 
       nil ->
-        {:error, "Could not fetch or save media from URI"}
+        error(uri, l("Could not fetch or save media from URI"))
 
       other ->
         error(other, "Unexpected return from maybe_fetch_and_save")
-        {:error, "Could not process media URI"}
+        {:error, l("Could not process media URI")}
     end
+  end
+
+  def get_or_add_media_by_uri(current_user, uri, to_boundary, to_circles, opts) do
+    error(l("Saving a media requires a creator"))
   end
 
   # Helper to add post_create_fn if to_boundary or to_circles is provided
@@ -744,6 +761,7 @@ defmodule Bonfire.Files.Media do
         |> maybe_add_boundary(to_boundary)
 
       publish(user, media, publish_opts)
+      |> info("media published")
 
       # return media instead of post
       media
