@@ -778,8 +778,9 @@ defmodule Bonfire.Files.Media do
   def maybe_add_boundary(opts, _), do: opts
 
   @doc """
-  AP-aware fetch function that tries ActivityPub first, returns HTTP response format.
-  This replaces the standard Unfurl.Fetcher.fetch to detect AP objects or fetch the HTML in a single request.
+  Replaces the standard `Unfurl.Fetcher.fetch/2` so that AP objects are detected (and reused) in the same request that would otherwise just fetch HTML.
+
+  Falls back to a plain HTTP fetch when the AP path is unavailable — federation disabled, remote isn't an AP server, or the request errored before any HTTP call — otherwise unfurling regular web pages would be impossible on instances with federation off.
   """
   def ap_aware_fetch(url, opts \\ []) do
     case Bonfire.Federate.ActivityPub.AdapterUtils.get_or_fetch_and_create_by_uri(
@@ -788,15 +789,14 @@ defmodule Bonfire.Files.Media do
          )
          |> debug("fetched using AP within Unfurl") do
       {:ok, %{status: status_code, body: body}} ->
-        # Not an AP object, got HTML response - return in format Unfurl expects for further processing
         {:ok, body, status_code}
 
-      {:ok, object} ->
-        # It's an ActivityPub object - but we want the HTML for unfurl processing
+      {:ok, object} when is_struct(object) ->
         {:ok, object, 200}
 
-      {:error, reason} ->
-        error(reason, "Could not fetch link preview")
+      other ->
+        debug(other, "AP fetch unavailable, falling back to plain HTTP fetch for unfurl")
+        Unfurl.Fetcher.fetch(url, opts)
     end
   end
 end
