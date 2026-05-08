@@ -6,7 +6,7 @@ ex_aws_sts = "~> 2.3"
 
 mogrify = "~> 0.9.3"
 
-hackney = "~> 1.16" # for s3
+hackney = "~> 4.0" # for s3
 sweet_xml = "~> 0.7" # for s3
 
 # surface = "~> 0.12.0" # required if there's any JS hooks or CSS components that need to be found by Surface compiler
