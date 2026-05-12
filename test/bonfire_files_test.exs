@@ -121,6 +121,32 @@ defmodule Bonfire.Files.Test do
     end
   end
 
+  describe "save_url_as_media" do
+    test "creates a Media record for a remote URL without downloading" do
+      me = fake_user!()
+      url = "https://example.com/image.jpg"
+
+      assert {:ok, media} =
+               Files.save_url_as_media(me, url, %{
+                 metadata: %{"label" => "A caption", "alt" => "Alt text", "primary_image" => true}
+               })
+
+      assert media.path == url
+      assert media.metadata["label"] == "A caption"
+      assert media.metadata["alt"] == "Alt text"
+      assert media.metadata["primary_image"] == true
+    end
+
+    test "deduplicates: returns existing Media on second call with same URL" do
+      me = fake_user!()
+      url = "https://example.com/dedup.jpg"
+
+      assert {:ok, first} = Files.save_url_as_media(me, url)
+      assert {:ok, second} = Files.save_url_as_media(me, url)
+      assert first.id == second.id
+    end
+  end
+
   describe "hard_delete" do
     test "removes the upload, including files" do
       assert {:ok, upload} = Files.upload(ImageUploader, fake_user!(), icon_file())

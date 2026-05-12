@@ -197,7 +197,7 @@ defmodule Bonfire.Files.Media do
   def media_label(%{metadata: metadata} = _media), do: media_label(metadata)
 
   def media_label(%{} = metadata) do
-    case (e(metadata, "label", nil) || e(metadata, "title", nil) ||
+    case (e(metadata, "label", nil) || e(metadata, :label, nil) || e(metadata, "title", nil) ||
             e(metadata, "wikibase", "title", nil) ||
             e(metadata, "crossref", "title", nil) || e(metadata, "oembed", "title", nil) ||
             e(metadata, "json_ld", "name", nil) ||
@@ -212,6 +212,27 @@ defmodule Bonfire.Files.Media do
       "Just a moment" <> _ -> nil
       %{"value" => value} -> value
       other -> other
+    end
+  end
+
+  def media_alt(media, greedy? \\ true)
+  def media_alt(%{metadata: metadata} = _media, greedy?), do: media_alt(metadata, greedy?)
+  def media_alt(metadata, false), do: e(metadata, "alt", nil)
+
+  def media_alt(metadata, _true),
+    do: media_alt(metadata, false) || media_label(metadata) |> Bonfire.Common.Text.text_only()
+
+  def media_label_and_alt(media) do
+    [
+      media_label(media) |> Bonfire.Common.Text.text_only(),
+      media_alt(media, false) |> Bonfire.Common.Text.text_only()
+    ]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+    |> Enum.join(" — ")
+    |> case do
+      "" -> nil
+      combined -> combined
     end
   end
 
@@ -255,7 +276,7 @@ defmodule Bonfire.Files.Media do
     object = %{
       "type" => "Page",
       "actor" => actor.ap_id,
-      "name" => media_label(media),
+      "name" => media_label_and_alt(media),
       "summary" => description(media),
       "url" => Bonfire.Common.Media.media_url(media),
       "to" => to

@@ -11,7 +11,7 @@ defmodule Bonfire.Files.Acts.AttachMedia do
   alias Bonfire.Epics
   alias Bonfire.Epics.Epic
 
-  # alias Bonfire.Files
+  alias Bonfire.Files
   alias Ecto.Changeset
   alias Needle.Changesets
   # import Bonfire.Common.Config, only: [repo: 0]
@@ -27,10 +27,10 @@ defmodule Bonfire.Files.Acts.AttachMedia do
       true ->
         on = Keyword.fetch!(act.options, :on)
         changeset = epic.assigns[on]
-        # current_user = Bonfire.Common.Utils.current_user(epic.assigns[:options])
         attrs_key = Keyword.get(act.options, :attrs, :post_attrs)
         attrs = Keyword.get(epic.assigns[:options], attrs_key, %{})
         uploads_key = Keyword.get(act.options, :uploads, :uploaded_media)
+        current_user = Bonfire.Common.Utils.current_user(epic.assigns[:options])
 
         case changeset do
           %Changeset{valid?: true} = changeset ->
@@ -39,7 +39,7 @@ defmodule Bonfire.Files.Acts.AttachMedia do
                  e(epic.assigns, uploads_key, []) ++
                  Keyword.get(epic.assigns[:options], uploads_key, []))
               |> List.wrap()
-              |> Enum.filter(&is_struct(&1, Bonfire.Files.Media))
+              |> Enum.flat_map(&resolve_media(&1, current_user))
 
             if uploaded_media != [] do
               smart(epic, act, uploaded_media, "attach media")
@@ -78,4 +78,23 @@ defmodule Bonfire.Files.Acts.AttachMedia do
 
     # |> IO.inspect(label: "cs with media")
   end
+
+  defp resolve_media(%Files.Media{} = m, _user), do: [m]
+
+  defp resolve_media(%{} = attachment, current_user) when not is_nil(current_user) do
+    url = e(attachment, "href", nil) || e(attachment, :href, nil)
+
+    if url do
+      case Files.save_url_as_media(current_user, url, %{
+             metadata: Map.drop(attachment, ["href", :href])
+           }) do
+        {:ok, media} -> [media]
+        _ -> []
+      end
+    else
+      []
+    end
+  end
+
+  defp resolve_media(_, _), do: []
 end

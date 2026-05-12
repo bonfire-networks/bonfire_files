@@ -907,6 +907,15 @@ defmodule Bonfire.Files do
   # no target host or actor ID to encode, return attachment unchanged
   def ap_transform_url(attachment, _target_host, _target_actor_id), do: attachment
 
+  @doc "Create or retrieve a Media record for a remote URL without downloading the file."
+  def save_url_as_media(creator, url, attrs \\ %{}, module \\ nil) when is_binary(url) do
+    module = module || definition_module(nil, attrs)
+
+    upload(module, creator, url, Map.put_new(attrs, :client_name, url),
+      skip_fetching_remote: true
+    )
+  end
+
   def ap_receive_attachments(creator, primary_image, attachments)
       when is_binary(primary_image) or is_map(primary_image) do
     [
@@ -973,14 +982,15 @@ defmodule Bonfire.Files do
     url = e(attachment, "href", nil) || e(attachment, "url", nil)
     type = attachment["mediaType"] || attachment["type"]
 
-    with module when is_atom(module) and not is_nil(module) <-
-           if(attachment["type"] == "Link",
-             do: Bonfire.Files.DocumentUploader,
-             else: definition_module(%{media_type: type})
-           ),
+    module =
+      if(attachment["type"] == "Link",
+        do: Bonfire.Files.DocumentUploader,
+        else: definition_module(%{media_type: type})
+      )
+
+    with module when is_atom(module) and not is_nil(module) <- module,
          {:ok, uploaded} <-
-           upload(
-             module,
+           save_url_as_media(
              creator,
              url,
              %{
@@ -988,17 +998,16 @@ defmodule Bonfire.Files do
                client_name: url,
                metadata:
                  attachment
-                 # Keep name now
                  |> Map.drop(["name", "type", "mediaType", "href", "url"])
                  |> Enums.maybe_put(:label, attachment["name"])
-                 #  |> Enums.maybe_put(:duration, attachment["duration"])
-                 #  |> Enums.maybe_put(:width, attachment["width"])
-                 #  |> Enums.maybe_put(:height, attachment["height"])
-                 #  |> Enums.maybe_put(:blurhash, attachment["blurhash"])
                  |> Enums.maybe_put(:primary_image, primary_image?)
                  |> Enums.maybe_put(:source_type, "activitypub")
+               #  |> Enums.maybe_put(:duration, attachment["duration"])
+               #  |> Enums.maybe_put(:width, attachment["width"])
+               #  |> Enums.maybe_put(:height, attachment["height"])
+               #  |> Enums.maybe_put(:blurhash, attachment["blurhash"])
              },
-             skip_fetching_remote: true
+             module
            )
            |> debug("added attachment") do
       uploaded
