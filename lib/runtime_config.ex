@@ -67,6 +67,7 @@ defmodule Bonfire.Files.RuntimeConfig do
         asset_host: s3_url || default_asset_url
 
       config :ex_aws,
+        http_client: ExAws.Request.Req,
         json_codec: Jason,
         region: region,
         s3: [
