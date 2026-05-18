@@ -274,6 +274,11 @@ defmodule Bonfire.Files.Media do
     to = [Bonfire.Federate.ActivityPub.AdapterUtils.public_uri()]
 
     object = %{
+      # Pin the AP `id` to this instance's canonical object URL so it matches the
+      # host that serves it. Without this, normalisation falls back to `url` (the
+      # external article URL for an embedded-comments Media), producing an
+      # id/host mismatch that remote servers reject on fetch.
+      "id" => ActivityPub.Object.object_url(uid(media)),
       "type" => "Page",
       "actor" => actor.ap_id,
       "name" => media_label_and_alt(media),
@@ -328,8 +333,8 @@ defmodule Bonfire.Files.Media do
         activity,
         %{data: %{"type" => audio_type, "url" => urls} = object_data} = ap_object
       )
-      when (is_in(audio_type, ["Audio", "PodcastEpisode"]) and is_list(urls)) or is_binary(urls) or
-             is_map(urls) do
+      when is_in(audio_type, ["Audio", "PodcastEpisode"]) and
+             (is_list(urls) or is_binary(urls) or is_map(urls)) do
     # debug(activity, "activity")
     debug(object_data, "Funkwhale audio")
 
@@ -357,8 +362,8 @@ defmodule Bonfire.Files.Media do
         activity,
         %{data: %{"type" => audio_type, "audio" => %{"url" => urls}} = object_data} = ap_object
       )
-      when (is_in(audio_type, ["Audio", "PodcastEpisode"]) and is_list(urls)) or is_binary(urls) or
-             is_map(urls) do
+      when is_in(audio_type, ["Audio", "PodcastEpisode"]) and
+             (is_list(urls) or is_binary(urls) or is_map(urls)) do
     ap_receive_activity(
       creator,
       activity,
@@ -372,7 +377,7 @@ defmodule Bonfire.Files.Media do
         activity,
         %{data: %{"type" => "Video", "url" => urls} = object_data} = ap_object
       )
-      when (is_list(urls) and is_list(urls)) or is_binary(urls) or is_map(urls) do
+      when is_list(urls) or is_binary(urls) or is_map(urls) do
     # debug(activity, "activity")
     debug(object_data, "PeerTube video")
 
@@ -579,7 +584,7 @@ defmodule Bonfire.Files.Media do
       _ ->
         # If no direct video link found, try to find a preview image instead?
         # case find_preview_image(urls) do
-        #   {image_url, image_type} when is_binary(image_url) -> 
+        #   {image_url, image_type} when is_binary(image_url) ->
         #     {image_url, 0, image_type}
         #   _ ->
         {nil, 0, nil}
