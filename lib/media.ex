@@ -540,19 +540,30 @@ defmodule Bonfire.Files.Media do
 
   # Helper to extract the highest quality video URL, size and media type from PeerTube "url" array
   defp extract_best_video_url(urls) do
-    urls
-    |> List.wrap()
+    urls = List.wrap(urls)
+
+    # Newer PeerTube versions no longer list progressive `.mp4` files at the top
+    # level: the top-level `url` only has the HTML watch page and the HLS master
+    # playlist (`application/x-mpegURL`), and the actual `video/mp4` links live
+    # inside that playlist entry's `tag` array. So consider both the top-level
+    # entries AND any nested `tag` entries as candidates.
+    nested = Enum.flat_map(urls, fn url -> List.wrap(is_map(url) && url["tag"]) end)
+
+    (urls ++ nested)
     |> Enum.filter(fn url ->
-      # Filter for direct video links (excluding torrents, magnets and HLS fragments)
-      # and Files.has_extension?(url, ".mp4") TODO: check file extension if we don't have a mime type
+      # Direct video links (mediaType video/*), or a bare string URL
       is_binary(url) or
         (is_map(url) &&
-           String.starts_with?(url["mediaType"] || url["mimeType"] || "", "video/") &&
-           !String.contains?(url["href"] || "", ["-fragmented.mp4", "streaming-playlists"]))
+           String.starts_with?(url["mediaType"] || url["mimeType"] || "", "video/"))
     end)
     |> Enum.sort_by(fn url ->
-      # Sort by height (resolution) in descending order
-      -(url["height"] || 0)
+      # Prefer progressive files over HLS fragments, then highest resolution.
+      href = (is_map(url) && url["href"]) || url
+
+      fragment? =
+        is_binary(href) and String.contains?(href, ["-fragmented.mp4", "streaming-playlists"])
+
+      {if(fragment?, do: 1, else: 0), -((is_map(url) && url["height"]) || 0)}
     end)
     |> List.first()
     |> case do
@@ -582,14 +593,31 @@ defmodule Bonfire.Files.Media do
         {href, 0, "video/mp4"}
 
       _ ->
-        # If no direct video link found, try to find a preview image instead?
-        # case find_preview_image(urls) do
-        #   {image_url, image_type} when is_binary(image_url) ->
-        #     {image_url, 0, image_type}
-        #   _ ->
-        {nil, 0, nil}
-        # end
+        # No direct/nested video file: fall back to the HLS master playlist so
+        # the video is still ingested with a usable (non-nil) media_type, instead
+        # of failing the `media_type: can't be blank` changeset and leaving an
+        # orphaned/untitled object (bonfire-app#1728 / #1774 / #1715).
+        case find_hls_playlist(urls) do
+          {href, media_type} when is_binary(href) -> {href, 0, media_type}
+          _ -> {nil, 0, nil}
+        end
     end
+  end
+
+  # Find the HLS master playlist (m3u8) link among the url entries, if any.
+  defp find_hls_playlist(urls) do
+    urls
+    |> List.wrap()
+    |> Enum.find_value(fn
+      %{"href" => href, "mediaType" => "application/x-mpegURL"} when is_binary(href) ->
+        {href, "application/x-mpegURL"}
+
+      %{"href" => href, "mimeType" => "application/x-mpegURL"} when is_binary(href) ->
+        {href, "application/x-mpegURL"}
+
+      _ ->
+        nil
+    end)
   end
 
   # Helper to find the size of the selected video
