@@ -25,7 +25,9 @@ defmodule Bonfire.Files.Web.UploadIconLive do
   prop bg_class, :css_class, default: ["rounded-md bg-base-100 h-full"]
   prop opts, :any, default: %{"data-id" => "preview_icon"}
 
-  defp upload_error_to_string(:too_large), do: "The file is too large"
+  defp upload_error_to_string(:too_large), do: Bonfire.Fail.get_error_msg(:file_too_large)
+  defp upload_error_to_string(:not_accepted), do: Bonfire.Fail.get_error_msg(:file_type_not_allowed)
+  defp upload_error_to_string(error) when is_atom(error), do: Bonfire.Fail.get_error_msg(error)
 
   def update(assigns, socket) do
     {:ok,

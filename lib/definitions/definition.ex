@@ -26,7 +26,6 @@ defmodule Bonfire.Files.Definition do
       use Bonfire.Common.Settings
       use Bonfire.Common.Localise
       alias Bonfire.Files
-      alias Bonfire.Files.FileDenied
 
       @acl :public_read
 

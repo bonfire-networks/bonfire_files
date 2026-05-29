@@ -11,7 +11,6 @@ defmodule Bonfire.Files.Test.FileErrors do
   alias Bonfire.Files
 
   alias Bonfire.Files.DocumentUploader
-  alias Bonfire.Files.FileDenied
   alias Bonfire.Files.IconUploader
   alias Bonfire.Files.ImageUploader
   alias Bonfire.Files.Media
@@ -23,21 +22,21 @@ defmodule Bonfire.Files.Test.FileErrors do
     end
 
     test "file is too big" do
-      {:error, %FileDenied{message: message, code: code}} =
+      {:error, %Bonfire.Fail{message: message, code: code}} =
         Files.upload(ImageUploader, fake_user!(), icon_file())
 
       assert message == "This file exceeds the maximum upload size of 100 B"
-      assert code == "file_denied"
+      assert code == :file_too_large
     end
   end
 
   describe "media type check" do
     test "file is wrong media type" do
-      {:error, %FileDenied{message: message, code: code}} =
+      {:error, %Bonfire.Fail{message: message, code: code}} =
         Files.upload(VideoUploader, fake_user!(), icon_file())
 
       assert message == "Files with the format of image/png are not allowed"
-      assert code == "file_denied"
+      assert code == :file_type_not_allowed
     end
   end
 end

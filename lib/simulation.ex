@@ -5,7 +5,6 @@ defmodule Bonfire.Files.Simulation do
   alias Bonfire.Files
 
   alias Bonfire.Files.DocumentUploader
-  alias Bonfire.Files.FileDenied
   alias Bonfire.Files.IconUploader
   alias Bonfire.Files.ImageUploader
   alias Bonfire.Files.Media

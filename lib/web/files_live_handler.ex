@@ -45,6 +45,12 @@ defmodule Bonfire.Files.LiveHandler do
              end) do
         # debug(uploaded_media)
         set_fn.(type, object || user, uploaded_media, set_field, socket)
+      else
+        {:error, %Bonfire.Fail{message: message}} ->
+          {:noreply, assign_flash(socket, :error, message)}
+
+        _ ->
+          {:noreply, socket}
       end
     else
       debug("Skip uploading")

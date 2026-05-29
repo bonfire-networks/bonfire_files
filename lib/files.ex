@@ -36,7 +36,6 @@ defmodule Bonfire.Files do
   alias Bonfire.Files
 
   alias Bonfire.Files.Media
-  alias Bonfire.Files.FileDenied
 
   alias Bonfire.Common.Utils
   # alias Needle.Pointer
@@ -167,7 +166,7 @@ defmodule Bonfire.Files do
     # debug(allowed_media_types, "validate_with")
     case {allowed_media_types, max_file_size} |> debug("validate_with") do
       {_, max_file_size} when size > max_file_size ->
-        {:error, FileDenied.new(max_file_size)}
+        {:error, Bonfire.Fail.fail(:file_too_large, Sizeable.filesize(max_file_size))}
 
       {:all, _} ->
         :ok
@@ -176,7 +175,7 @@ defmodule Bonfire.Files do
         if Enum.member?(types, media_type) do
           :ok
         else
-          {:error, FileDenied.new(media_type)}
+          {:error, Bonfire.Fail.fail(:file_type_not_allowed, media_type)}
         end
     end
 
@@ -300,7 +299,7 @@ defmodule Bonfire.Files do
 
           fallback || Bonfire.Files.DocumentUploader
         else
-          {:error, FileDenied.new(media_type)}
+          {:error, Bonfire.Fail.fail(:file_type_not_allowed, media_type)}
         end
     end
 

@@ -9,7 +9,6 @@ defmodule Bonfire.Files.Test do
   alias Bonfire.Files
 
   alias Bonfire.Files.DocumentUploader
-  alias Bonfire.Files.FileDenied
   alias Bonfire.Files.IconUploader
   alias Bonfire.Files.ImageUploader
   alias Bonfire.Files.EmojiUploader
@@ -56,7 +55,7 @@ defmodule Bonfire.Files.Test do
         filename: "not-a-virus.exe"
       }
 
-      assert {:error, %FileDenied{}} = Files.upload(IconUploader, fake_user!(), file)
+      assert {:error, %Bonfire.Fail{}} = Files.upload(IconUploader, fake_user!(), file)
     end
 
     test "fails when the upload is a missing file" do
