@@ -21,7 +21,7 @@
           <input
             name="label"
             type="text"
-            placeholder="e.g: animation of a molotov cocktail being thrown"
+            placeholder={l("e.g: animation of a molotov cocktail being thrown")}
             class="input input-bordered w-full"
           />
         </div>
