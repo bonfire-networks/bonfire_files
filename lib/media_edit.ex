@@ -381,6 +381,29 @@ defmodule Bonfire.Files.MediaEdit do
       fallback
   end
 
+  @doc """
+  Returns the pixel dimensions of an image (given as path, binary, or stream) as `{width, height}`, or `nil` if they can't be read.
+
+  Uses the `Image`/vix header so it does not fully decode the image, making it cheap enough to call at render time as a lazy backfill.
+  """
+  def dimensions(file_path_or_binary_or_stream) do
+    with true <- !!choose_executable(:dimensions, Image),
+         {:ok, img} <- Image.open(file_path_or_binary_or_stream),
+         width when is_integer(width) <- Image.width(img),
+         height when is_integer(height) <- Image.height(img),
+         true <- width > 0 and height > 0 do
+      {width, height}
+    else
+      e ->
+        error(e, "Could not read image dimensions")
+        nil
+    end
+  rescue
+    e ->
+      error(e, "Could not read image dimensions")
+      nil
+  end
+
   # catch an issue when trying to blur gifs
   def blur(path, final_path) when not is_nil(path) do
     format = "jpg"

@@ -90,13 +90,18 @@ defmodule Bonfire.Files.Definition do
                  Bonfire.Files.BannerUploader,
                  Bonfire.Files.IconUploader
                ] and is_binary(path) do
-        if hash = Bonfire.Files.Blurred.make_blurhash(path) do
-          %{
-            blurhash: hash
-          }
-        else
-          %{}
-        end
+        %{}
+        |> then(fn meta ->
+          if hash = Bonfire.Files.Blurred.make_blurhash(path),
+            do: Map.put(meta, :blurhash, hash),
+            else: meta
+        end)
+        |> then(fn meta ->
+          case Bonfire.Files.MediaEdit.dimensions(path) do
+            {width, height} -> Map.merge(meta, %{width: width, height: height})
+            _ -> meta
+          end
+        end)
         |> debug()
       end
 
