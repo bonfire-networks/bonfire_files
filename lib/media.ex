@@ -692,9 +692,24 @@ defmodule Bonfire.Files.Media do
       #     nil
   end
 
+  # Resolve a (possibly relative) canonical url against the original fetched url, so a
+  # relative `<link rel="canonical" href="/path">` becomes an absolute url instead of being
+  # stored host-less. Absolute canonical urls are returned unchanged.
+  defp resolve_canonical_url(url, canonical) when is_binary(canonical) and canonical != "" do
+    if is_binary(url) and url != "" do
+      URI.merge(url, canonical) |> to_string()
+    else
+      canonical
+    end
+  rescue
+    _ -> canonical
+  end
+
+  defp resolve_canonical_url(_url, _canonical), do: nil
+
   def maybe_save(current_user, url, meta, opts \\ []) do
-    with canonical_url <- Map.get(meta, :canonical_url),
-         # ^ note: canonical url is only set if different from original url, so we only check each unique url once
+    with canonical_url <- resolve_canonical_url(url, Map.get(meta, :canonical_url)),
+         # ^ note: canonical url is only set if different from original url, so we only check each unique url once. We resolve it against the original url since sites sometimes serve a relative `<link rel="canonical">` (which would otherwise be stored host-less and later rendered as `http:///path`)
          media_type <-
            if(opts[:type_fn],
              do: opts[:type_fn].(meta),
