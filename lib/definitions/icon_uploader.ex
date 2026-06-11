@@ -21,7 +21,7 @@ defmodule Bonfire.Files.IconUploader do
     debug(filename, "transform")
 
     max_size =
-      Config.get([Bonfire.Files, :max_sizes, :banner, :height], 142,
+      Config.get([Bonfire.Files, :max_sizes, :icon, :size], 142,
         name: l("Icon/avatar max size"),
         description:
           l("Set a maximum width/height for automatically resizing avatar or icon images")

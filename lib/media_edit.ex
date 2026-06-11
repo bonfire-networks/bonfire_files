@@ -42,6 +42,7 @@ defmodule Bonfire.Files.MediaEdit do
     ext = Files.file_extension_only(filename)
 
     max_size = "#{max_width}x#{max_height}"
+    quality = image_quality()
 
     cond do
       ext not in ["jpg", "jpeg", "png", "gif", "webp"] ->
@@ -51,12 +52,13 @@ defmodule Bonfire.Files.MediaEdit do
       choose_executable(:image, "vipsthumbnail") ->
         {:vipsthumbnail,
          fn input, output ->
-           "#{input} --size #{max_size} --linear --export-profile srgb -o #{output}[strip]"
+           "#{input} --size #{max_size} --linear --export-profile srgb -o #{output}#{vips_save_opts(ext, quality)}"
            # |> info()
          end, ext}
 
       choose_executable(:image, "convert") ->
-        {:convert, "-strip -thumbnail #{max_size}> -limit area 10MB -limit disk 50MB"}
+        {:convert,
+         "-strip -thumbnail #{max_size}> -quality #{quality} -limit area 10MB -limit disk 50MB"}
 
       true ->
         fn _version, %{path: filename} = waffle_file ->
@@ -67,6 +69,7 @@ defmodule Bonfire.Files.MediaEdit do
 
   def thumbnail(filename, max_size) do
     ext = Files.file_extension_only(filename)
+    quality = image_quality()
 
     cond do
       ext not in ["jpg", "jpeg", "png", "gif", "webp"] ->
@@ -76,13 +79,13 @@ defmodule Bonfire.Files.MediaEdit do
       choose_executable(:thumbnail, "vipsthumbnail") ->
         {:vipsthumbnail,
          fn input, output ->
-           "#{input} --smartcrop attention -s #{max_size} --linear --export-profile srgb -o #{output}[strip]"
+           "#{input} --smartcrop attention -s #{max_size} --linear --export-profile srgb -o #{output}#{vips_save_opts(ext, quality)}"
            # |> info()
          end, ext}
 
       choose_executable(:thumbnail, "convert") ->
         {:convert,
-         "-strip -thumbnail #{max_size}x#{max_size}^ -gravity center -crop #{max_size}x#{max_size}+0+0 -limit area 10MB -limit disk 20MB"}
+         "-strip -thumbnail #{max_size}x#{max_size}^ -gravity center -crop #{max_size}x#{max_size}+0+0 -quality #{quality} -limit area 10MB -limit disk 20MB"}
 
       true ->
         fn _version, %{path: filename} = waffle_file ->
@@ -219,6 +222,7 @@ defmodule Bonfire.Files.MediaEdit do
     ext = Bonfire.Files.file_extension_only(filename)
 
     max_size = "#{max_width}x#{max_height}"
+    quality = image_quality()
 
     cond do
       ext not in ["jpg", "jpeg", "png", "gif", "webp"] ->
@@ -228,12 +232,15 @@ defmodule Bonfire.Files.MediaEdit do
       choose_executable(:thumbnail, "vipsthumbnail") ->
         {:vipsthumbnail,
          fn input, output ->
-           "#{input} --smartcrop attention --size #{max_size} --linear --export-profile srgb -o #{output}[strip]"
+           # `--smartcrop` fills the box, so the output is cropped to an exact 3:1 (only ever shrinking)
+           "#{input} --smartcrop attention --size #{max_size} --linear --export-profile srgb -o #{output}#{vips_save_opts(ext, quality)}"
            # |> info()
          end, ext}
 
       choose_executable(:thumbnail, "convert") ->
-        {:convert, "-strip -thumbnail #{max_size}> -limit area 10MB -limit disk 50MB"}
+        # `^` scales to fill then `-extent` center-crops to an exact 3:1 (matches the vips path)
+        {:convert,
+         "-strip -resize #{max_size}^ -gravity center -extent #{max_size} -quality #{quality} -limit area 10MB -limit disk 50MB"}
 
       true ->
         fn _version, %{path: filename} = waffle_file ->
@@ -241,6 +248,21 @@ defmodule Bonfire.Files.MediaEdit do
         end
     end
   end
+
+  @doc "JPEG/WebP quality (1-100) used when resizing uploaded images. Defaults to 90 to avoid the visible degradation of ImageMagick's implicit quality 75."
+  def image_quality do
+    Config.get([:bonfire_files, :image_quality], 90,
+      name: l("Image quality"),
+      description: l("Quality (1-100) used when re-encoding resized JPEG/WebP uploads")
+    )
+  end
+
+  # vips JPEG/WebP support a `Q=` save option; PNG/GIF are lossless so only strip metadata
+  # (passing `Q=` to PNG would trigger lossy palette quantisation, which we don't want)
+  defp vips_save_opts(ext, quality) when ext in ["jpg", "jpeg", "webp"],
+    do: "[Q=#{quality},strip]"
+
+  defp vips_save_opts(_ext, _quality), do: "[strip]"
 
   def video_image_thumbnail(filename, max_size, scrub_opts, waffle_file \\ %Waffle.File{}) do
     filename
@@ -347,7 +369,7 @@ defmodule Bonfire.Files.MediaEdit do
     tmp_path = tmp_path || Waffle.File.generate_temporary_path(waffle_file.file_name)
 
     with {:ok, _} <-
-           Image.write(image, tmp_path, minimize_file_size: true)
+           Image.write(image, tmp_path, minimize_file_size: true, quality: image_quality())
            |> debug("thumbnail_video_write") do
       {:ok, %Waffle.File{waffle_file | path: tmp_path, is_tempfile?: true}}
     else

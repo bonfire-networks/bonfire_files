@@ -22,9 +22,12 @@ defmodule Bonfire.Files.BannerUploader do
       :noaction
   end
 
+  # Default to 1500x500 (a true 3:1 ratio matching the profile hero's `aspect-[3/1]`)
+  # so banners stay sharp on wide/retina displays. Resizing only ever shrinks, never
+  # upscales, so smaller uploads are left untouched.
   def max_width(scope \\ nil),
     do:
-      Settings.get([Bonfire.Files, :max_sizes, :banner, :width], 580,
+      Settings.get([Bonfire.Files, :max_sizes, :banner, :width], 1500,
         context: scope,
         name: l("Banner max width"),
         description: l("Set a maximum width for automatically resizing banner images")
@@ -32,7 +35,7 @@ defmodule Bonfire.Files.BannerUploader do
 
   def max_height(scope \\ nil),
     do:
-      Settings.get([Bonfire.Files, :max_sizes, :banner, :height], 200,
+      Settings.get([Bonfire.Files, :max_sizes, :banner, :height], 500,
         context: scope,
         name: l("Banner max height"),
         description: l("Set a maximum height for automatically resizing banner images")
