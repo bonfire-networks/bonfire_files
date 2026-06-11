@@ -779,7 +779,7 @@ defmodule Bonfire.Files.Media do
 
   def get_or_add_media_by_uri(current_user, uri, to_boundary, to_circles, opts)
       when is_binary(current_user) do
-    case Bonfire.Me.Users.get_current(current_user) do
+    case Bonfire.Me.Users.by_username(current_user) do
       %{} = current_user ->
         get_or_add_media_by_uri(current_user, uri, to_boundary, to_circles, opts)
 
