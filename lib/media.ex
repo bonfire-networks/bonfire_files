@@ -779,8 +779,9 @@ defmodule Bonfire.Files.Media do
 
   def get_or_add_media_by_uri(current_user, uri, to_boundary, to_circles, opts)
       when is_binary(current_user) do
+    # by_username/1 resolves a username or id and returns `{:ok, user}`, so match the tuple.
     case Bonfire.Me.Users.by_username(current_user) do
-      %{} = current_user ->
+      {:ok, %{} = current_user} ->
         get_or_add_media_by_uri(current_user, uri, to_boundary, to_circles, opts)
 
       _ ->
