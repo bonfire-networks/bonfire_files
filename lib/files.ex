@@ -166,7 +166,7 @@ defmodule Bonfire.Files do
     # debug(allowed_media_types, "validate_with")
     case {allowed_media_types, max_file_size} |> debug("validate_with") do
       {_, max_file_size} when size > max_file_size ->
-        {:error, Bonfire.Fail.fail(:file_too_large, Sizeable.filesize(max_file_size))}
+        {:error, file_too_large(max_file_size)}
 
       {:all, _} ->
         :ok
@@ -175,7 +175,7 @@ defmodule Bonfire.Files do
         if Enum.member?(types, media_type) do
           :ok
         else
-          {:error, Bonfire.Fail.fail(:file_type_not_allowed, media_type)}
+          {:error, file_type_not_allowed(media_type)}
         end
     end
 
@@ -198,6 +198,22 @@ defmodule Bonfire.Files do
 
   def validate(other, _, _) do
     error(other, "File info not available so file type and/or size could not be validated")
+  end
+
+  defp file_too_large(max_file_size) do
+    %Bonfire.Fail{
+      code: :file_too_large,
+      message: "This file exceeds the maximum upload size of #{Sizeable.filesize(max_file_size)}",
+      status: 413
+    }
+  end
+
+  defp file_type_not_allowed(media_type) do
+    %Bonfire.Fail{
+      code: :file_type_not_allowed,
+      message: "Files with the format of #{media_type} are not allowed",
+      status: 415
+    }
   end
 
   defp maybe_move(true, upload_filename, final_filename) do

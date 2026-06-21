@@ -86,26 +86,30 @@ defmodule Bonfire.Files.ImagesTest do
 
     if System.get_env("CI") not in yes? do
       test "strips metadata when vipsthumbnail is available" do
+        vipsthumbnail = System.find_executable("vipsthumbnail")
+
         # Force vipsthumbnail present and others absent to test this code path
-        Process.put([:bonfire_files, :choose_executable, "vipsthumbnail"], true)
+        Process.put([:bonfire_files, :choose_executable, "vipsthumbnail"], vipsthumbnail || false)
         Process.put([:bonfire_files, :choose_executable, "convert"], false)
         Process.put([:bonfire_files, :choose_executable, Image], false)
 
-        assert Bonfire.Files.MediaEdit.choose_executable(:image, "vipsthumbnail") =~
-                 "vipsthumbnail"
-
-        refute Bonfire.Files.MediaEdit.choose_executable(:image, "convert")
-        refute Bonfire.Files.MediaEdit.choose_executable(:image, Image)
-
         try do
-          assert {:ok, upload} = fake_upload(image_with_exif_file(), ImageUploader)
+          if vipsthumbnail do
+            assert Bonfire.Files.MediaEdit.choose_executable(:image, "vipsthumbnail") =~
+                     "vipsthumbnail"
 
-          path =
-            Files.local_path(ImageUploader, upload) ||
-              ImageUploader.remote_url(upload) |> String.trim_leading("/")
+            refute Bonfire.Files.MediaEdit.choose_executable(:image, "convert")
+            refute Bonfire.Files.MediaEdit.choose_executable(:image, Image)
 
-          bin = File.read!(path)
-          refute bin =~ "Exif\0\0"
+            assert {:ok, upload} = fake_upload(image_with_exif_file(), ImageUploader)
+
+            path =
+              Files.local_path(ImageUploader, upload) ||
+                ImageUploader.remote_url(upload) |> String.trim_leading("/")
+
+            bin = File.read!(path)
+            refute bin =~ "Exif\0\0"
+          end
         after
           Process.delete([:bonfire_files, :choose_executable, Image])
           Process.delete([:bonfire_files, :choose_executable, "vipsthumbnail"])

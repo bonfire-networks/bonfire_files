@@ -241,7 +241,10 @@ defmodule Bonfire.Files.Media do
   def description(%{} = metadata) do
     json_ld = e(metadata, "json_ld", nil)
 
-    (e(json_ld, "description", "content", nil) || e(json_ld, "description", nil) ||
+    # A user-supplied description (e.g. set via `uploadMedia`) is stored at the
+    # top level; check it before falling back to fetched OG/oEmbed metadata.
+    (e(metadata, "description", nil) ||
+       e(json_ld, "description", "content", nil) || e(json_ld, "description", nil) ||
        e(metadata, "facebook", "description", nil) ||
        e(metadata, "twitter", "description", nil) ||
        e(metadata, "rss", "description", nil) ||

@@ -19,7 +19,8 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled and
 
     # Media object type
     object :media do
-      field :id, non_null(:id)
+      # Remote/derived attachments may not have a local Media id.
+      field :id, :id
 
       field :path, :string
 
@@ -165,7 +166,6 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled and
     def list_media(_parent, args, _info) do
       {pagination_args, filters} =
         Pagination.pagination_args_filter(args)
-        |> debug("media list args")
 
       filter_opts = build_media_filters(e(filters, :filter, %{}))
 
@@ -196,6 +196,8 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled and
                  %{
                    metadata: %{
                      label: Map.get(input, :name),
+                     # Media.media_alt/2 reads alt; description is kept for API consumers.
+                     alt: Map.get(input, :description),
                      description: Map.get(input, :description)
                    }
                  }
