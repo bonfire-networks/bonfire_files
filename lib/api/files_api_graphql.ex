@@ -195,10 +195,10 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled and
                  input.file,
                  %{
                    metadata: %{
-                     label: Map.get(input, :name),
+                     "label" => Map.get(input, :name),
                      # Media.media_alt/2 reads alt; description is kept for API consumers.
-                     alt: Map.get(input, :description),
-                     description: Map.get(input, :description)
+                     "alt" => Map.get(input, :description),
+                     "description" => Map.get(input, :description)
                    }
                  }
                ) do
