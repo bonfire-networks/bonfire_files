@@ -1,0 +1,594 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1",
+    {
+      "RsaSignature2017": "https://w3id.org/security#RsaSignature2017"
+    },
+    {
+      "pt": "https://joinpeertube.org/ns#",
+      "sc": "http://schema.org/",
+      "Hashtag": "as:Hashtag",
+      "category": "sc:category",
+      "licence": "sc:license",
+      "subtitleLanguage": "sc:subtitleLanguage",
+      "automaticallyGenerated": "pt:automaticallyGenerated",
+      "sensitive": "as:sensitive",
+      "language": "sc:inLanguage",
+      "identifier": "sc:identifier",
+      "isLiveBroadcast": "sc:isLiveBroadcast",
+      "liveSaveReplay": {
+        "@type": "sc:Boolean",
+        "@id": "pt:liveSaveReplay"
+      },
+      "permanentLive": {
+        "@type": "sc:Boolean",
+        "@id": "pt:permanentLive"
+      },
+      "latencyMode": {
+        "@type": "sc:Number",
+        "@id": "pt:latencyMode"
+      },
+      "Infohash": "pt:Infohash",
+      "SensitiveTag": "pt:SensitiveTag",
+      "tileWidth": {
+        "@type": "sc:Number",
+        "@id": "pt:tileWidth"
+      },
+      "tileHeight": {
+        "@type": "sc:Number",
+        "@id": "pt:tileHeight"
+      },
+      "tileDuration": {
+        "@type": "sc:Number",
+        "@id": "pt:tileDuration"
+      },
+      "aspectRatio": {
+        "@type": "sc:Float",
+        "@id": "pt:aspectRatio"
+      },
+      "uuid": {
+        "@type": "sc:identifier",
+        "@id": "pt:uuid"
+      },
+      "originallyPublishedAt": "sc:datePublished",
+      "schedules": "sc:eventSchedule",
+      "startDate": "sc:startDate",
+      "embedUrl": "sc:embedUrl",
+      "uploadDate": "sc:uploadDate",
+      "hasParts": "sc:hasParts",
+      "playerSettings": "pt:playerSettings",
+      "views": {
+        "@type": "sc:Number",
+        "@id": "pt:views"
+      },
+      "state": {
+        "@type": "sc:Number",
+        "@id": "pt:state"
+      },
+      "size": {
+        "@type": "sc:Number",
+        "@id": "pt:size"
+      },
+      "fps": {
+        "@type": "sc:Number",
+        "@id": "pt:fps"
+      },
+      "canReply": "pt:canReply",
+      "commentsPolicy": {
+        "@type": "sc:Number",
+        "@id": "pt:commentsPolicy"
+      },
+      "downloadEnabled": {
+        "@type": "sc:Boolean",
+        "@id": "pt:downloadEnabled"
+      },
+      "waitTranscoding": {
+        "@type": "sc:Boolean",
+        "@id": "pt:waitTranscoding"
+      },
+      "support": {
+        "@type": "sc:Text",
+        "@id": "pt:support"
+      },
+      "likes": {
+        "@id": "as:likes",
+        "@type": "@id"
+      },
+      "dislikes": {
+        "@id": "as:dislikes",
+        "@type": "@id"
+      },
+      "shares": {
+        "@id": "as:shares",
+        "@type": "@id"
+      },
+      "comments": {
+        "@id": "as:comments",
+        "@type": "@id"
+      },
+      "PropertyValue": "sc:PropertyValue",
+      "value": "sc:value"
+    }
+  ],
+  "to": [
+    "https://www.w3.org/ns/activitystreams#Public",
+    "https://elenarossini.local/video-channels/fedifuture"
+  ],
+  "cc": [
+    "https://elenarossini.local/accounts/ele/followers"
+  ],
+  "type": "Video",
+  "id": "https://elenarossini.local/videos/watch/2909e4a0-6424-4a74-a936-d15812268a3c",
+  "name": "Introducing the Fediverse: a New Era of Social Media",
+  "duration": "PT247S",
+  "uuid": "2909e4a0-6424-4a74-a936-d15812268a3c",
+  "category": {
+    "identifier": "13",
+    "name": "Education"
+  },
+  "licence": {
+    "identifier": "5",
+    "name": "Attribution - Non Commercial - Share Alike"
+  },
+  "language": {
+    "identifier": "en",
+    "name": "English"
+  },
+  "views": 21570,
+  "sensitive": false,
+  "summary": null,
+  "waitTranscoding": true,
+  "state": 1,
+  "canReply": null,
+  "commentsPolicy": 1,
+  "downloadEnabled": true,
+  "published": "2025-06-09T19:16:08.095Z",
+  "originallyPublishedAt": "2025-06-09T11:45:05.000Z",
+  "schedules": [],
+  "updated": "2026-06-23T19:32:27.759Z",
+  "tag": [
+    {
+      "type": "Hashtag",
+      "name": "Fediverse"
+    },
+    {
+      "type": "Hashtag",
+      "name": "Open Social Web"
+    }
+  ],
+  "mediaType": "text/markdown",
+  "content": "This video is a colorful introduction to the Fediverse, guided by filmmaker & Fediverse advocate Elena Rossini. Watch now to discover a whole new world of social media, one where privacy is respected, users are empowered, and Big Tech has no say.\r\n\r\nSpecial thanks to: \r\nMarcel Costa for the Catalan translation\r\nPen-Yuan Hsing for the Traditional Chinese translation\r\nJan Dytrych for the Czech translation\r\nFritjof for the Danish translation\r\nErik Kemp for the Dutch translation\r\nMichel Patrice for the Esperanto translation\r\nJohannes Palola for the Finnish translation\r\nsknob for help with the French translation\r\nSeverin for the German translation\r\nTalya for the Hebrew translation\r\nBenedek for the Hungarian translation\r\nClaudio for help with the Italian translation\r\nHong Minhee for the Korean translation\r\nAdrian Janiak for the Polish translation\r\nHermano Filipe for the Portugal Portuguese translation\r\nTarc\u00edsio Surdi for the Portuguese Brazilian translation\r\nDaniel Casanueva for the Spanish translation\r\nJan Ainali for the Swedish translation\r\n\r\nFull credits: https://blog.elenarossini.com/fediverse-video/",
+  "support": "There are multiple ways to support my work.\r\n\r\nMy favorite:\r\nYou could use my referral code when buying a new domain name / web hosting plan / VPS or email address on Hostinger: https://hostinger.com?REFERRALCODE=VINELENARWKX I will get a commission (that helps me cover the costs of my self-hosted Fediverse instances, like PeerTube) and you will get an extra 20% off.\r\n\r\nAnother way:\r\nYou could rent or buy my documentary The Illusionists about the marketing of unattainable beauty ideals around the world: https://illusionists.vhx.tv\r\n\r\nThank you! :) ",
+  "subtitleLanguage": [
+    {
+      "identifier": "he",
+      "name": "Hebrew",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/1f770d3a-56aa-4580-8be4-6d12a28f09ea-he.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    },
+    {
+      "identifier": "en",
+      "name": "English",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/a97d9839-ca4f-4c4d-86d9-e444b9a66094-en.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    },
+    {
+      "identifier": "fr",
+      "name": "French",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/f2117643-e2cc-4d9b-8cfc-d8b3097148d2-fr.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    },
+    {
+      "identifier": "pt",
+      "name": "Portuguese (Brazilian)",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/6bc49572-3b55-4d85-abd9-65c5632aeb07-pt.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    },
+    {
+      "identifier": "it",
+      "name": "Italian",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/e68f2323-e94b-46e3-89c6-0ee3575c16a1-it.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    },
+    {
+      "identifier": "sv",
+      "name": "Swedish",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/f6a37d9c-0524-4fa6-bc56-74096207c8cd-sv.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    },
+    {
+      "identifier": "ko",
+      "name": "Korean",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/bc2aa6de-b442-4f11-a0bb-43ccd5431f2f-ko.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    },
+    {
+      "identifier": "de",
+      "name": "German",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/71b69279-ecc9-4c54-9e99-11b4889abdf6-de.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    },
+    {
+      "identifier": "es",
+      "name": "Spanish (Spain)",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/a36d9ec0-7659-4127-9543-118e682650ec-es.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    },
+    {
+      "identifier": "nl",
+      "name": "Dutch",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/43fff18e-b939-461c-b992-790fd2eab8fd-nl.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    },
+    {
+      "identifier": "da",
+      "name": "Danish",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/b4067ac8-d3ec-447a-92f9-739f19552b0d-da.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    },
+    {
+      "identifier": "zh-Hant",
+      "name": "Traditional Chinese",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/80e64bc9-97fa-4efa-8ef6-8a1e715d8619-zh-Hant.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    },
+    {
+      "identifier": "ca",
+      "name": "Catalan",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/f9735090-90d0-4e16-8519-51b09fb83cd7-ca.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    },
+    {
+      "identifier": "pl",
+      "name": "Polish",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/bcdd6c18-1a78-45ca-ab0b-cd52cb66f64b-pl.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    },
+    {
+      "identifier": "cs",
+      "name": "Czech",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/909f4afe-d4e8-44b8-8444-9abcce5361ed-cs.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    },
+    {
+      "identifier": "fi",
+      "name": "Finnish",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/2cb4a678-cee7-4ba2-b9f7-218d0833dc82-fi.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    },
+    {
+      "identifier": "hu",
+      "name": "Hungarian",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/b2e9cca1-0872-496d-b0e0-e62160693b6e-hu.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    },
+    {
+      "identifier": "pt-PT",
+      "name": "Portuguese (Portugal)",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/af156a21-ad72-4272-a87f-cba1a2545182-pt-PT.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    },
+    {
+      "identifier": "eo",
+      "name": "Esperanto",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/62a8b04f-2690-498f-b662-ae62a8f1ceca-eo.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    },
+    {
+      "identifier": "fa",
+      "name": "Persian",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/281fcc18-7586-4bd7-88ff-1c83f7694c1a-fa.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    },
+    {
+      "identifier": "ar",
+      "name": "Arabic",
+      "automaticallyGenerated": false,
+      "url": [
+        {
+          "type": "Link",
+          "mediaType": "text/vtt",
+          "href": "https://elenarossini.local/lazy-static/video-captions/7a17d9d8-4668-470e-915f-819e80e6f791-ar.vtt"
+        },
+        {
+          "type": "Link",
+          "mediaType": "application/x-mpegURL",
+          "href": null
+        }
+      ]
+    }
+  ],
+  "icon": [
+    {
+      "type": "Image",
+      "url": "https://elenarossini.local/lazy-static/thumbnails/3634824f-b198-475e-8219-122fcac502da.jpg",
+      "mediaType": "image/jpeg",
+      "width": 850,
+      "height": 480
+    },
+    {
+      "type": "Image",
+      "url": "https://elenarossini.local/lazy-static/thumbnails/31ce2635-b4ae-41a1-9215-2c74cc0550ce.jpg",
+      "mediaType": "image/jpeg",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "type": "Image",
+      "url": "https://elenarossini.local/lazy-static/thumbnails/90ba9fe9-fa18-4888-a5e2-f3c8d972bb73.jpg",
+      "mediaType": "image/jpeg",
+      "width": 1400,
+      "height": 1400
+    },
+    {
+      "type": "Image",
+      "url": "https://elenarossini.local/lazy-static/thumbnails/385c7932-021c-4dd4-9751-504aae730837.jpg",
+      "mediaType": "image/jpeg",
+      "width": 1280,
+      "height": 720
+    },
+    {
+      "type": "Image",
+      "url": "https://elenarossini.local/lazy-static/thumbnails/1abdd4b2-8ed5-4a92-bf94-ab9290f18f7d.jpg",
+      "mediaType": "image/jpeg",
+      "width": 280,
+      "height": 157
+    }
+  ],
+  "aspectRatio": 1.7778,
+  "url": [
+    {
+      "type": "Link",
+      "mediaType": "text/html",
+      "href": "https://elenarossini.local/w/64VuNCccZNrP4u9MfgbhkN"
+    },
+    {
+      "type": "Link",
+      "mediaType": "text/html",
+      "href": "https://elenarossini.local/videos/watch/2909e4a0-6424-4a74-a936-d15812268a3c"
+    }
+  ],
+  "likes": "https://elenarossini.local/videos/watch/2909e4a0-6424-4a74-a936-d15812268a3c/likes",
+  "dislikes": "https://elenarossini.local/videos/watch/2909e4a0-6424-4a74-a936-d15812268a3c/dislikes",
+  "shares": "https://elenarossini.local/videos/watch/2909e4a0-6424-4a74-a936-d15812268a3c/announces",
+  "comments": "https://elenarossini.local/videos/watch/2909e4a0-6424-4a74-a936-d15812268a3c/comments",
+  "hasParts": "https://elenarossini.local/videos/watch/2909e4a0-6424-4a74-a936-d15812268a3c/chapters",
+  "playerSettings": "https://elenarossini.local/videos/watch/2909e4a0-6424-4a74-a936-d15812268a3c/player-settings",
+  "embedUrl": "https://elenarossini.local/videos/embed/64VuNCccZNrP4u9MfgbhkN",
+  "attributedTo": [
+    {
+      "type": "Person",
+      "id": "https://elenarossini.local/accounts/ele"
+    },
+    {
+      "type": "Group",
+      "id": "https://elenarossini.local/video-channels/fedifuture"
+    }
+  ],
+  "audience": "https://elenarossini.local/video-channels/fedifuture",
+  "isLiveBroadcast": false,
+  "liveSaveReplay": null,
+  "permanentLive": null,
+  "latencyMode": null
+}

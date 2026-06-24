@@ -118,7 +118,13 @@ defmodule Bonfire.Files.Media do
       |> Map.put(:size, file_info[:size])
       |> Map.put(
         :media_type,
-        meta_attrs[:media_type] || attrs[:media_type] || file_info[:media_type]
+        # use the first non-blank media_type from any source; fall back to "remote" only when none
+        # provide one (e.g. a still-transcoding PeerTube Video with no playable file). See #1728.
+        # TODO: re-fetch such pending/transcoding objects later so they resolve to the real media:
+        # https://github.com/bonfire-networks/bonfire-app/issues/2070
+        Enums.filter_empty(meta_attrs[:media_type], nil) ||
+          Enums.filter_empty(attrs[:media_type], nil) ||
+          Enums.filter_empty(file_info[:media_type], nil) || "remote"
       )
       |> Map.put(:module, file_info[:module])
       |> Map.put(:creator_id, Types.uid(creator) || "0AND0MSTRANGERS0FF1NTERNET")
