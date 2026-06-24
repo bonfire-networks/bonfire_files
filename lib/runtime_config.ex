@@ -30,8 +30,8 @@ defmodule Bonfire.Files.RuntimeConfig do
     # The default is local storage.
 
     bucket = System.get_env("UPLOADS_S3_BUCKET")
-    access_key_id = System.get_env("UPLOADS_S3_ACCESS_KEY_ID")
-    secret_access_key = System.get_env("UPLOADS_S3_SECRET_ACCESS_KEY")
+    access_key_id = Bonfire.Common.EnvSecrets.env_or_file("UPLOADS_S3_ACCESS_KEY_ID")
+    secret_access_key = Bonfire.Common.EnvSecrets.env_or_file("UPLOADS_S3_SECRET_ACCESS_KEY")
     role_arn = System.get_env("AWS_ROLE_ARN")
 
     if bucket && ((access_key_id && secret_access_key) || role_arn) do
