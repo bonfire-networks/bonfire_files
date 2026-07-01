@@ -76,7 +76,7 @@
                 alt={e(meta, :label, nil)}
               />
               <code class="font-mono text-base-content font-bold">{shortcode}</code>
-              <span class="truncate text-base-content/70">({e(meta, :label, nil)})</span>
+              <span class="truncate text-muted">({e(meta, :label, nil)})</span>
               {#if e(meta, :archived, nil)}
                 <span class="badge badge-warning badge-outline ml-2">{l("Archived")}</span>
               {/if}
@@ -86,7 +86,7 @@
                 id={"remove_emoji_" <> shortcode}
                 title_text={l("Remove Emoji")}
                 no_actions
-                open_btn_wrapper_class="btn btn-xs btn-warning"
+                open_btn_wrapper_class="btn btn-sm btn-warning"
               >
                 <:open_btn>
                   🗑️

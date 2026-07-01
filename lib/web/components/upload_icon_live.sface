@@ -36,7 +36,7 @@
         </div> --}
       {#match _}
         <span class={@class}>
-          <img class="object-cover w-full h-full" src={"#{@src}"} {...@opts}>
+          <img class="object-contain w-full h-full" src={"#{@src}"} {...@opts}>
           {!--
           this broke s3 urls:
            ?v=#{System.system_time(:second)} --}
