@@ -6,6 +6,7 @@ defmodule Bonfire.Files.Web.UploadBannerLive do
   prop boundary_verb, :atom, default: :edit
   prop set_field, :any, default: nil
   prop set_fn, :any, default: nil
+  prop accept, :any, default: nil
   # prop uploads, :any, default: nil
 
   prop container_class, :css_class,
@@ -26,6 +27,14 @@ defmodule Bonfire.Files.Web.UploadBannerLive do
   defp upload_error_to_string(error) when is_atom(error), do: Bonfire.Fail.get_error_msg(error)
 
   def update(assigns, socket) do
+    accept =
+      e(assigns, :accept, nil) ||
+        Config.get_ext(
+          :bonfire_files,
+          [Bonfire.Files.BannerUploader, :allowed_media_extensions],
+          ~w(.jpg .png)
+        )
+
     {:ok,
      socket
      |> assign(
@@ -34,12 +43,7 @@ defmodule Bonfire.Files.Web.UploadBannerLive do
      )
      |> assign(assigns)
      |> allow_upload(:banner,
-       accept:
-         Config.get_ext(
-           :bonfire_files,
-           [Bonfire.Files.BannerUploader, :allowed_media_extensions],
-           ~w(.jpg .png)
-         ),
+       accept: accept,
        # make extensions & size configurable
        max_file_size: Bonfire.Files.BannerUploader.max_file_size(),
        max_entries: 1,
