@@ -239,8 +239,9 @@ defmodule Bonfire.Files.MediaEdit do
 
       choose_executable(:thumbnail, "convert") ->
         # `^` scales to fill then `-extent` center-crops to an exact 3:1 (matches the vips path)
+        # `-background none` stops `-extent` from flattening PNG transparency onto white
         {:convert,
-         "-strip -resize #{max_size}^ -gravity center -extent #{max_size} -quality #{quality} -limit area 10MB -limit disk 50MB"}
+         "-strip -background none -resize #{max_size}^ -gravity center -extent #{max_size} -quality #{quality} -limit area 10MB -limit disk 50MB"}
 
       true ->
         fn _version, %{path: filename} = waffle_file ->
