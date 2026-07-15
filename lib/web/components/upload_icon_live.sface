@@ -76,7 +76,7 @@
   {#if !@label_on_hover}
     <label
       for={@uploads.icon.ref}
-      class="normal-case btn btn-sm !border !border-base-content/30 btn-outline"
+      class="normal-case btn btn-sm !border !border-secondary btn-outline"
     >
       {l("Upload")}
     </label>
