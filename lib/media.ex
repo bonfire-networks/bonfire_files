@@ -695,10 +695,11 @@ defmodule Bonfire.Files.Media do
       # workaround for badly-parsed webpages in non-UTF8 encodings
       error(e, "Could not save the URL preview")
       nil
-      # rescue
-      #   e ->
-      #     error(e, "Could not save the URL preview")
-      #     nil
+  rescue
+    e ->
+      # A failed URL preview must never fail the whole publish for a user (an exception from unfurl's favicon lookup was doing exactly that). `err/2` rather than `error/2` because it raises in `:test` and only logs in dev/prod — so the underlying bug still fails the suite instead of being silently swallowed.
+      err(e, "Could not save the URL preview")
+      nil
   end
 
   # Resolve a (possibly relative) canonical url against the original fetched url, so a
