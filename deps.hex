@@ -15,4 +15,4 @@ sweet_xml = "~> 0.7" # for s3
 sizeable = "~> 1.0"
 
 unfurl = "~> 0.6"
-faviconic = "~> 0.2"
+faviconic = "~> 0.3"
