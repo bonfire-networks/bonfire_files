@@ -33,24 +33,31 @@ defmodule Bonfire.Files.LiveHandler do
             (object && is_atom(object) && object == :pandora_list) or
             maybe_apply(Bonfire.Boundaries, :can?, [user, boundary_verb, object])) &&
          entry.done? do
-      with %{} = uploaded_media <-
-             maybe_consume_uploaded_entry(socket, entry, fn %{path: path} = metadata ->
-               # debug(metadata, "icon consume_uploaded_entry meta")
-               mod.upload(user, path, %{
-                 client_name: entry.client_name,
-                 metadata: metadata[entry.ref]
-               })
+      maybe_consume_uploaded_entry(socket, entry, fn %{path: path} = metadata ->
+        # debug(metadata, "icon consume_uploaded_entry meta")
+        # `consume_uploaded_entry/3` requires an `{:ok, _} | {:postpone, _}` return, so wrap the result (success *or* failure) and unwrap it below, otherwise a failed upload trips LiveView's contract warning instead of reaching our error handling
+        {:ok,
+         mod.upload(user, path, %{
+           client_name: entry.client_name,
+           metadata: metadata[entry.ref]
+         })}
 
-               # |> debug("uploaded")
-             end) do
-        # debug(uploaded_media)
-        set_fn.(type, object || user, uploaded_media, set_field, socket)
-      else
+        # |> debug("uploaded")
+      end)
+      |> case do
+        {:ok, %{} = uploaded_media} ->
+          # debug(uploaded_media)
+          set_fn.(type, object || user, uploaded_media, set_field, socket)
+
+        %{} = uploaded_media ->
+          set_fn.(type, object || user, uploaded_media, set_field, socket)
+
         {:error, %Bonfire.Fail{message: message}} ->
           {:noreply, assign_flash(socket, :error, message)}
 
-        _ ->
-          {:noreply, socket}
+        other ->
+          # anything else means the upload did not produce media, eg. a storage rejection turned into `{:error, %Ecto.Changeset{}}` by `Attacher.attach/3`
+          {:noreply, assign_flash(socket, :error, Bonfire.Common.Errors.error_msg(other))}
       end
     else
       debug("Skip uploading")
