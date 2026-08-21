@@ -279,8 +279,11 @@ defmodule Bonfire.Files.Media do
 
     {:ok, actor} = ActivityPub.Actor.get_cached(pointer: subject)
 
-    # FIXME: don't assume public
-    to = [Bonfire.Federate.ActivityPub.AdapterUtils.public_uri()]
+    # Address from the object's boundaries rather than assuming public. `publish/3` is only reached for an EXPLICIT publish carrying an intentional boundary (the GraphQL caller requires `to_boundary`/`to_circles`), so media that was never published is unaffected — it never federated.
+    is_public = Bonfire.Boundaries.object_public?(media)
+
+    %{to: to, cc: cc, bcc: bcc} =
+      Bonfire.Federate.ActivityPub.AdapterUtils.determine_recipients(subject, media, is_public)
 
     object = %{
       # Pin the AP `id` to this instance's canonical object URL so it matches the
@@ -293,16 +296,20 @@ defmodule Bonfire.Files.Media do
       "name" => media_label_and_alt(media),
       "summary" => description(media),
       "url" => Bonfire.Common.Media.media_url(media),
-      "to" => to
+      "to" => to,
+      "cc" => cc
       # "context" => context,
       # "inReplyTo" => Threads.ap_prepare(uid(e(media, :replied, :reply_to_id, nil)))
     }
+
+    object = Enums.maybe_put(object, "bcc", bcc)
 
     params = %{
       actor: actor,
       # context: context,
       object: object,
       to: to,
+      additional: %{"cc" => cc} |> Enums.maybe_put("bcc", bcc),
       pointer: uid(media)
     }
 
