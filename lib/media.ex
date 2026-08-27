@@ -203,10 +203,13 @@ defmodule Bonfire.Files.Media do
   def media_label(%{metadata: metadata} = _media), do: media_label(metadata)
 
   def media_label(%{} = metadata) do
+    json_ld = e(metadata, "json_ld", nil)
+
     case (e(metadata, "label", nil) || e(metadata, :label, nil) || e(metadata, "title", nil) ||
             e(metadata, "wikibase", "title", nil) ||
             e(metadata, "crossref", "title", nil) || e(metadata, "oembed", "title", nil) ||
-            e(metadata, "json_ld", "name", nil) ||
+            e(json_ld, "name", nil) ||
+            ed(json_ld, "attachment", "name", nil) ||
             e(metadata, "atom", "title", nil) || e(metadata, "rss", "title", nil) ||
             e(metadata, "facebook", "title", nil) ||
             e(metadata, "twitter", "title", nil) ||
@@ -255,11 +258,12 @@ defmodule Bonfire.Files.Media do
        e(metadata, "twitter", "description", nil) ||
        e(metadata, "rss", "description", nil) ||
        e(metadata, "other", "description", nil) ||
-       e(json_ld, "headline", nil) || ed(json_ld, "attachment", "name", nil) ||
+       e(json_ld, "headline", nil) ||
        e(metadata, "oembed", "abstract", nil) ||
        e(metadata, "atom", "summary", "value", nil) ||
-       e(metadata, "atom", "content", "value", nil) ||
-       e(metadata, "rss", "channel", "description", nil))
+       e(metadata, "rss", "channel", "description", nil) ||
+       e(json_ld, "content", nil) ||
+       e(metadata, "atom", "content", "value", nil))
     |> unwrap()
   end
 
