@@ -146,6 +146,38 @@ defmodule Bonfire.Files.Test do
     end
   end
 
+  describe "maybe_fetch_and_save" do
+    # The dedup has to happen BEFORE the unfurl, or a link that already reached us with its metadata (as an AP attachment) gets fetched all over again when the same URL turns up in the post body. `Media.get_by_url/1` is what knows the variants a URL can arrive as.
+    test "reuses an existing Media rather than fetching, for a URL that only differs by tracking params" do
+      me = fake_user!()
+      url = "https://example.com/described/article"
+
+      assert {:ok, existing} =
+               Files.save_url_as_media(me, url, %{
+                 media_type: "link",
+                 metadata: %{"label" => "Described By The Sender"}
+               })
+
+      reused = Media.maybe_fetch_and_save(me, url <> "?utm_source=newsletter")
+
+      assert %Media{id: id} = reused
+      assert id == existing.id
+
+      assert Media.media_label(reused) == "Described By The Sender",
+             "reusing means keeping what we already knew, not overwriting it with a re-fetch"
+    end
+
+    test "reuses an existing Media for the exact same URL" do
+      me = fake_user!()
+      url = "https://example.com/exact/article"
+
+      assert {:ok, existing} = Files.save_url_as_media(me, url, %{media_type: "link"})
+
+      assert %Media{id: id} = Media.maybe_fetch_and_save(me, url)
+      assert id == existing.id
+    end
+  end
+
   describe "hard_delete" do
     test "removes the upload, including files" do
       assert {:ok, upload} = Files.upload(ImageUploader, fake_user!(), icon_file())

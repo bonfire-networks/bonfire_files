@@ -831,6 +831,24 @@ defmodule Bonfire.Files do
 
   ###
 
+  @doc """
+  Add an object's media to the AS2 object being prepared for it: the primary image as `image`, and the rest as `attachment` (the media we host first, then the link previews we resolved).
+
+  Appends to `attachment` rather than replacing it, so an object type that puts its own attachments there keeps them.
+  """
+  def ap_merge_media(object, media) do
+    %{primary_image: primary_image, images: images, links: links} = split_media_by_type(media)
+
+    object
+    |> Enums.maybe_put("image", ap_publish_activity(primary_image))
+    |> Enums.maybe_put(
+      "attachment",
+      (List.wrap(object["attachment"]) ++ ap_publish_activity(images) ++ ap_publish_link(links))
+      |> Enums.filter_empty(nil)
+    )
+  end
+
+  # NOTE: AS2 gives an attachment a single `name`, which Mastodon & co. read as the image description, so `Media.media_alt/1` puts the author's alt text there, falling back to the label (a caption, or the original filename) for media that never got alt text.
   def ap_publish_activity(medias) when is_list(medias) do
     Enum.map(medias, &ap_publish_activity/1)
     |> Enums.filter_empty([])
@@ -841,7 +859,7 @@ defmodule Bonfire.Files do
       "type" => "Image",
       "mediaType" => media.media_type,
       "url" => permanent_url(Bonfire.Files.ImageUploader, media),
-      "name" => media.metadata["label"],
+      "name" => Media.media_alt(media),
       "blurhash" => Bonfire.Files.Blurred.blurhash_cached(media)
     }
 
@@ -853,7 +871,7 @@ defmodule Bonfire.Files do
       "type" => "Audio",
       "mediaType" => media.media_type,
       "url" => permanent_url(Bonfire.Files.DocumentUploader, media),
-      "name" => media.metadata["label"]
+      "name" => Media.media_alt(media)
     }
   end
 
@@ -862,7 +880,7 @@ defmodule Bonfire.Files do
       "type" => "Video",
       "mediaType" => media.media_type,
       "url" => permanent_url(Bonfire.Files.DocumentUploader, media),
-      "name" => media.metadata["label"]
+      "name" => Media.media_alt(media)
     }
   end
 
@@ -876,7 +894,7 @@ defmodule Bonfire.Files do
       "type" => "Document",
       "mediaType" => media.media_type,
       "url" => permanent_url(Bonfire.Files.DocumentUploader, media),
-      "name" => media.metadata["label"]
+      "name" => Media.media_alt(media)
     }
   end
 
@@ -884,6 +902,47 @@ defmodule Bonfire.Files do
     debug(other, "Skip unrecognised media")
     nil
   end
+
+  @doc """
+  Prepare a link-preview `Media` (one that points at a remote URL rather than an uploaded file) as an AS2 `Link` attachment, carrying the title and description we resolved for the link.
+
+  These are skipped by `ap_publish_activity/1`, which only handles media we host.
+  """
+  def ap_publish_link(medias) when is_list(medias) do
+    Enum.map(medias, &ap_publish_link/1)
+    |> Enums.filter_empty([])
+  end
+
+  def ap_publish_link(%Media{} = media) do
+    case Common.Media.media_url(media) do
+      "http" <> _ = url ->
+        %{
+          "type" => "Link",
+          "mediaType" => media.media_type,
+          "href" => url,
+          "name" => Media.media_label(media),
+          "summary" => Media.description(media),
+          "image" => ap_image_object(Media.preview_image_url(media))
+        }
+        |> Enums.filter_empty(%{})
+
+      other ->
+        debug(other, "Skip link with no remote URL")
+        nil
+    end
+  end
+
+  def ap_publish_link(other) do
+    debug(other, "Skip unrecognised link")
+    nil
+  end
+
+  @doc "Wrap a cover image URL as an AS2 `Image`, so a receiver has something to render without fetching the origin."
+  def ap_image_object(url) when is_binary(url) and url != "" do
+    %{"type" => "Image", "url" => url}
+  end
+
+  def ap_image_object(_), do: nil
 
   def ap_transform_url(urls, target_host, target_actor_ids) when is_list(urls) do
     Enum.map(urls, &ap_transform_url(&1, target_host, target_actor_ids))
@@ -965,7 +1024,7 @@ defmodule Bonfire.Files do
     urls
     |> Enum.map(fn
       %{} = url ->
-        ap_receive_attachments(creator, primary_image?, Map.merge(attachment, url))
+        ap_receive_attachments(creator, primary_image?, merge_attachment_url(attachment, url))
 
       url when is_binary(url) ->
         ap_receive_attachments(creator, primary_image?, Map.merge(attachment, %{"href" => url}))
@@ -982,8 +1041,13 @@ defmodule Bonfire.Files do
     ap_receive_attachments(
       creator,
       primary_image?,
-      Map.drop(attachment, ["url"]) |> Map.merge(url)
+      Map.drop(attachment, ["url"]) |> merge_attachment_url(url)
     )
+  end
+
+  # An attachment's `url` is itself an AS2 `Link` object, so folding it in must not let its `"type" => "Link"` stand in for the attachment's own type — that would turn every `Document`/`Image` into a link and route it to the wrong uploader.
+  defp merge_attachment_url(attachment, %{} = url) do
+    Map.merge(url, attachment)
   end
 
   def ap_receive_attachments(creator, primary_image?, url) when is_binary(url) do
@@ -1013,8 +1077,8 @@ defmodule Bonfire.Files do
                client_name: url,
                metadata:
                  attachment
-                 |> Map.drop(["name", "type", "mediaType", "href", "url"])
-                 |> Enums.maybe_put(:label, attachment["name"])
+                 |> Map.drop(["name", "summary", "type", "mediaType", "href", "url"])
+                 |> ap_attachment_name(attachment)
                  |> Enums.maybe_put(:primary_image, primary_image?)
                  |> Enums.maybe_put(:source_type, "activitypub")
                #  |> Enums.maybe_put(:duration, attachment["duration"])
@@ -1052,6 +1116,17 @@ defmodule Bonfire.Files do
   def ap_receive_attachments(_creator, _, attachment) do
     error(attachment, "Dunno how to handle this")
     nil
+  end
+
+  # AS2 gives an attachment one `name`, but it means different things by type: on a `Link` (a link preview) it titles the linked page, while on media it describes what the media shows, which is what Mastodon & co. put in their alt text field. Keeping the two apart is what makes remote alt text usable as alt text.
+  defp ap_attachment_name(metadata, %{"type" => "Link"} = attachment) do
+    metadata
+    |> Enums.maybe_put("label", attachment["name"])
+    |> Enums.maybe_put("description", attachment["summary"])
+  end
+
+  defp ap_attachment_name(metadata, attachment) do
+    Enums.maybe_put(metadata, "alt", attachment["name"])
   end
 
   def normalise_size(size, default \\ 8)

@@ -42,6 +42,21 @@ defmodule Bonfire.Files.MediaDescriptionTest do
       assert Media.description(metadata) == "a headline"
     end
 
+    # AS2 `summary` is the object's own precis, and it is what Bonfire itself sends when a link Media federates as a `Page` (see `Media.ap_publish_activity/3`). Not reading it back meant a link's description made the round trip intact and then had nowhere to be displayed from.
+    test "uses AS2 `summary` as the description" do
+      metadata = %{"json_ld" => %{"type" => "Page", "summary" => "what the link is about"}}
+
+      assert Media.description(metadata) == "what the link is about"
+    end
+
+    test "AS2 `summary` is preferred over the raw body" do
+      metadata = %{
+        "json_ld" => %{"summary" => "what the link is about", "content" => "the body of the post"}
+      }
+
+      assert Media.description(metadata) == "what the link is about"
+    end
+
     test "objects with no body fall through rather than returning empty" do
       metadata = %{"json_ld" => %{"type" => "Page", "name" => "just a title"}}
 
@@ -76,6 +91,77 @@ defmodule Bonfire.Files.MediaDescriptionTest do
       }
 
       assert Media.media_label(metadata) == "The post's title"
+    end
+  end
+
+  # JSON-LD is an array as often as it is a single object (`@graph`, or a page that describes several entities), which is why `Files.is_research?/2` bothers to handle both. Reading a key out of one needs `ed`: the `e` macro asks Pathex for a path, and Pathex can't index a list by
+  # a string key.
+  describe "an ActivityPub/JSON-LD object that arrives as a list" do
+    test "media_label/1 finds the title" do
+      metadata = %{"json_ld" => [%{"type" => "Page", "name" => "The post's title"}]}
+
+      assert Media.media_label(metadata) == "The post's title"
+    end
+
+    test "description/1 finds the summary" do
+      metadata = %{"json_ld" => [%{"type" => "Page", "summary" => "what the link is about"}]}
+
+      assert Media.description(metadata) == "what the link is about"
+    end
+
+    test "description/1 finds the body" do
+      metadata = %{"json_ld" => [%{"type" => "Page", "content" => "the body of the post"}]}
+
+      assert Media.description(metadata) == "the body of the post"
+    end
+
+    test "media_label/1 searches past entries that don't carry a title" do
+      metadata = %{
+        "json_ld" => [
+          %{"type" => "BreadcrumbList"},
+          %{"type" => "Article", "name" => "The article's title"}
+        ]
+      }
+
+      assert Media.media_label(metadata) == "The article's title"
+    end
+  end
+
+  describe "preview_image_url/1" do
+    test "reads a cover image nested under an AS2 `image` object" do
+      metadata = %{"image" => %{"type" => "Image", "url" => "https://example.com/og.jpg"}}
+
+      assert Media.preview_image_url(%{metadata: metadata}) == "https://example.com/og.jpg"
+    end
+
+    # AS2 lets `image` be an array of Images, and returning the whole Image object (rather than its
+    # url) puts a map where every caller expects a URL string
+    test "reads a cover image out of an `image` list" do
+      metadata = %{"image" => [%{"type" => "Image", "url" => "https://example.com/og.jpg"}]}
+
+      assert Media.preview_image_url(%{metadata: metadata}) == "https://example.com/og.jpg"
+    end
+
+    # what a link Media looks like once it has been received: the whole AS2 object sits in `json_ld`, cover image included, so reading only the top-level `image` finds nothing
+    test "reads the cover image of a received AS2 object" do
+      metadata = %{
+        "json_ld" => %{
+          "type" => "Page",
+          "url" => "https://example.com/some/article",
+          "image" => %{"type" => "Image", "url" => "https://example.com/og.jpg"}
+        }
+      }
+
+      assert Media.preview_image_url(%{metadata: metadata}) == "https://example.com/og.jpg"
+    end
+
+    test "a favicon republished as the cover image is not treated as one" do
+      metadata = %{
+        "favicon" => "https://example.com/favicon.ico",
+        "other" => %{"og:image" => "https://example.com/favicon.ico"}
+      }
+
+      assert Media.preview_image_url(%{metadata: metadata}) == nil
     end
   end
 end

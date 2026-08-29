@@ -202,13 +202,14 @@ defmodule Bonfire.Files.Media do
 
   def media_label(%{metadata: metadata} = _media), do: media_label(metadata)
 
+  # NOTE: reads from `json_ld` use `ed` rather than the `e` macro: JSON-LD arrives as an array as often as a single object (`@graph`, or a page describing several entities — which is why `Files.is_research?/2` handles both), and only `ed` searches into a list for a key. `e` asks Pathex for a path, and Pathex can't index a list by a string key.
   def media_label(%{} = metadata) do
     json_ld = e(metadata, "json_ld", nil)
 
     case (e(metadata, "label", nil) || e(metadata, :label, nil) || e(metadata, "title", nil) ||
             e(metadata, "wikibase", "title", nil) ||
             e(metadata, "crossref", "title", nil) || e(metadata, "oembed", "title", nil) ||
-            e(json_ld, "name", nil) ||
+            ed(json_ld, "name", nil) ||
             ed(json_ld, "attachment", "name", nil) ||
             e(metadata, "atom", "title", nil) || e(metadata, "rss", "title", nil) ||
             e(metadata, "facebook", "title", nil) ||
@@ -224,6 +225,13 @@ defmodule Bonfire.Files.Media do
     end
   end
 
+  def media_label(_), do: nil
+
+  @doc """
+  The author-provided alt text of a media (what an image shows), which is also what AS2 puts in an attachment's `name`.
+
+  Greedy (the default) falls back to the label, since a caption still describes the media better than nothing.
+  """
   def media_alt(media, greedy? \\ true)
   def media_alt(%{metadata: metadata} = _media, greedy?), do: media_alt(metadata, greedy?)
   def media_alt(metadata, false), do: e(metadata, "alt", nil)
@@ -247,25 +255,100 @@ defmodule Bonfire.Files.Media do
 
   def description(%{metadata: metadata} = _media), do: description(metadata)
 
+  # see the NOTE on `media_label/2` for why `json_ld` is read with `ed` rather than `e`
   def description(%{} = metadata) do
     json_ld = e(metadata, "json_ld", nil)
 
-    # A user-supplied description (e.g. set via `uploadMedia`) is stored at the
-    # top level; check it before falling back to fetched OG/oEmbed metadata.
+    # A user-supplied description (e.g. set via `uploadMedia`) is stored at the top level; check it before falling back to fetched OG/oEmbed metadata.
+    # AS2 `summary` is the object's own precis, and what we send ourselves when a link Media federates as a `Page`
     (e(metadata, "description", nil) ||
-       e(json_ld, "description", "content", nil) || e(json_ld, "description", nil) ||
+       ed(json_ld, "description", "content", nil) || ed(json_ld, "description", nil) ||
+       ed(json_ld, "summary", nil) ||
        e(metadata, "facebook", "description", nil) ||
        e(metadata, "twitter", "description", nil) ||
        e(metadata, "rss", "description", nil) ||
        e(metadata, "other", "description", nil) ||
-       e(json_ld, "headline", nil) ||
+       ed(json_ld, "headline", nil) ||
        e(metadata, "oembed", "abstract", nil) ||
        e(metadata, "atom", "summary", "value", nil) ||
        e(metadata, "rss", "channel", "description", nil) ||
-       e(json_ld, "content", nil) ||
+       ed(json_ld, "content", nil) ||
        e(metadata, "atom", "content", "value", nil))
     |> unwrap()
   end
+
+  def description(_), do: nil
+
+  @doc """
+  URL of the cover image for a media, resolved from the metadata we fetched for it.
+
+  Returns nil when the only candidate is the site's favicon (see `reject_site_icon/2`).
+  """
+  def preview_image_url(media) do
+    metadata_image_url(media)
+    |> unwrap()
+    |> reject_site_icon(media)
+  end
+
+  @doc """
+  The cover image a media's metadata offers, in preference order, before `preview_image_url/1` vets it.
+
+  Callers that have their own fallback (a UI that can show the media itself) use this and vet the result themselves.
+  """
+  def metadata_image_url(%{media: %{id: _} = media}), do: metadata_image_url(media)
+
+  def metadata_image_url(%{} = media) do
+    # tile images are often good previews; OG images are sometimes nested; an AP `icon` can be one object or an array (eg. PeerTube); `json_ld` covers PeerTube videos and `preview` covers Mastodon ones
+    # `ed`, since AS2 lets `image` be an array of Images and returning the Image object rather than its url would hand back a map where a URL string is expected
+    # a received AS2 object keeps its cover under `json_ld`, since that is where the whole object is stored
+    e(media, :metadata, "oembed", "thumbnail_url", nil) ||
+      e(media, :metadata, "twitter", "image", nil) ||
+      (e(media, :metadata, "facebook", "image", "url", nil) ||
+         e(media, :metadata, "facebook", "image", nil)) ||
+      ed(media, :metadata, "image", "url", nil) ||
+      e(media, :metadata, "image", nil) ||
+      extract_ap_icon_url(ed(media, :metadata, "json_ld", "image", nil)) ||
+      extract_ap_icon_url(e(media, :metadata, "icon", nil)) ||
+      extract_ap_icon_url(ed(media, :metadata, "json_ld", "icon", nil)) ||
+      extract_ap_icon_url(e(media, :metadata, "preview", nil)) ||
+      e(media, :metadata, "other", "msapplication-TileImage", nil) ||
+      e(media, :metadata, "other", "apple-touch-icon", nil) ||
+      e(media, :metadata, "other", "og:image", nil) ||
+      e(media, :metadata, "other", "og:image:url", nil) ||
+      Bonfire.Common.Media.thumbnail_url(media)
+  end
+
+  def metadata_image_url(_), do: nil
+
+  @doc """
+  Discard a candidate cover image that is really the site's favicon.
+
+  Some sites publish their favicon as `og:image`; keeping the distinction lets link cards use the compact favicon layout rather than stretching an icon into a cover.
+  """
+  def reject_site_icon(preview, media) when is_binary(preview) do
+    favicon =
+      media
+      |> e(:metadata, "favicon", nil)
+      |> unwrap()
+
+    if preview == favicon, do: nil, else: preview
+  end
+
+  def reject_site_icon(preview, _media), do: preview
+
+  # an ActivityPub `icon` can be a single object or an array
+  defp extract_ap_icon_url(icons) when is_list(icons) do
+    # pick the largest, for the best quality thumbnail
+    icons
+    |> Enum.filter(&is_map/1)
+    |> Enum.max_by(fn icon -> (icon["width"] || 0) * (icon["height"] || 0) end, fn -> nil end)
+    |> extract_ap_icon_url()
+  end
+
+  defp extract_ap_icon_url(%{"url" => url}) when is_binary(url), do: url
+  defp extract_ap_icon_url(%{"href" => url}) when is_binary(url), do: url
+  defp extract_ap_icon_url(url) when is_binary(url), do: url
+  defp extract_ap_icon_url(_), do: nil
 
   def unwrap(list) when is_list(list) do
     List.first(list)
@@ -297,6 +380,8 @@ defmodule Bonfire.Files.Media do
       "id" => ActivityPub.Object.object_url(uid(media)),
       "type" => "Page",
       "actor" => actor.ap_id,
+      # Mastodon & co. read authorship from `attributedTo` on the object, not from `actor`
+      "attributedTo" => actor.ap_id,
       "name" => media_label_and_alt(media),
       "summary" => description(media),
       "url" => Bonfire.Common.Media.media_url(media),
@@ -306,7 +391,11 @@ defmodule Bonfire.Files.Media do
       # "inReplyTo" => Threads.ap_prepare(uid(e(media, :replied, :reply_to_id, nil)))
     }
 
-    object = Enums.maybe_put(object, "bcc", bcc)
+    object =
+      object
+      # the cover image we already resolved, so a receiver has something to render without fetching the origin
+      |> Enums.maybe_put("image", Files.ap_image_object(preview_image_url(media)))
+      |> Enums.maybe_put("bcc", bcc)
 
     params = %{
       actor: actor,
@@ -659,7 +748,8 @@ defmodule Bonfire.Files.Media do
   end
 
   def maybe_fetch_and_save(current_user, url, opts) when is_binary(url) do
-    with {:error, :not_found} <- get_by_path(url) do
+    # `get_by_url/1` rather than `get_by_path/1`: the dedup has to catch the variants a URL arrives as (tracking params, trailing slash, a previously-recorded source url) BEFORE we unfurl, or a link that already came to us with its metadata gets fetched again when the same URL shows up in the post body.
+    with {:error, :not_found} <- get_by_url(url) do
       do_maybe_fetch_and_save(current_user, url, opts)
     else
       {:ok, media} ->
