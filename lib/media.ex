@@ -659,7 +659,7 @@ defmodule Bonfire.Files.Media do
   end
 
   def maybe_fetch_and_save(current_user, url, opts) when is_binary(url) do
-    with {:error, :not_found} <- Bonfire.Files.Media.get_by_path(url) do
+    with {:error, :not_found} <- get_by_path(url) do
       do_maybe_fetch_and_save(current_user, url, opts)
     else
       {:ok, media} ->
@@ -713,9 +713,7 @@ defmodule Bonfire.Files.Media do
       nil
   end
 
-  # Resolve a (possibly relative) canonical url against the original fetched url, so a
-  # relative `<link rel="canonical" href="/path">` becomes an absolute url instead of being
-  # stored host-less. Absolute canonical urls are returned unchanged.
+  # Resolve a (possibly relative) canonical url against the original fetched url, so a relative `<link rel="canonical" href="/path">` becomes an absolute url instead of being stored host-less. Absolute canonical urls are returned unchanged.
   defp resolve_canonical_url(url, canonical) when is_binary(canonical) and canonical != "" do
     if is_binary(url) and url != "" do
       URI.merge(url, canonical) |> to_string()
@@ -729,9 +727,16 @@ defmodule Bonfire.Files.Media do
   defp resolve_canonical_url(_url, _canonical), do: nil
 
   def maybe_save(current_user, url, meta, opts \\ []) do
-    with canonical_url <- resolve_canonical_url(url, Map.get(meta, :canonical_url)),
-         # ^ note: canonical url is only set if different from original url, so we only check each unique url once. We resolve it against the original url since sites sometimes serve a relative `<link rel="canonical">` (which would otherwise be stored host-less and later rendered as `http:///path`)
-         media_type <-
+    # note: canonical url is only set if different from original url, so we only check each unique url once. We resolve it against the original url since sites sometimes serve a relative `<link rel="canonical">` (which would otherwise be stored host-less and later rendered as `http:///path`)
+    # normalize away tracking params so `?utm=…`/`?fbclid=…` variants of one page collapse to one Media
+    url = Bonfire.Common.URIs.strip_tracking_params(url)
+    canonical_url = resolve_canonical_url(url, Map.get(meta, :canonical_url))
+
+    # the canonical stays the primary `path` (the stable identity); the varying source url is recorded
+    # in `metadata["urls"]` so `get_by_url/1` can find this Media by it (when it isn't the `path`)
+    url_main_key = canonical_url || url
+
+    with media_type <-
            if(opts[:type_fn],
              do: opts[:type_fn].(meta),
              else: Files.link_type(url, meta)
@@ -746,15 +751,20 @@ defmodule Bonfire.Files.Media do
                |> Map.drop([:canonical_url])
                |> Enums.filter_empty(%{})
              )
+             # record the source url so `get_by_url/1` can find this Media by it, when it isn't already
+             # the primary `path` (the canonical) — a jsonb list, appended on later dedup-hits
+             |> maybe_put_source_url(url, url_main_key)
          },
+         # dedup by the canonical `path` (unchanged); a repeat/variant resolving the same canonical
+         # reuses this Media (and gets its url added to the list in the dedup-hit branch below)
          {{:error, :not_found}, _} <-
-           {Bonfire.Files.Media.get_by_path(
-              if opts[:update_existing] == :force, do: canonical_url || url, else: canonical_url
+           {get_by_path(
+              if(opts[:update_existing] == :force, do: url_main_key, else: canonical_url)
             ), extra},
          {:ok, media} <-
-           Bonfire.Files.Media.insert(
+           insert(
              current_user,
-             canonical_url || url,
+             url_main_key,
              %{id: opts[:id], media_type: media_type, size: 0},
              extra
            ) do
@@ -767,9 +777,12 @@ defmodule Bonfire.Files.Media do
       end
     else
       {{:ok, media}, extra} ->
-        # already exists with same canonical_url
+        # dedup-hit (same canonical): also record this source url on the existing Media, so a later
+        # lookup by it (another variant of the same article) finds it directly
+        media = maybe_append_source_url(media, url)
+
         if opts[:update_existing] do
-          media = from_ok(Bonfire.Files.Media.update(current_user, media, extra))
+          media = from_ok(update(current_user, media, extra))
 
           if opts[:update_existing] == :force and is_function(opts[:post_create_fn], 3) do
             opts[:post_create_fn].(current_user, media, opts)
@@ -794,6 +807,77 @@ defmodule Bonfire.Files.Media do
     e ->
       error(e, "Could not save the URL preview")
       nil
+  end
+
+  # record the source url in metadata["urls"] as a lookup key, unless it's already the primary `path`.
+  # the entry is slash-normalized (the list is only a lookup index) so `/post` and `/post/` collapse, while the identity `path` stays exact
+  defp maybe_put_source_url(metadata, url, path) when is_binary(url) do
+    source = Bonfire.Common.URIs.strip_trailing_slash(url)
+
+    if source == path do
+      metadata
+    else
+      Map.update(metadata, :urls, [source], fn urls -> Enum.uniq([source | List.wrap(urls)]) end)
+    end
+  end
+
+  defp maybe_put_source_url(metadata, _url, _path), do: metadata
+
+  # on a dedup-hit, add this (slash-normalized) source url to the existing Media's metadata["urls"]
+  defp maybe_append_source_url(%Media{} = media, url) when is_binary(url) do
+    source = Bonfire.Common.URIs.strip_trailing_slash(url)
+    urls = e(media.metadata, "urls", []) |> List.wrap()
+
+    if source == media.path or source in urls do
+      media
+    else
+      case update(nil, media, %{metadata: Map.put(media.metadata || %{}, "urls", [source | urls])}) do
+        {:ok, updated} -> updated
+        _ -> media
+      end
+    end
+  end
+
+  defp maybe_append_source_url(media, _url), do: media
+
+  @doc """
+  Finds a Media by a url, matching either the primary `path` (the canonical) or a source url recorded
+  in `metadata["urls"]`. Tracking params are stripped first, to match how the url was stored.
+
+  Lookup order (exact identity first, so a genuinely-distinct page always wins its own anchor and the
+  slash fallback only fires when the exact form has no anchor of its own):
+    1. `get_by_path(url)` — exact match on the stored canonical `path`
+    2. `get_by_path(strip_trailing_slash(url))` — catches a `/post`-canonical from a `/post/` lookup
+    3. `get_by_source_url(strip_trailing_slash(url))` — the slash-normalized `metadata["urls"]` index
+  """
+  def get_by_url(url) when is_binary(url) do
+    url = Bonfire.Common.URIs.strip_tracking_params(url)
+    stripped = Bonfire.Common.URIs.strip_trailing_slash(url)
+
+    with {:error, _} <- get_by_path(url),
+         {:error, _} <- maybe_get_by_stripped_path(stripped, url) do
+      get_by_source_url(stripped)
+    end
+  end
+
+  def get_by_url(_), do: {:error, :not_found}
+
+  # only worth a second path query when the slash-stripped form differs from the exact one
+  defp maybe_get_by_stripped_path(stripped, url) when stripped != url, do: get_by_path(stripped)
+  defp maybe_get_by_stripped_path(_stripped, _url), do: {:error, :not_found}
+
+  defp get_by_source_url(url) do
+    import Ecto.Query
+
+    from(m in Media,
+      where: fragment("? -> 'urls' \\? ?", m.metadata, ^url) and is_nil(m.deleted_at),
+      limit: 1
+    )
+    |> repo().one()
+    |> case do
+      %Media{} = media -> {:ok, media}
+      _ -> {:error, :not_found}
+    end
   end
 
   def get_or_add_media_by_uri(current_user, uri, to_boundary \\ nil, to_circles \\ [], opts \\ [])
