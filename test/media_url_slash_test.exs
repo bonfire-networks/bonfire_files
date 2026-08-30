@@ -62,4 +62,19 @@ defmodule Bonfire.Files.MediaUrlSlashTest do
     assert {:ok, %{id: b_id}} = Media.get_by_url("https://blog.example.com/x/")
     assert b_id == b.id
   end
+
+  test "a url recorded only in metadata[\"urls\"] is found by get_by_url/1 (the indexed predicate)" do
+    me = fake_user!()
+
+    # the canonical becomes the `path`; the differing media_uri lands only in metadata["urls"], so this
+    # drives get_by_source_url/1 — the `metadata -> 'urls' ? $1` predicate the partial GIN index serves
+    media =
+      Media.maybe_save(me, "https://blog.example.com/page?utm_x=1", %{
+        canonical_url: "https://blog.example.com/canonical"
+      })
+
+    assert media.path == "https://blog.example.com/canonical"
+    assert {:ok, %{id: id}} = Media.get_by_url("https://blog.example.com/page")
+    assert id == media.id
+  end
 end

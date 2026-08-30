@@ -108,6 +108,28 @@ defmodule Bonfire.Files.Media.Migrations do
     create_index_for_pointer(@media_table, :creator_id)
   end
 
+  @media_source_urls_index "bonfire_files_media_metadata_urls_gin_index"
+
+  @doc """
+  A partial GIN index on `metadata -> 'urls'` so `get_by_source_url/1`'s `metadata -> 'urls' ? $1` lookup uses a bitmap index scan instead of a full-table scan. Partial (`WHERE deleted_at IS NULL`) and only rows that actually carry a `urls` list contribute entries, so the index stays small.
+
+  Built `CONCURRENTLY` by default (set `DB_MIGRATE_INDEXES_CONCURRENTLY=false` to build in-transaction); the migration must set `@disable_ddl_transaction true` + `@disable_migration_lock true` for that.
+  """
+  def add_media_source_urls_index do
+    concurrently =
+      if System.get_env("DB_MIGRATE_INDEXES_CONCURRENTLY") != "false",
+        do: "CONCURRENTLY",
+        else: ""
+
+    execute(
+      "CREATE INDEX #{concurrently} IF NOT EXISTS #{@media_source_urls_index} ON #{@media_table} USING gin ((metadata -> 'urls')) WHERE deleted_at IS NULL;"
+    )
+  end
+
+  def drop_media_source_urls_index do
+    execute("DROP INDEX IF EXISTS #{@media_source_urls_index};")
+  end
+
   defp mc(:up) do
     quote do
       unquote(make_media_table([]))
