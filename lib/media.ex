@@ -595,14 +595,34 @@ defmodule Bonfire.Files.Media do
         media,
         opts
       ) do
-    Bonfire.Social.Objects.publish(
-      creator,
-      :create,
-      media,
-      opts,
-      __MODULE__
-    )
-    |> debug("published")
+    with {:ok, activity} <-
+           Bonfire.Social.Objects.publish(
+             creator,
+             :create,
+             media,
+             opts,
+             __MODULE__
+           )
+           |> debug("published") do
+      maybe_tag(creator, media, opts)
+
+      {:ok, activity}
+    end
+  end
+
+  # Media runs no epic, so `Bonfire.Tag.Acts.Tag` never sees it: without this, media carries no tags
+  # and never reaches the feed of a group it was published in, unlike a post carrying the same file.
+  # `maybe_tag/4` does both — it tags the object and auto-boosts whichever tags are categories, with
+  # the same `:tag` permission check, and is meant to be called outside an epic.
+  defp maybe_tag(creator, media, opts) do
+    tags =
+      List.wrap(opts[:tags]) ++
+        List.wrap(opts[:publish_in] || opts[:context_id])
+
+    if tags != [] do
+      Utils.maybe_apply(Bonfire.Tag, :maybe_tag, [creator, media, tags], fallback_return: nil)
+      |> debug("tagged the media")
+    end
   end
 
   defp extract_audio_url(urls) do
