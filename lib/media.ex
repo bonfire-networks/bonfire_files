@@ -369,9 +369,6 @@ defmodule Bonfire.Files.Media do
     # Address from the object's boundaries rather than assuming public. `publish/3` is only reached for an EXPLICIT publish carrying an intentional boundary (the GraphQL caller requires `to_boundary`/`to_circles`), so media that was never published is unaffected — it never federated.
     is_public = Bonfire.Boundaries.object_public?(media)
 
-    %{to: to, cc: cc, bcc: bcc} =
-      Bonfire.Federate.ActivityPub.AdapterUtils.determine_recipients(subject, media, is_public)
-
     object = %{
       # Pin the AP `id` to this instance's canonical object URL so it matches the
       # host that serves it. Without this, normalisation falls back to `url` (the
@@ -384,9 +381,8 @@ defmodule Bonfire.Files.Media do
       "attributedTo" => actor.ap_id,
       "name" => media_label_and_alt(media),
       "summary" => description(media),
-      "url" => Bonfire.Common.Media.media_url(media),
-      "to" => to,
-      "cc" => cc
+      "url" => Bonfire.Common.Media.media_url(media)
+      # addressing (`to`/`cc`/`bcc`/`audience`) is applied below, for the activity and this object together, so neither can be forgotten
       # "context" => context,
       # "inReplyTo" => Threads.ap_prepare(uid(e(media, :replied, :reply_to_id, nil)))
     }
@@ -395,16 +391,16 @@ defmodule Bonfire.Files.Media do
       object
       # the cover image we already resolved, so a receiver has something to render without fetching the origin
       |> Enums.maybe_put("image", Files.ap_image_object(preview_image_url(media)))
-      |> Enums.maybe_put("bcc", bcc)
 
-    params = %{
-      actor: actor,
-      # context: context,
-      object: object,
-      to: to,
-      additional: %{"cc" => cc} |> Enums.maybe_put("bcc", bcc),
-      pointer: uid(media)
-    }
+    params =
+      %{
+        actor: actor,
+        # context: context,
+        object: object,
+        pointer: uid(media)
+      }
+      # to/cc/bcc/audience, on the activity and the object, in one place
+      |> Bonfire.Federate.ActivityPub.AdapterUtils.put_addressing(subject, media, is_public)
 
     if verb == :edit, do: ActivityPub.update(params), else: ActivityPub.create(params)
   end
