@@ -12,6 +12,7 @@ defmodule Bonfire.Files.ImagesTest do
   alias Bonfire.Files.FileDenied
   alias Bonfire.Files.IconUploader
   alias Bonfire.Files.ImageUploader
+  alias Bonfire.Files.InstanceIconUploader
   alias Bonfire.Files.Media
 
   describe "upload" do
@@ -31,6 +32,13 @@ defmodule Bonfire.Files.ImagesTest do
         # original file untouched # TODO?
         # assert "150x150" == IconUploader.remote_url(upload, :original) |> String.slice(1, 10000) |> geometry()
       end
+    end
+
+    test "keeps instance icons large enough for high-density displays" do
+      assert {:ok, upload} = fake_upload(image_file(), InstanceIconUploader)
+      icon_path = Files.local_path(InstanceIconUploader, upload)
+
+      assert {512, 512} == Bonfire.Files.MediaEdit.dimensions(icon_path)
     end
 
     test "creates a transformed version for images" do

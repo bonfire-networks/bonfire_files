@@ -187,6 +187,10 @@ defmodule Bonfire.Files.RuntimeConfig do
       allowed_media_types: image_media_types,
       allowed_media_extensions: image_media_extensions
 
+    config :bonfire_files, Bonfire.Files.InstanceIconUploader,
+      allowed_media_types: image_media_types,
+      allowed_media_extensions: image_media_extensions
+
     config :bonfire_files, Bonfire.Files.ImageUploader,
       allowed_media_types: image_media_types,
       allowed_media_extensions: image_media_extensions,

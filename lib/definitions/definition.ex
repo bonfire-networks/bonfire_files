@@ -88,7 +88,8 @@ defmodule Bonfire.Files.Definition do
           when __MODULE__ in [
                  Bonfire.Files.ImageUploader,
                  Bonfire.Files.BannerUploader,
-                 Bonfire.Files.IconUploader
+                 Bonfire.Files.IconUploader,
+                 Bonfire.Files.InstanceIconUploader
                ] and is_binary(path) do
         %{}
         |> then(fn meta ->

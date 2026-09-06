@@ -7,6 +7,7 @@ defmodule Bonfire.Files.Web.UploadIconLive do
   prop boundary_verb, :atom, default: :edit
   prop set_field, :any, default: nil
   prop set_fn, :any, default: nil
+  prop uploader, :any, default: Bonfire.Files.IconUploader
   prop label, :string, default: nil
   prop wrapper_class, :css_class, default: ["flex items-center gap-4"]
   prop label_on_hover, :boolean, default: true
@@ -33,22 +34,25 @@ defmodule Bonfire.Files.Web.UploadIconLive do
   defp upload_error_to_string(error) when is_atom(error), do: Bonfire.Fail.get_error_msg(error)
 
   def update(assigns, socket) do
+    uploader = e(assigns, :uploader, nil) || Bonfire.Files.IconUploader
+
     {:ok,
      socket
      |> assign(
        trigger_submit: false,
-       uploaded_files: []
+       uploaded_files: [],
+       uploader: uploader
      )
      |> assign(assigns)
      |> allow_upload(:icon,
        accept:
          Config.get_ext(
            :bonfire_files,
-           [Bonfire.Files.IconUploader, :allowed_media_extensions],
+           [uploader, :allowed_media_extensions],
            ~w(.jpg .png)
          ),
        # make extensions & size configurable
-       max_file_size: Bonfire.Files.IconUploader.max_file_size(),
+       max_file_size: uploader.max_file_size(),
        max_entries: 1,
        auto_upload: true,
        progress: &handle_progress/3

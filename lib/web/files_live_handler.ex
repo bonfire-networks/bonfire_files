@@ -10,7 +10,8 @@ defmodule Bonfire.Files.LiveHandler do
   end
 
   def handle_progress(:icon = type, entry, socket) do
-    do_handle_progress(Bonfire.Files.IconUploader, type, entry, socket)
+    uploader = e(assigns(socket), :uploader, nil) || Bonfire.Files.IconUploader
+    do_handle_progress(uploader, type, entry, socket)
   end
 
   def handle_progress(:document = type, entry, socket) do
