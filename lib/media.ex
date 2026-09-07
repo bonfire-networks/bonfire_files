@@ -405,11 +405,15 @@ defmodule Bonfire.Files.Media do
     if verb == :edit, do: ActivityPub.update(params), else: ActivityPub.create(params)
   end
 
+  # `extra_opts` carries `publish_in`, the group(s) the activity was addressed to, derived once at the ingest seam. Media runs no epic, so `maybe_tag/3` is what files it as the group's.
+  def ap_receive_activity(creator, activity, object, extra_opts \\ [])
+
   # handle images from Lemmy and the like
   def ap_receive_activity(
         creator,
         activity,
-        %{data: %{"type" => "Page", "image" => %{"url" => media_url}} = object_data} = ap_object
+        %{data: %{"type" => "Page", "image" => %{"url" => media_url}} = object_data} = ap_object,
+        extra_opts
       ) do
     debug(activity, "activity")
     warn(object_data, "WIP - for lemmy 'Page' links")
@@ -426,7 +430,9 @@ defmodule Bonfire.Files.Media do
              %{json_ld: object_data},
              #  TODO: boundary should be computed like for Posts
              boundary: boundary,
-             to_circles: to_circles
+             to_circles: to_circles,
+             publish_in: extra_opts[:publish_in],
+             ap_object: ap_object
            ) do
       {:ok, activity}
     end
@@ -436,7 +442,8 @@ defmodule Bonfire.Files.Media do
   def ap_receive_activity(
         creator,
         activity,
-        %{data: %{"type" => audio_type, "url" => urls} = object_data} = ap_object
+        %{data: %{"type" => audio_type, "url" => urls} = object_data} = ap_object,
+        extra_opts
       )
       when is_in(audio_type, ["Audio", "PodcastEpisode"]) and
              (is_list(urls) or is_binary(urls) or is_map(urls)) do
@@ -456,7 +463,9 @@ defmodule Bonfire.Files.Media do
              size,
              %{json_ld: object_data},
              boundary: boundary,
-             to_circles: to_circles
+             to_circles: to_circles,
+             publish_in: extra_opts[:publish_in],
+             ap_object: ap_object
            ) do
       {:ok, activity}
     end
@@ -465,14 +474,16 @@ defmodule Bonfire.Files.Media do
   def ap_receive_activity(
         creator,
         activity,
-        %{data: %{"type" => audio_type, "audio" => %{"url" => urls}} = object_data} = ap_object
+        %{data: %{"type" => audio_type, "audio" => %{"url" => urls}} = object_data} = ap_object,
+        extra_opts
       )
       when is_in(audio_type, ["Audio", "PodcastEpisode"]) and
              (is_list(urls) or is_binary(urls) or is_map(urls)) do
     ap_receive_activity(
       creator,
       activity,
-      %{ap_object | data: Map.put(ap_object.data, "url", urls)}
+      %{ap_object | data: Map.put(ap_object.data, "url", urls)},
+      extra_opts
     )
   end
 
@@ -480,7 +491,8 @@ defmodule Bonfire.Files.Media do
   def ap_receive_activity(
         creator,
         activity,
-        %{data: %{"type" => "Video", "url" => urls} = object_data} = ap_object
+        %{data: %{"type" => "Video", "url" => urls} = object_data} = ap_object,
+        extra_opts
       )
       when is_list(urls) or is_binary(urls) or is_map(urls) do
     # debug(activity, "activity")
@@ -500,7 +512,9 @@ defmodule Bonfire.Files.Media do
              size,
              %{json_ld: object_data},
              boundary: boundary,
-             to_circles: to_circles
+             to_circles: to_circles,
+             publish_in: extra_opts[:publish_in],
+             ap_object: ap_object
            ) do
       {:ok, activity}
     end
@@ -539,7 +553,7 @@ defmodule Bonfire.Files.Media do
   #         )
   # end
 
-  def ap_receive_activity(creator, activity, %{data: %{"type" => "Page"}} = object) do
+  def ap_receive_activity(creator, activity, %{data: %{"type" => "Page"}} = object, extra_opts) do
     debug(activity, "activity")
 
     warn(
@@ -547,13 +561,19 @@ defmodule Bonfire.Files.Media do
       "WIP: could not recognise a Lemmy style image in this Page, so save as Post (possibly with Media as attachment)"
     )
 
-    maybe_apply(Bonfire.Posts, :ap_receive_activity, [creator, activity, object])
+    maybe_apply(Bonfire.Posts, :ap_receive_activity, [creator, activity, object, extra_opts])
   end
 
-  def ap_receive_activity(creator, activity, object) do
+  def ap_receive_activity(creator, activity, object, extra_opts) do
     debug(activity, "activity")
     warn(object, "WIP: could not recognise media, so save as APActivities")
-    maybe_apply(Bonfire.Social.APActivities, :ap_receive_activity, [creator, activity, object])
+
+    maybe_apply(Bonfire.Social.APActivities, :ap_receive_activity, [
+      creator,
+      activity,
+      object,
+      extra_opts
+    ])
   end
 
   def create_and_publish(
@@ -615,10 +635,14 @@ defmodule Bonfire.Files.Media do
       List.wrap(opts[:tags]) ++
         List.wrap(opts[:publish_in] || opts[:context_id])
 
-    if tags != [] do
-      Utils.maybe_apply(Bonfire.Tag, :maybe_tag, [creator, media, tags], fallback_return: nil)
-      |> debug("tagged the media")
-    end
+    # links the incoming AP object BEFORE tagging, because tagging is what auto-boosts a group, and that boost federates an `Announce` which resolves the boosted object through its AP object — see `Incoming.link_and_tag/5`
+    Utils.maybe_apply(
+      Bonfire.Federate.ActivityPub.Incoming,
+      :link_and_tag,
+      [opts[:ap_object], id(media), creator, tags],
+      fallback_return: nil
+    )
+    |> debug("linked and tagged the media")
   end
 
   defp extract_audio_url(urls) do
