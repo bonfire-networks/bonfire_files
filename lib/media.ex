@@ -391,6 +391,13 @@ defmodule Bonfire.Files.Media do
       object
       # the cover image we already resolved, so a receiver has something to render without fetching the origin
       |> Enums.maybe_put("image", Files.ap_image_object(preview_image_url(media)))
+      # who may interact, in both vocabularies at once, from the same boundary check the object is already governed by
+      |> Map.merge(
+        Bonfire.Federate.ActivityPub.AdapterUtils.ap_prepare_outgoing_interaction_policy(
+          subject,
+          media
+        )
+      )
 
     params =
       %{
