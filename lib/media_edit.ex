@@ -358,8 +358,16 @@ defmodule Bonfire.Files.MediaEdit do
       nil
   end
 
+  @doc "Whether resized images have all their metadata removed, rather than keeping the author's copyright and artist tags."
+  def strip_author_metadata? do
+    Config.get([:bonfire_files, :strip_author_metadata], true,
+      name: l("Strip author metadata"),
+      description: l("Also remove the copyright and artist tags when resizing an uploaded image")
+    )
+  end
+
   defp image_strip_metadata(image) do
-    if Config.get([:bonfire_files, :strip_author_metadata], true) do
+    if strip_author_metadata?() do
       Image.remove_metadata(image)
     else
       Image.minimize_metadata(image)
@@ -370,13 +378,22 @@ defmodule Bonfire.Files.MediaEdit do
     tmp_path = tmp_path || Waffle.File.generate_temporary_path(waffle_file.file_name)
 
     with {:ok, _} <-
-           Image.write(image, tmp_path, minimize_file_size: true, quality: image_quality())
+           Image.write(image, tmp_path, image_save_opts())
            |> debug("thumbnail_video_write") do
       {:ok, %Waffle.File{waffle_file | path: tmp_path, is_tempfile?: true}}
     else
       e ->
         error(e, "Could not save image")
         nil
+    end
+  end
+
+  # `minimize_file_size` strips every tag on save, so it is only safe when we are removing all metadata anyway: otherwise it would also throw away the copyright and artist that `image_strip_metadata/1` deliberately kept
+  defp image_save_opts do
+    if strip_author_metadata?() do
+      [minimize_file_size: true, quality: image_quality()]
+    else
+      [quality: image_quality()]
     end
   end
 
