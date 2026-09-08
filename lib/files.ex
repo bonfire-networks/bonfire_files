@@ -990,6 +990,34 @@ defmodule Bonfire.Files do
     )
   end
 
+  @doc """
+  The Media for an incoming AS2 object: its `attachment`s, with its `image`/`icon` as the primary image.
+
+  A `Video` also gets its own id unfurled. Peertube may carry nothing playable or embeddable in its AS2 (it depends on the encoding status), so the player details have to be discovered from the page rather than trusted from the attachments, which is what `Media.maybe_fetch_and_save/3` does and `ap_receive_attachments/3` deliberately does not.
+  """
+  def ap_receive_media(creator, %{} = object) do
+    attachments =
+      ap_receive_attachments(
+        creator,
+        e(object, "image", nil) || e(object, "icon", nil),
+        List.wrap(e(object, "attachment", []))
+      )
+      |> List.wrap()
+
+    attachments ++ video_oembed(creator, object)
+  end
+
+  def ap_receive_media(_creator, _object), do: []
+
+  defp video_oembed(creator, object) do
+    if "Video" in List.wrap(e(object, "type", nil)) do
+      Media.maybe_fetch_and_save(creator, e(object, "id", nil))
+      |> List.wrap()
+    else
+      []
+    end
+  end
+
   def ap_receive_attachments(creator, primary_image, attachments)
       when is_binary(primary_image) or is_map(primary_image) do
     [
