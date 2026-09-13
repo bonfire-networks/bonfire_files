@@ -693,7 +693,12 @@ defmodule Bonfire.Files do
   def extract_metadata(path) when is_binary(path) do
     with {:ok, info} <- maybe_get_metadata(path),
          {:ok, stat} <- File.stat(path) do
-      {:ok, Map.put(info, :size, stat.size)}
+      metadata =
+        info
+        |> Map.update(:media_type, nil, &Bonfire.Files.MimeTypes.normalize_type/1)
+        |> Map.put(:size, stat.size)
+
+      {:ok, metadata}
     end
   end
 

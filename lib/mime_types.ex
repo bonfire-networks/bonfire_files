@@ -1,6 +1,23 @@
 defmodule Bonfire.Files.MimeTypes do
   # TODO: how can we make these editable or at least extensible with ENV vars or in Settings UI?
 
+  @doc """
+  Normalizes detected WAV aliases so the stored type matches the upload allowlist.
+
+  Other types are left unchanged; the detector remains responsible for identifying file contents.
+
+      iex> Bonfire.Files.MimeTypes.normalize_type("audio/x-wav")
+      "audio/wav"
+
+      iex> Bonfire.Files.MimeTypes.normalize_type("audio/wav")
+      "audio/wav"
+
+      iex> Bonfire.Files.MimeTypes.normalize_type("application/octet-stream")
+      "application/octet-stream"
+  """
+  def normalize_type("audio/x-wav"), do: "audio/wav"
+  def normalize_type(media_type), do: media_type
+
   # NOTE: first extension will be considered canonical
 
   def allowed_media,

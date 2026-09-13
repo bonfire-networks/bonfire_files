@@ -40,6 +40,12 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled and
         end)
       end
 
+      field :thumbnail_url, :string do
+        resolve(fn media, _, _ ->
+          {:ok, Bonfire.Common.Media.thumbnail_url(media)}
+        end)
+      end
+
       field :label, :string do
         resolve(fn media, _, _ ->
           {:ok, Media.media_label_and_alt(media)}
