@@ -695,7 +695,7 @@ defmodule Bonfire.Files do
          {:ok, stat} <- File.stat(path) do
       metadata =
         info
-        |> Map.update(:media_type, nil, &Bonfire.Files.MimeTypes.normalize_type/1)
+        |> Map.replace_lazy(:media_type, &Bonfire.Files.MimeTypes.normalize_type/1)
         |> Map.put(:size, stat.size)
 
       {:ok, metadata}
