@@ -38,7 +38,15 @@ defmodule Bonfire.Files.MastoApi.LinkPreviewTest do
 
   test "a link card preserves uploaded image attachments", context do
     link = create_link(context.user, %{})
-    {:ok, image} = Bonfire.Files.upload(Bonfire.Files.ImageUploader, context.user, Bonfire.Files.Simulation.image_file(), %{})
+
+    {:ok, image} =
+      Bonfire.Files.upload(
+        Bonfire.Files.ImageUploader,
+        context.user,
+        Bonfire.Files.Simulation.image_file(),
+        %{}
+      )
+
     {_created, status} = publish(context, [link, image])
 
     assert status["card"]["url"] == link.path
@@ -48,16 +56,37 @@ defmodule Bonfire.Files.MastoApi.LinkPreviewTest do
 
   defp create_link(user, extra) do
     url = "https://example.org/#{Faker.UUID.v4()}"
-    {:ok, media} = Media.insert(user, url, %{media_type: "website", size: 0}, %{
-      url: url,
-      metadata: %{"content_type" => "text/html", "facebook" => Map.merge(%{"title" => "Preview title", "description" => "Preview description"}, extra)}
-    })
+
+    {:ok, media} =
+      Media.insert(user, url, %{media_type: "website", size: 0}, %{
+        url: url,
+        metadata: %{
+          "content_type" => "text/html",
+          "facebook" =>
+            Map.merge(
+              %{"title" => "Preview title", "description" => "Preview description"},
+              extra
+            )
+        }
+      })
+
     media
   end
 
   defp publish(%{user: user, api_conn: conn}, media) do
-    {:ok, post} = Bonfire.Posts.publish(current_user: user, boundary: "public", post_attrs: %{post_content: %{html_body: "Link preview regression"}, uploaded_media: media})
-    post = Bonfire.Common.Repo.preload(post, [:post_content, :media, :replied, activity: [:subject]])
+    {:ok, post} =
+      Bonfire.Posts.publish(
+        current_user: user,
+        boundary: "public",
+        post_attrs: %{
+          post_content: %{html_body: "Link preview regression"},
+          uploaded_media: media
+        }
+      )
+
+    post =
+      Bonfire.Common.Repo.preload(post, [:post_content, :media, :replied, activity: [:subject]])
+
     created = Bonfire.API.MastoCompat.Mappers.Status.from_post(post, current_user: user)
     read = conn |> get("/api/v1/statuses/#{post.id}") |> json_response(200)
     {created, read}

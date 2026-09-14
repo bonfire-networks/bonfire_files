@@ -26,7 +26,9 @@ defmodule Bonfire.Files.MastoApi.PlaybackTest do
     assert attachment["preview_url"] == attachment["url"]
   end
 
-  test "video previews use the generated image through upload and GraphQL status reads", %{api_conn: conn} do
+  test "video previews use the generated image through upload and GraphQL status reads", %{
+    api_conn: conn
+  } do
     file = Bonfire.Files.Simulation.video_file()
     upload = %Plug.Upload{path: file.path, filename: file.filename, content_type: "video/mp4"}
     media = upload_media(conn, upload)
@@ -42,9 +44,12 @@ defmodule Bonfire.Files.MastoApi.PlaybackTest do
   end
 
   test "a video without a thumbnail does not advertise its video URL as an image" do
-    attachment = Bonfire.API.MastoCompat.Mappers.MediaAttachment.from_media(%{
-      id: "remote-video", media_type: "video/mp4", url: "https://example.org/clip.mp4"
-    })
+    attachment =
+      Bonfire.API.MastoCompat.Mappers.MediaAttachment.from_media(%{
+        id: "remote-video",
+        media_type: "video/mp4",
+        url: "https://example.org/clip.mp4"
+      })
 
     assert attachment["preview_url"] == nil
   end
@@ -57,7 +62,14 @@ defmodule Bonfire.Files.MastoApi.PlaybackTest do
   end
 
   defp publish_media(conn, media) do
-    created = conn |> post("/api/v1/statuses", %{"status" => "Playback regression", "media_ids" => [media["id"]]}) |> json_response(200)
+    created =
+      conn
+      |> post("/api/v1/statuses", %{
+        "status" => "Playback regression",
+        "media_ids" => [media["id"]]
+      })
+      |> json_response(200)
+
     conn |> get("/api/v1/statuses/#{created["id"]}") |> json_response(200)
   end
 end
