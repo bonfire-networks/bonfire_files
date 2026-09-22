@@ -55,7 +55,7 @@ defmodule Bonfire.Files.Acts.URLPreviews do
                 (Map.get(epic.assigns, text_key) || epic.assigns[:options][text_key] || "")
                 |> String.split()
                 |> Enum.reject(&(&1 in urls or !module.is_pub_id_or_uri_match?(&1)))
-                # |> IO.inspect()
+                # 
                 |> Bonfire.Files.Media.maybe_fetch_and_save(current_user, ...,
                   fetch_fn: fn url, opts -> module.fetch(url, opts) end
                 )

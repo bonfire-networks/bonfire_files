@@ -41,7 +41,7 @@ defmodule Bonfire.Files.Acts.Delete do
             Bonfire.Files.Media.hard_delete(m)
           end)
 
-          # |> IO.inspect()
+          # 
 
           epic
 

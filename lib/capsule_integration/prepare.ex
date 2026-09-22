@@ -49,15 +49,15 @@ defmodule Bonfire.Files.Prepare do
 
     if definition.async() do
       definition.__versions()
-      # |> IO.inspect()
+      # 
       |> Enum.map(fn version -> async_process_version(definition, scope, version, file) end)
-      # |> IO.inspect()
+      # 
       |> Task.yield_many(timeout: process_timeout, on_timeout: :kill_task)
-      # |> IO.inspect()
+      # 
       |> ensure_all_success()
       |> Enum.map(fn result -> async_put_version(definition, scope, result) end)
       |> Task.yield_many(timeout: process_timeout, on_timeout: :kill_task)
-      # |> IO.inspect()
+      # 
       |> handle_responses()
     else
       definition.__versions()
