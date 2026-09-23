@@ -13,6 +13,16 @@ defmodule Bonfire.Files.FeedFiltersTest do
   alias Bonfire.Me.Fake
   import Bonfire.Posts.Fake
 
+  # both halves, each on its own: a key with no field is dropped by the cast, and a field with no module validates and filters nothing, and either way every test below just sees an unfiltered feed
+  test "the filters' keys are fields on FeedFilters, declared from this extension's config" do
+    assert :media_types in Bonfire.Social.FeedFilters.__schema__(:fields)
+    assert :exclude_media_types in Bonfire.Social.FeedFilters.__schema__(:fields)
+  end
+
+  test "the module that applies them is registered with the feed loader" do
+    assert Bonfire.Files.FeedFilters in Bonfire.Common.FeedFilterModule.modules()
+  end
+
   setup do
     # three fixtures, and tests paginate at 2 by default
     Process.put([:bonfire, :default_pagination_limit], 10)
