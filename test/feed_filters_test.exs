@@ -15,8 +15,14 @@ defmodule Bonfire.Files.FeedFiltersTest do
 
   # both halves, each on its own: a key with no field is dropped by the cast, and a field with no module validates and filters nothing, and either way every test below just sees an unfiltered feed
   test "the filters' keys are fields on FeedFilters, declared from this extension's config" do
-    assert :media_types in Bonfire.Social.FeedFilters.__schema__(:fields)
-    assert :exclude_media_types in Bonfire.Social.FeedFilters.__schema__(:fields)
+    fields = Bonfire.Social.FeedFilters.__schema__(:fields)
+
+    # what the config holds now against what the schema was compiled with, so a failure says which one lacks the field: the config (where it is declared) or the build (which reads it when `bonfire_social` compiles)
+    seen =
+      "config: #{inspect(Application.get_env(:bonfire_social, Bonfire.Social.FeedFilters)[:field])}, schema fields: #{inspect(fields)}"
+
+    assert :media_types in fields, seen
+    assert :exclude_media_types in fields, seen
   end
 
   test "the module that applies them is registered with the feed loader" do
