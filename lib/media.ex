@@ -851,17 +851,31 @@ defmodule Bonfire.Files.Media do
   end
 
   # Resolve a (possibly relative) canonical url against the original fetched url, so a relative `<link rel="canonical" href="/path">` becomes an absolute url instead of being stored host-less. Absolute canonical urls are returned unchanged.
-  defp resolve_canonical_url(url, canonical) when is_binary(canonical) and canonical != "" do
-    if is_binary(url) and url != "" do
-      URI.merge(url, canonical) |> to_string()
-    else
-      canonical
+  # The canonical becomes the dedup key, so junk ones are dropped (returning nil falls back to the source url): a value shared by many pages would collapse them all into one Media. Seen in prod: YouTube serving `href="undefined"` → every YouTube link showed the first video's preview.
+  defp resolve_canonical_url(url, canonical) when is_binary(url) and is_binary(canonical) do
+    canonical = String.trim(canonical)
+
+    # only absolute http(s) or path-absolute (`/path`, `//host/path`) canonicals: a bare relative token like `undefined` or `[object Object]` is a leaked JS/template value, not a real canonical
+    if String.starts_with?(canonical, "/") or String.match?(canonical, ~r{^https?://}i) do
+      source = URI.parse(url)
+      resolved = URI.merge(source, canonical)
+
+      if valid_canonical?(resolved, source), do: to_string(resolved)
     end
   rescue
-    _ -> canonical
+    _ -> nil
   end
 
   defp resolve_canonical_url(_url, _canonical), do: nil
+
+  defp valid_canonical?(%URI{host: host} = canonical, source) when is_binary(host) and host != "",
+    # a canonical pointing at the site root is an error/consent/bot-wall page, unless we fetched the root itself
+    do: not root_path?(canonical) or root_path?(source)
+
+  defp valid_canonical?(_canonical, _source), do: false
+
+  defp root_path?(%URI{path: path, query: query}),
+    do: path in [nil, "", "/"] and query in [nil, ""]
 
   def maybe_save(current_user, url, meta, opts \\ []) do
     # note: canonical url is only set if different from original url, so we only check each unique url once. We resolve it against the original url since sites sometimes serve a relative `<link rel="canonical">` (which would otherwise be stored host-less and later rendered as `http:///path`)
