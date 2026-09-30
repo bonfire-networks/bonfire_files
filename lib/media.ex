@@ -369,6 +369,9 @@ defmodule Bonfire.Files.Media do
     # Address from the object's boundaries rather than assuming public. `publish/3` is only reached for an EXPLICIT publish carrying an intentional boundary (the GraphQL caller requires `to_boundary`/`to_circles`), so media that was never published is unaffected — it never federated.
     is_public = Bonfire.Boundaries.object_public?(media)
 
+    recipients =
+      Bonfire.Federate.ActivityPub.AdapterUtils.determine_recipients(subject, media, is_public)
+
     object = %{
       # Pin the AP `id` to this instance's canonical object URL so it matches the
       # host that serves it. Without this, normalisation falls back to `url` (the
@@ -395,7 +398,8 @@ defmodule Bonfire.Files.Media do
       |> Map.merge(
         Bonfire.Federate.ActivityPub.AdapterUtils.ap_prepare_outgoing_interaction_policy(
           subject,
-          media
+          media,
+          mentioned_characters: recipients[:mentioned_characters]
         )
       )
 
@@ -407,7 +411,7 @@ defmodule Bonfire.Files.Media do
         pointer: uid(media)
       }
       # to/cc/bcc/audience, on the activity and the object, in one place
-      |> Bonfire.Federate.ActivityPub.AdapterUtils.put_addressing(subject, media, is_public)
+      |> Bonfire.Federate.ActivityPub.AdapterUtils.put_addressing(recipients)
 
     if verb == :edit, do: ActivityPub.update(params), else: ActivityPub.create(params)
   end
