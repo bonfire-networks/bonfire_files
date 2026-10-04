@@ -106,6 +106,9 @@ defmodule Bonfire.Files.FaviconStore do
   end
 
   defp fetch(url, filename, path, _opts) do
+    # doesn't exist on a fresh install, until the first favicon (or failed lookup) is stored
+    File.mkdir_p!(storage_dir())
+
     with {:ok, image} <- Faviconic.fetch(url),
          {:ok, extension} <- check_image(image),
          path <- "#{storage_dir()}/#{filename}#{extension}",

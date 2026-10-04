@@ -267,7 +267,6 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled and
         Media.get_or_add_media_by_uri(
           current_user,
           input.uri,
-          input,
           Map.get(args, :to_boundary),
           Map.get(args, :to_circles),
           update_existing: if(Map.get(args, :refetch_and_update), do: :force, else: false),

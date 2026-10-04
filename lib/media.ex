@@ -1124,6 +1124,10 @@ defmodule Bonfire.Files.Media do
       {:ok, object} when is_struct(object) ->
         {:ok, object, 200}
 
+      # refused by the instance's block/allow lists or the SSRF guard, so fetching it as a plain web page instead would get around them
+      {:error, reason} = refused when reason == :not_allowed or elem(reason, 0) == :ssrf ->
+        refused
+
       other ->
         debug(other, "AP fetch unavailable, falling back to plain HTTP fetch for unfurl")
         Unfurl.Fetcher.fetch(url, opts)

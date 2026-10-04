@@ -75,6 +75,53 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled do
       assert metadata_value(media["metadata"], "alt") == description
     end
 
+    @add_media_by_uri """
+    mutation($uri: String!) {
+      add_media_by_uri(input: {uri: $uri}) {
+        id
+      }
+    }
+    """
+
+    describe "add_media_by_uri" do
+      setup do
+        test_pid = self()
+
+        Tesla.Mock.mock(fn env ->
+          send(test_pid, {:hit, env.url})
+
+          %Tesla.Env{
+            status: 200,
+            headers: [{"content-type", "text/html"}],
+            body: "<html><head><title>Example page</title></head></html>"
+          }
+        end)
+
+        :ok
+      end
+
+      defp add_media_by_uri(uri) do
+        Absinthe.run(@add_media_by_uri, Schema,
+          variables: %{"uri" => uri},
+          context: Schema.context(%{current_user: fake_user!()})
+        )
+      end
+
+      test "adds a media item for a URI, fetching its page" do
+        {:ok, result} = add_media_by_uri("https://example.com/article")
+
+        refute result[:errors]
+        assert is_binary(get_in(result, [:data, "add_media_by_uri", "id"]))
+        assert_received {:hit, "https://example.com/article"}
+      end
+
+      test "never fetches a URI on a private address" do
+        add_media_by_uri("http://10.0.0.1/admin")
+
+        refute_received {:hit, "http://10.0.0.1" <> _}
+      end
+    end
+
     defp metadata_value(metadata, key) when is_map(metadata) do
       Enum.find_value(metadata, fn
         {^key, value} ->

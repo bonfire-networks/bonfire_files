@@ -93,23 +93,32 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled do
       description = params["description"]
       focus = params["focus"]
 
-      if is_nil(file) do
-        RestAdapter.error_fn({:error, "No file provided"}, conn)
-      else
-        metadata =
-          %{}
-          |> maybe_put("description", description)
-          |> maybe_put("label", description)
-          |> maybe_put("focus", focus)
+      cond do
+        is_nil(file) ->
+          RestAdapter.error_fn({:error, "No file provided"}, conn)
 
-        case Files.upload(nil, current_user, file, %{metadata: metadata}, []) do
-          {:ok, media} ->
-            RestAdapter.json(conn, MediaAttachment.from_media(media))
+        # the Mastodon API only takes a multipart upload: a string would otherwise be downloaded by the server if it's a URL (to any address), or read from the server's own disk if it's a path
+        not is_struct(file, Plug.Upload) ->
+          RestAdapter.error_fn(
+            {:error, {:unprocessable_entity, "file must be a multipart file upload"}},
+            conn
+          )
 
-          {:error, reason} ->
-            debug(reason, "Media upload failed")
-            RestAdapter.error_fn({:error, reason}, conn)
-        end
+        true ->
+          metadata =
+            %{}
+            |> maybe_put("description", description)
+            |> maybe_put("label", description)
+            |> maybe_put("focus", focus)
+
+          case Files.upload(nil, current_user, file, %{metadata: metadata}, []) do
+            {:ok, media} ->
+              RestAdapter.json(conn, MediaAttachment.from_media(media))
+
+            {:error, reason} ->
+              debug(reason, "Media upload failed")
+              RestAdapter.error_fn({:error, reason}, conn)
+          end
       end
     end
   end

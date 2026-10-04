@@ -3,7 +3,7 @@ defmodule Bonfire.Files.FaviconSSRFTest do
   @moduledoc """
   `GET /files/favicon?url=` is public, so it must only fetch URLs the app generated itself (signed by `FaviconStore`), must never reach a private or loopback address, and must only store real raster images.
 
-  The targets are real servers on loopback (`TestServer`): a refused fetch is proven by the server never being hit, and each refusal has a positive counterpart that fetches through the same path once its port is allowlisted. Faviconic's own tests cover redirects, icon links found in the page and the download size cap.
+  The sites here are real HTTP servers running on this machine (`TestServer`). A test that expects a fetch to be refused checks that the server never received it. Next to it, a test where the server's port is allowlisted checks that the same fetch does arrive, which shows it really would have been made. Faviconic's own tests cover redirects, icon links found in the page and the download size cap.
   """
   use Bonfire.DataCase, async: false
   @moduletag :backend
