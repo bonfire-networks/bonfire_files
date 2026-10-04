@@ -1,17 +1,24 @@
 defmodule Bonfire.Files.Web.FaviconFetchController do
   use Bonfire.UI.Common.Web, :controller
 
-  def call(%{params: %{"url" => url}} = conn, _params) do
+  alias Bonfire.Files.FaviconStore
+
+  # a public route, so it only fetches URLs the app signed itself (see `FaviconStore.sign/1`)
+  def call(%{params: %{"url" => url} = params} = conn, _params) do
     debug(url)
 
-    with {:ok, path} <- Bonfire.Files.FaviconStore.cached_or_fetch(url) do
-      conn
-      |> redirect_to(path)
-    else
-      e ->
-        error(e)
+    if FaviconStore.valid_signature?(url, params["sig"]) do
+      with {:ok, path} <- FaviconStore.cached_or_fetch(url) do
+        conn
+        |> redirect_to(path)
+      else
+        e ->
+          error(e)
 
-        Plug.Conn.send_resp(conn, 404, "")
+          Plug.Conn.send_resp(conn, 404, "")
+      end
+    else
+      Plug.Conn.send_resp(conn, 403, "")
     end
   end
 

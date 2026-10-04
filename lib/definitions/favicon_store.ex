@@ -6,7 +6,9 @@ defmodule Bonfire.Files.FaviconStore do
 
   # use Bonfire.Files.Definition # NOTE: not using entrepot to keep it simple and store files on disk for now
 
+  use Bonfire.Common.Config
   alias Bonfire.Common.Text
+  alias Bonfire.Files
   import Untangle
 
   def favicon_url(url, opts \\ [])
@@ -35,9 +37,8 @@ defmodule Bonfire.Files.FaviconStore do
 
     if host && host != "" do
       filename = Text.hash(host, algorithm: :sha)
-      path = "#{storage_dir()}/#{filename}"
 
-      if File.exists?(path) do
+      if path = cached_path(filename) do
         debug(host, "favicon already cached :)")
         {:ok, "/" <> path}
       else
@@ -46,12 +47,33 @@ defmodule Bonfire.Files.FaviconStore do
           nil
         else
           debug(host, "first time, return URL to FaviconController to try fetching it async")
-          {:ok, "/files/favicon?url=#{url}"}
+          {:ok, "/files/favicon?" <> URI.encode_query(%{"url" => url, "sig" => sign(url)})}
         end
       end
     else
       {:error, "Invalid URL"}
     end
+  end
+
+  @doc """
+  Signs a favicon URL, so `FaviconFetchController` (a public route) only fetches URLs the app generated itself. Deterministic, so the same link stays cacheable across page renders.
+  """
+  def sign(url) when is_binary(url) do
+    :crypto.mac(:hmac, :sha256, secret_key_base(), "favicon:" <> url)
+    |> Base.url_encode64(padding: false)
+  end
+
+  def valid_signature?(url, sig) when is_binary(url) and is_binary(sig),
+    do: Plug.Crypto.secure_compare(sign(url), sig)
+
+  def valid_signature?(_, _), do: false
+
+  defp secret_key_base, do: Bonfire.Common.Config.endpoint_module().config(:secret_key_base)
+
+  # SVGs are stored with their extension so they're served as `image/svg+xml` (sandboxed by the CSP on `/data/uploads/`), raster images without one
+  defp cached_path(filename) do
+    path = "#{storage_dir()}/#{filename}"
+    Enum.find([path, path <> ".svg"], &File.exists?/1)
   end
 
   def cached_or_fetch(url, opts \\ [])
@@ -64,9 +86,9 @@ defmodule Bonfire.Files.FaviconStore do
       filename = Text.hash(host, algorithm: :sha)
       path = "#{storage_dir()}/#{filename}"
 
-      if File.exists?(path) do
+      if cached = cached_path(filename) do
         debug(host, "favicon already cached :)")
-        {:ok, "/" <> path}
+        {:ok, "/" <> cached}
       else
         path_if_none = "#{path}_none"
 
@@ -85,7 +107,8 @@ defmodule Bonfire.Files.FaviconStore do
 
   defp fetch(url, filename, path, _opts) do
     with {:ok, image} <- Faviconic.fetch(url),
-         path <- "#{storage_dir()}/#{filename}",
+         {:ok, extension} <- check_image(image),
+         path <- "#{storage_dir()}/#{filename}#{extension}",
          #  {:ok, filename} <- store(%{filename: filename, binary: image}),
          :ok <- File.write(path, image) do
       # Files.data_url(image, meta.media_type)
@@ -96,6 +119,16 @@ defmodule Bonfire.Files.FaviconStore do
         e
     end
     |> debug()
+  end
+
+  # Faviconic only checks the Content-Type the remote server declares, so check the bytes themselves before storing them on our origin. Returns the file extension to store with.
+  defp check_image(image) do
+    with true <- byte_size(image) <= max_file_size() || {:error, :too_large},
+         {:ok, %{media_type: type}} when is_binary(type) <- TwinkleStar.from_bytes(image),
+         type = Bonfire.Files.MimeTypes.normalize_type(type),
+         true <- type in allowed_media_types() || {:error, {:unsupported_media_type, type}} do
+      {:ok, if(type == "image/svg+xml", do: ".svg", else: "")}
+    end
   end
 
   def storage_dir(_ \\ nil, _ \\ nil) do
