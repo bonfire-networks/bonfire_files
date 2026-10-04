@@ -26,7 +26,7 @@ defmodule Bonfire.Files.MastoApi.PlaybackTest do
     assert attachment["preview_url"] == attachment["url"]
   end
 
-  @tag :skip_ci
+  @tag Bonfire.Common.RuntimeConfig.skip_in_ci()
   test "video previews use the generated image through upload and GraphQL status reads", %{
     api_conn: conn
   } do
