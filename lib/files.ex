@@ -1025,12 +1025,21 @@ defmodule Bonfire.Files do
 
   def ap_receive_attachments(creator, primary_image, attachments)
       when is_binary(primary_image) or is_map(primary_image) do
-    [
-      ap_receive_attachments(creator, true, primary_image),
-      ap_receive_attachments(creator, false, attachments)
-    ]
-    |> List.flatten()
-    |> Enums.filter_empty([])
+    attachments = List.wrap(attachments)
+
+    if Enum.any?(attachments, &link_attachment?/1) do
+      # a thumbnail sent beside a link is that link's preview, not a picture of its own: Lemmy sends a link post's that way. Kept as the FEP-8967 `preview.image`, which a card shows when our own unfurl finds no image
+      attachments
+      |> Enum.map(&maybe_put_link_preview_image(&1, primary_image))
+      |> then(&ap_receive_attachments(creator, false, &1))
+    else
+      [
+        ap_receive_attachments(creator, true, primary_image),
+        ap_receive_attachments(creator, false, attachments)
+      ]
+      |> List.flatten()
+      |> Enums.filter_empty([])
+    end
   end
 
   def ap_receive_attachments(creator, primary_image?, attachments) when is_list(attachments),
@@ -1100,7 +1109,20 @@ defmodule Bonfire.Files do
         else: definition_module(%{media_type: type})
       )
 
-    with module when is_atom(module) and not is_nil(module) <- module,
+    metadata =
+      attachment
+      |> Map.drop(["name", "summary", "type", "mediaType", "href", "url"])
+      |> ap_attachment_name(attachment)
+      |> Enums.maybe_put(:primary_image, primary_image?)
+      |> Enums.maybe_put(:source_type, "activitypub")
+
+    #  |> Enums.maybe_put(:duration, attachment["duration"])
+    #  |> Enums.maybe_put(:width, attachment["width"])
+    #  |> Enums.maybe_put(:height, attachment["height"])
+    #  |> Enums.maybe_put(:blurhash, attachment["blurhash"])
+
+    with nil <- maybe_unfurl_link_attachment(creator, url, attachment, metadata),
+         module when is_atom(module) and not is_nil(module) <- module,
          {:ok, uploaded} <-
            save_url_as_media(
              creator,
@@ -1108,22 +1130,16 @@ defmodule Bonfire.Files do
              %{
                media_type: type,
                client_name: url,
-               metadata:
-                 attachment
-                 |> Map.drop(["name", "summary", "type", "mediaType", "href", "url"])
-                 |> ap_attachment_name(attachment)
-                 |> Enums.maybe_put(:primary_image, primary_image?)
-                 |> Enums.maybe_put(:source_type, "activitypub")
-               #  |> Enums.maybe_put(:duration, attachment["duration"])
-               #  |> Enums.maybe_put(:width, attachment["width"])
-               #  |> Enums.maybe_put(:height, attachment["height"])
-               #  |> Enums.maybe_put(:blurhash, attachment["blurhash"])
+               metadata: metadata
              },
              module
            )
            |> debug("added attachment") do
       uploaded
     else
+      %Media{} = unfurled ->
+        unfurled
+
       list when is_list(list) ->
         list
         |> Enum.map(fn
@@ -1150,6 +1166,44 @@ defmodule Bonfire.Files do
     error(attachment, "Dunno how to handle this")
     nil
   end
+
+  @doc "Whether an AS2 attachment is a link, which FEP-8967 says to show as an attached link card rather than a file."
+  def link_attachment?(%{"type" => "Link"}), do: true
+  def link_attachment?(_), do: false
+
+  @doc "Whether a link attachment came with text of its own: a `name`, or a FEP-8967 `preview` with a `name` or `summary`. A link that has text is shown with it rather than unfurled."
+  def link_text?(attachment) do
+    Enum.any?(
+      [
+        e(attachment, "name", nil),
+        e(attachment, "preview", "name", nil),
+        e(attachment, "preview", "summary", nil)
+      ],
+      &(is_binary(&1) and String.trim(&1) != "")
+    )
+  end
+
+  defp maybe_put_link_preview_image(%{"type" => "Link"} = attachment, image) do
+    Map.update(attachment, "preview", %{"image" => image}, fn
+      %{} = preview -> Map.put_new(preview, "image", image)
+      other -> other
+    end)
+  end
+
+  defp maybe_put_link_preview_image(attachment, _image), do: attachment
+
+  # a link that came with no text gets our own preview, with what was sent (eg. the thumbnail in `preview`) kept under it as the fallback. Returns nil when there's nothing to unfurl or the unfurl found nothing, so the caller saves the bare link instead
+  defp maybe_unfurl_link_attachment(creator, url, %{"type" => "Link"} = attachment, metadata)
+       when is_binary(url) do
+    if not link_text?(attachment) do
+      case Media.maybe_fetch_and_save(creator, url, extra: metadata) do
+        %Media{} = media -> media
+        _ -> nil
+      end
+    end
+  end
+
+  defp maybe_unfurl_link_attachment(_creator, _url, _attachment, _metadata), do: nil
 
   # AS2 gives an attachment one `name`, but it means different things by type: on a `Link` (a link preview) it titles the linked page, while on media it describes what the media shows, which is what Mastodon & co. put in their alt text field. Keeping the two apart is what makes remote alt text usable as alt text.
   defp ap_attachment_name(metadata, %{"type" => "Link"} = attachment) do

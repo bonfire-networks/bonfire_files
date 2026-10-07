@@ -419,6 +419,66 @@ defmodule Bonfire.Files.Media do
   # `extra_opts` carries `publish_in`, the group(s) the activity was addressed to, derived once at the ingest seam. Media runs no epic, so `maybe_tag/3` is what files it as the group's.
   def ap_receive_activity(creator, activity, object, extra_opts \\ [])
 
+  # A threadiverse LINK post with no comment of its own is the link: a `Media` whose path is the `Link`'s href. Lemmy also sends the link's thumbnail in `image`, which is kept in `json_ld` as the card's fallback image, rather than becoming the media itself (that showed a link post as a picture, losing the link). Never shared with another post linking the same page, since this media is the post, with its own title and replies.
+  # Matched by pattern, so only a `Link` that is the FIRST attachment: one further down the list gets the image or post handling below instead. Every implementation we have captures of (Lemmy, PieFed, Mbin) sends a link post's `Link` alone.
+  def ap_receive_activity(
+        creator,
+        activity,
+        %{
+          data:
+            %{"type" => "Page", "attachment" => [%{"type" => "Link"} = link | _]} = object_data
+        } =
+          ap_object,
+        extra_opts
+      )
+      when not is_map_key(object_data, "content") or
+             :erlang.map_get("content", object_data) in [nil, ""] do
+    href =
+      e(link, "href", nil) ||
+        link
+        |> Map.get("url")
+        |> List.wrap()
+        |> Enum.find_value(fn
+          %{"href" => href} -> href
+          href when is_binary(href) -> href
+          _ -> nil
+        end)
+
+    # our own preview, unless the link came with text of its own (FEP-8967 `preview`)
+    unfurled =
+      with false <- Files.link_text?(link),
+           {:ok, %{} = meta} when not is_struct(meta) <- unfurl(href) do
+        Map.drop(meta, [:canonical_url])
+      else
+        _ -> %{}
+      end
+
+    {boundary, to_circles} =
+      Bonfire.Federate.ActivityPub.AdapterUtils.incoming_boundary_circles(activity, ap_object)
+
+    create_and_publish(
+      creator,
+      href || object_data["id"],
+      link["mediaType"] || "text/html",
+      0,
+      Map.put(unfurled, :json_ld, object_data),
+      boundary: boundary,
+      to_circles: to_circles,
+      publish_in: extra_opts[:publish_in],
+      ap_object: ap_object
+    )
+  end
+
+  # a link post WITH a comment is a post: its title, the comment as the body, and the link attached (`Bonfire.Files.ap_receive_attachments/3` makes the thumbnail the link's fallback preview)
+  def ap_receive_activity(
+        creator,
+        activity,
+        %{data: %{"type" => "Page", "attachment" => [%{"type" => "Link"} | _]}} = object,
+        extra_opts
+      ) do
+    maybe_apply(Bonfire.Posts, :ap_receive_activity, [creator, activity, object, extra_opts])
+  end
+
   # handle images from Lemmy and the like
   def ap_receive_activity(
         creator,
@@ -817,7 +877,8 @@ defmodule Bonfire.Files.Media do
     end
   end
 
-  defp do_maybe_fetch_and_save(current_user, url, opts) do
+  @doc "Fetches a URL's preview metadata (OpenGraph, oEmbed, or the AP object it serves) without saving anything. Unfurl gives up on a slow site after a few seconds."
+  def unfurl(url, opts \\ []) do
     # Pass our AP-aware fetch function to unfurl so it runs in parallel with oembed
     pid = self()
     instance_meta = Bonfire.Common.TestInstanceRepo.get_parent_instance_meta()
@@ -830,6 +891,18 @@ defmodule Bonfire.Files.Media do
       end)
 
     if(opts[:fetch_fn], do: opts[:fetch_fn].(url, opts), else: Unfurl.unfurl(url, opts))
+  catch
+    e ->
+      # workaround for badly-parsed webpages in non-UTF8 encodings
+      error(e, "Could not fetch the URL preview")
+  rescue
+    e ->
+      # a failed preview must never fail what asked for it; `err/2` raises in `:test`, so the underlying bug still fails the suite
+      err(e, "Could not fetch the URL preview")
+  end
+
+  defp do_maybe_fetch_and_save(current_user, url, opts) do
+    unfurl(url, opts)
     |> case do
       {:ok, object} when is_struct(object) ->
         # eg. we got a quoted AP object
