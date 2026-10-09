@@ -19,7 +19,7 @@
         />
 
         {#for entry <- @uploads.icon.entries}
-          <div class="absolute inset-0 bg-base-100 bg-opacity-75 flex items-center justify-center">
+          <div class="absolute inset-0 bg-base-100/75 flex items-center justify-center">
             <div class="text-center">
               <div class="loading loading-spinner loading-md" />
               <div class="text-sm mt-2">{entry.progress}%</div>
@@ -76,7 +76,7 @@
   {#if !@label_on_hover}
     <label
       for={@uploads.icon.ref}
-      class="normal-case btn btn-sm !border !border-secondary btn-outline"
+      class="normal-case btn btn-sm !border !border-divider btn-outline"
     >
       {l("Upload")}
     </label>

@@ -64,7 +64,7 @@
   </Form>
 
   {#if not is_nil(@existing_emoji)}
-    <div class="p-4 border-t border-secondary">
+    <div class="p-4 border-t border-divider">
       <h2 class="mb-4 text-sm uppercase text-muted font-bold">{l("Existing custom emoji")}</h2>
       <div class="flex flex-col gap-4">
         {#for {shortcode, %{} = meta} <- @existing_emoji}

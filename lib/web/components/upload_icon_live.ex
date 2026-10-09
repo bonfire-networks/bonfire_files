@@ -19,7 +19,7 @@ defmodule Bonfire.Files.Web.UploadIconLive do
 
   prop label_class, :css_class,
     default: [
-      "absolute inset-0 flex items-center justify-center w-full h-full text-sm font-medium text-center text-white transition duration-150 ease-in-out opacity-0 cursor-pointer hover:bg-black bg-base-100 bg-opacity-40 hover:opacity-60 focus-within:opacity-60"
+      "absolute inset-0 flex items-center justify-center w-full h-full text-sm font-medium text-center text-white transition duration-150 ease-in-out opacity-0 cursor-pointer hover:bg-black/40 bg-base-100/40 hover:opacity-60 focus-within:opacity-60"
     ]
 
   prop class, :css_class, default: nil
