@@ -14,7 +14,7 @@ defmodule Bonfire.Files.Web.UploadIconLive do
 
   prop container_class, :css_class,
     default: [
-      "relative flex-shrink-0 block w-24 h-24 overflow-hidden rounded-md ring-4 ring-base-300"
+      "relative flex-shrink-0 block size-24 overflow-hidden rounded-md ring-4 ring-base-300"
     ]
 
   prop label_class, :css_class,

@@ -4,7 +4,7 @@
       <div class="p-4 mb-0 rounded-md bg-info/10">
         <div class="flex">
           <div class="flex-shrink-0">
-            <div iconify="ph:info-duotone" class="w-5 h-5 text-info" aria-hidden="true" />
+            <div iconify="ph:info-duotone" class="size-5 text-info" aria-hidden="true" />
           </div>
           <div class="flex-1 ml-3 md:flex md:justify-between">
             <p class="text-sm text-info">{@description}</p>
@@ -13,7 +13,7 @@
       </div>
 
       <div class="flex mt-5  items-start gap-6">
-        <span class="w-12 h-12 shrink-0  rounded-full flex place-content-center items-center bg-info/10">
+        <span class="size-12 shrink-0  rounded-full flex place-content-center items-center bg-info/10">
           <b>1</b>
         </span>
         <div id="emoji_label_input" class="flex flex-col gap-1 w-full" phx-update="ignore">
@@ -28,7 +28,7 @@
       </div>
 
       <div class="flex mt-5  items-start gap-6">
-        <span class="w-12 h-12 shrink-0  rounded-full flex place-content-center items-center bg-info/10">
+        <span class="size-12 shrink-0  rounded-full flex place-content-center items-center bg-info/10">
           <b>2</b>
         </span>
         <div id="emoji_shortcode_input" class="flex flex-col gap-1 w-full" phx-update="ignore">
@@ -43,7 +43,7 @@
       </div>
 
       <div class="mt-10 flex items-start gap-6">
-        <span class="w-12 h-12 shrink-0 rounded-full flex place-content-center items-center bg-info/10">
+        <span class="size-12 shrink-0 rounded-full flex place-content-center items-center bg-info/10">
           <b>3</b>
         </span>
         <div class="flex flex-col gap-1">
@@ -72,7 +72,7 @@
             <div class="flex items-center gap-3 min-w-0 flex-1">
               <img
                 src={e(meta, :url, nil)}
-                class="w-7 h-7 rounded bg-base-300 object-contain"
+                class="size-7 rounded bg-base-300 object-contain"
                 alt={e(meta, :label, nil)}
               />
               <code class="font-mono text-base-content font-bold">{shortcode}</code>
