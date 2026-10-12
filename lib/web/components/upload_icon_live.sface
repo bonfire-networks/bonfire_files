@@ -74,10 +74,7 @@
   </div>
 
   {#if !@label_on_hover}
-    <label
-      for={@uploads.icon.ref}
-      class="normal-case btn btn-sm !border !border-divider btn-outline"
-    >
+    <label for={@uploads.icon.ref} class="normal-case btn btn-sm !border !border-divider btn-outline">
       {l("Upload")}
     </label>
   {/if}
