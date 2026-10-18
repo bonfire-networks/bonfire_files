@@ -1097,10 +1097,14 @@ defmodule Bonfire.Files.Media do
   defp get_by_source_url(url) do
     import Ecto.Query
 
-    from(m in Media,
-      where: fragment("? -> 'urls' \\? ?", m.metadata, ^url) and is_nil(m.deleted_at),
-      limit: 1
-    )
+    # the filter is planned on its own (`offset: 0` stops Postgres folding the subquery into the outer `limit`), so it uses the GIN index whatever the table's statistics say. Folded in, the planner expects a match within the first few rows and picks a sequential scan, which for a url nobody has posted before (no match at all) reads and unpacks every row's metadata: on a large table that was never analyzed, link previews timed out and took the post with them
+    matching =
+      from(m in Media,
+        where: fragment("? -> 'urls' \\? ?", m.metadata, ^url) and is_nil(m.deleted_at),
+        offset: 0
+      )
+
+    from(m in subquery(matching), limit: 1)
     |> repo().one()
     |> case do
       %Media{} = media -> {:ok, media}
