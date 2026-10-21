@@ -840,8 +840,10 @@ defmodule Bonfire.Files do
   Add an object's media to the AS2 object being prepared for it: the primary image as `image`, and the rest as `attachment` (the media we host first, then the link previews we resolved).
 
   Appends to `attachment` rather than replacing it, so an object type that puts its own attachments there keeps them.
+
+  Given the `:audience` the object is addressed to (the group's id, from `AdapterUtils.determine_recipients/4`), it also makes a titled thread starter in that group a `Page`, since the types `Page`, `Article` and `Video` are what Mbin files as a thread, where a `Note` becomes a microblog post whatever its `name`. That is the outgoing side of how `Bonfire.Files.Media` takes an incoming `Page` in. Replies, untitled objects and objects with no `:audience` keep their type.
   """
-  def ap_merge_media(object, media) do
+  def ap_merge_media(object, media, opts \\ []) do
     %{primary_image: primary_image, images: images, links: links} = split_media_by_type(media)
 
     object
@@ -851,6 +853,13 @@ defmodule Bonfire.Files do
       (List.wrap(object["attachment"]) ++ ap_publish_activity(images) ++ ap_publish_link(links))
       |> Enums.filter_empty(nil)
     )
+    |> ap_thread_starter_as_page(opts[:audience])
+  end
+
+  defp ap_thread_starter_as_page(object, audience) do
+    if not is_nil(audience) and object["name"] not in [nil, ""] and is_nil(object["inReplyTo"]),
+      do: Map.put(object, "type", "Page"),
+      else: object
   end
 
   # NOTE: AS2 gives an attachment a single `name`, which Mastodon & co. read as the image description, so `Media.media_alt/1` puts the author's alt text there, falling back to the label (a caption, or the original filename) for media that never got alt text.
