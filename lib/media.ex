@@ -336,19 +336,26 @@ defmodule Bonfire.Files.Media do
 
   def reject_site_icon(preview, _media), do: preview
 
-  # an ActivityPub `icon` can be a single object or an array
-  defp extract_ap_icon_url(icons) when is_list(icons) do
-    # pick the largest, for the best quality thumbnail
+  @doc """
+  Resolve an ActivityStreams image value (an actor's `icon` or `image`, a preview, ...) to one URL string, or `nil`.
+
+  AS2 lets the value be a URL string, an Image or Link object, or a list of them, and lets an object's `url` be a string, a Link object (with an `href`) or a list too. A list resolves to its largest entry, for the best quality thumbnail.
+  """
+  def extract_ap_icon_url(icons) when is_list(icons) do
     icons
-    |> Enum.filter(&is_map/1)
-    |> Enum.max_by(fn icon -> (icon["width"] || 0) * (icon["height"] || 0) end, fn -> nil end)
+    |> Enum.filter(&(is_map(&1) or is_binary(&1)))
+    |> Enum.max_by(&ap_image_area/1, fn -> nil end)
     |> extract_ap_icon_url()
   end
 
-  defp extract_ap_icon_url(%{"url" => url}) when is_binary(url), do: url
-  defp extract_ap_icon_url(%{"href" => url}) when is_binary(url), do: url
-  defp extract_ap_icon_url(url) when is_binary(url), do: url
-  defp extract_ap_icon_url(_), do: nil
+  def extract_ap_icon_url(%{} = icon),
+    do: extract_ap_icon_url(Map.get(icon, "url")) || extract_ap_icon_url(Map.get(icon, "href"))
+
+  def extract_ap_icon_url(url) when is_binary(url), do: url
+  def extract_ap_icon_url(_), do: nil
+
+  defp ap_image_area(%{} = icon), do: (icon["width"] || 0) * (icon["height"] || 0)
+  defp ap_image_area(_url), do: 0
 
   def unwrap(list) when is_list(list) do
     List.first(list)
