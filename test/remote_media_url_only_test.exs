@@ -29,7 +29,8 @@ defmodule Bonfire.Files.RemoteMediaUrlOnlyTest do
     do: [@local, "file://" <> @local, Path.relative_to_cwd(@local), "../../../.." <> @local]
 
   test "an attachment with a remote url becomes media", %{me: me} do
-    assert [%Media{path: @remote}] = Files.ap_receive_attachments(me, false, [attachment(@remote)])
+    assert [%Media{path: @remote}] =
+             Files.ap_receive_attachments(me, false, [attachment(@remote)])
   end
 
   test "an attachment whose url is a path on this server is refused", %{me: me} do

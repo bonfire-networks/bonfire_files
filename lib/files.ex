@@ -998,7 +998,8 @@ defmodule Bonfire.Files do
   @doc "Create or retrieve a Media record for a remote URL without downloading the file. Anything but an `http(s)` URL is refused, since `upload/5` would read it as a path on this server, and this is what remote data (an incoming object's attachments, a remote actor's icon) goes through."
   def save_url_as_media(creator, url, attrs \\ %{}, module \\ nil) when is_binary(url) do
     case URI.parse(url) do
-      %URI{scheme: scheme, host: host} when scheme in ["http", "https"] and host not in [nil, ""] ->
+      %URI{scheme: scheme, host: host}
+      when scheme in ["http", "https"] and host not in [nil, ""] ->
         module = module || definition_module(nil, attrs)
 
         upload(module, creator, url, Map.put_new(attrs, :client_name, url),
