@@ -426,20 +426,40 @@ defmodule Bonfire.Files.Media do
   # `extra_opts` carries `publish_in`, the group(s) the activity was addressed to, derived once at the ingest seam. Media runs no epic, so `maybe_tag/3` is what files it as the group's.
   def ap_receive_activity(creator, activity, object, extra_opts \\ [])
 
-  # A threadiverse LINK post with no comment of its own is the link: a `Media` whose path is the `Link`'s href. Lemmy also sends the link's thumbnail in `image`, which is kept in `json_ld` as the card's fallback image, rather than becoming the media itself (that showed a link post as a picture, losing the link). Never shared with another post linking the same page, since this media is the post, with its own title and replies.
-  # Matched by pattern, so only a `Link` that is the FIRST attachment: one further down the list gets the image or post handling below instead. Every implementation we have captures of (Lemmy, PieFed, Mbin) sends a link post's `Link` alone.
+  # an `Update` of something we hold as a media (eg. PeerTube's, sent each time a video gets views): what we keep of it is updated, rather than another made. What it points to may be something else a type we take became (a post, from a `Page` with text), handled as any other
   def ap_receive_activity(
         creator,
-        activity,
-        %{
-          data:
-            %{"type" => "Page", "attachment" => [%{"type" => "Link"} = link | _]} = object_data
-        } =
-          ap_object,
+        %{data: %{"type" => "Update"}} = activity,
+        %{pointer_id: pointer_id, data: %{} = object_data} = object,
         extra_opts
       )
-      when not is_map_key(object_data, "content") or
-             :erlang.map_get("content", object_data) in [nil, ""] do
+      when is_binary(pointer_id) do
+    case one(id: pointer_id) do
+      {:ok, media} ->
+        update(media, %{metadata: Map.put(media.metadata || %{}, "json_ld", object_data)})
+
+      _not_a_media ->
+        receive_object(creator, activity, object, extra_opts)
+    end
+  end
+
+  def ap_receive_activity(creator, activity, object, extra_opts),
+    do: receive_object(creator, activity, object, extra_opts)
+
+  # A threadiverse LINK post with no comment of its own is the link: a `Media` whose path is the `Link`'s href. Lemmy also sends the link's thumbnail in `image`, which is kept in `json_ld` as the card's fallback image, rather than becoming the media itself (that showed a link post as a picture, losing the link). Never shared with another post linking the same page, since this media is the post, with its own title and replies.
+  # Matched by pattern, so only a `Link` that is the FIRST attachment: one further down the list gets the image or post handling below instead. Every implementation we have captures of (Lemmy, PieFed, Mbin) sends a link post's `Link` alone.
+  defp receive_object(
+         creator,
+         activity,
+         %{
+           data:
+             %{"type" => "Page", "attachment" => [%{"type" => "Link"} = link | _]} = object_data
+         } =
+           ap_object,
+         extra_opts
+       )
+       when not is_map_key(object_data, "content") or
+              :erlang.map_get("content", object_data) in [nil, ""] do
     href =
       e(link, "href", nil) ||
         link
@@ -477,22 +497,22 @@ defmodule Bonfire.Files.Media do
   end
 
   # a link post WITH a comment is a post: its title, the comment as the body, and the link attached (`Bonfire.Files.ap_receive_attachments/3` makes the thumbnail the link's fallback preview)
-  def ap_receive_activity(
-        creator,
-        activity,
-        %{data: %{"type" => "Page", "attachment" => [%{"type" => "Link"} | _]}} = object,
-        extra_opts
-      ) do
+  defp receive_object(
+         creator,
+         activity,
+         %{data: %{"type" => "Page", "attachment" => [%{"type" => "Link"} | _]}} = object,
+         extra_opts
+       ) do
     maybe_apply(Bonfire.Posts, :ap_receive_activity, [creator, activity, object, extra_opts])
   end
 
   # handle images from Lemmy and the like
-  def ap_receive_activity(
-        creator,
-        activity,
-        %{data: %{"type" => "Page", "image" => %{"url" => media_url}} = object_data} = ap_object,
-        extra_opts
-      ) do
+  defp receive_object(
+         creator,
+         activity,
+         %{data: %{"type" => "Page", "image" => %{"url" => media_url}} = object_data} = ap_object,
+         extra_opts
+       ) do
     debug(activity, "activity")
     warn(object_data, "WIP - for lemmy 'Page' links")
 
@@ -517,14 +537,14 @@ defmodule Bonfire.Files.Media do
   end
 
   # handle Audio from Funkwhale, etc
-  def ap_receive_activity(
-        creator,
-        activity,
-        %{data: %{"type" => audio_type, "url" => urls} = object_data} = ap_object,
-        extra_opts
-      )
-      when is_in(audio_type, ["Audio", "PodcastEpisode"]) and
-             (is_list(urls) or is_binary(urls) or is_map(urls)) do
+  defp receive_object(
+         creator,
+         activity,
+         %{data: %{"type" => audio_type, "url" => urls} = object_data} = ap_object,
+         extra_opts
+       )
+       when is_in(audio_type, ["Audio", "PodcastEpisode"]) and
+              (is_list(urls) or is_binary(urls) or is_map(urls)) do
     # debug(activity, "activity")
     debug(object_data, "Funkwhale audio")
 
@@ -549,15 +569,15 @@ defmodule Bonfire.Files.Media do
     end
   end
 
-  def ap_receive_activity(
-        creator,
-        activity,
-        %{data: %{"type" => audio_type, "audio" => %{"url" => urls}} = object_data} = ap_object,
-        extra_opts
-      )
-      when is_in(audio_type, ["Audio", "PodcastEpisode"]) and
-             (is_list(urls) or is_binary(urls) or is_map(urls)) do
-    ap_receive_activity(
+  defp receive_object(
+         creator,
+         activity,
+         %{data: %{"type" => audio_type, "audio" => %{"url" => urls}} = object_data} = ap_object,
+         extra_opts
+       )
+       when is_in(audio_type, ["Audio", "PodcastEpisode"]) and
+              (is_list(urls) or is_binary(urls) or is_map(urls)) do
+    receive_object(
       creator,
       activity,
       %{ap_object | data: Map.put(ap_object.data, "url", urls)},
@@ -566,13 +586,13 @@ defmodule Bonfire.Files.Media do
   end
 
   # handle Video from Peertube
-  def ap_receive_activity(
-        creator,
-        activity,
-        %{data: %{"type" => "Video", "url" => urls} = object_data} = ap_object,
-        extra_opts
-      )
-      when is_list(urls) or is_binary(urls) or is_map(urls) do
+  defp receive_object(
+         creator,
+         activity,
+         %{data: %{"type" => "Video", "url" => urls} = object_data} = ap_object,
+         extra_opts
+       )
+       when is_list(urls) or is_binary(urls) or is_map(urls) do
     # debug(activity, "activity")
     debug(object_data, "PeerTube video")
 
@@ -631,7 +651,7 @@ defmodule Bonfire.Files.Media do
   #         )
   # end
 
-  def ap_receive_activity(creator, activity, %{data: %{"type" => "Page"}} = object, extra_opts) do
+  defp receive_object(creator, activity, %{data: %{"type" => "Page"}} = object, extra_opts) do
     debug(activity, "activity")
 
     warn(
@@ -642,7 +662,7 @@ defmodule Bonfire.Files.Media do
     maybe_apply(Bonfire.Posts, :ap_receive_activity, [creator, activity, object, extra_opts])
   end
 
-  def ap_receive_activity(creator, activity, object, extra_opts) do
+  defp receive_object(creator, activity, object, extra_opts) do
     debug(activity, "activity")
     warn(object, "WIP: could not recognise media, so save as APActivities")
 
@@ -668,6 +688,8 @@ defmodule Bonfire.Files.Media do
              creator,
              media_url,
              %{
+               # the id the adapter made for what it received, dated when it was published (`Incoming`, by `ActivityPub.Utils.published_at/2`), as a post gets it: without it the media is dated when it reached us, however old
+               id: e(opts[:ap_object], :pointer_id, nil),
                media_type: media_type,
                size: size || 0
              },
