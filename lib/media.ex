@@ -682,17 +682,16 @@ defmodule Bonfire.Files.Media do
         metadata,
         opts
       ) do
+    # the id the adapter made for what it received, dated when it was published (`Incoming`, by `ActivityPub.Utils.published_at/2`), as a post gets it: without it the media is dated when it reached us, however old
+    id = e(opts[:ap_object], :pointer_id, nil)
+
     # Find the highest quality video URL
     with {:ok, media} <-
-           insert(
+           existing_or_insert(
+             id,
              creator,
              media_url,
-             %{
-               # the id the adapter made for what it received, dated when it was published (`Incoming`, by `ActivityPub.Utils.published_at/2`), as a post gets it: without it the media is dated when it reached us, however old
-               id: e(opts[:ap_object], :pointer_id, nil),
-               media_type: media_type,
-               size: size || 0
-             },
+             %{id: id, media_type: media_type, size: size || 0},
              %{metadata: metadata, url: media_url}
            )
            |> debug("created"),
@@ -703,6 +702,14 @@ defmodule Bonfire.Files.Media do
              opts
            ) do
       {:ok, activity}
+    end
+  end
+
+  # One already made for what we received is the one to publish, rather than another: by the id the adapter made for it (a job run again after it inserted, before it published), else by its URL, as `maybe_fetch_and_save/3` finds a link it saved before (a copy made before items took that id has another)
+  defp existing_or_insert(id, creator, media_url, attrs, extra) do
+    with {:error, :not_found} <- if(id, do: one(id: id), else: {:error, :not_found}),
+         {:error, :not_found} <- get_by_url(media_url) do
+      insert(creator, media_url, attrs, extra)
     end
   end
 
