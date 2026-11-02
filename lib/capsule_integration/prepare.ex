@@ -168,13 +168,13 @@ defmodule Bonfire.Files.Prepare do
         file = %Waffle.File{file | file_name: file_name}
 
         # result    = definition.__storage.put(definition, version, {file, scope})
-        if binary = file.binary do
-          destination_path = definition.url({file, scope}, version) |> String.trim_leading("/")
-          Waffle.File.write!(destination_path, binary)
-          %Waffle.File{file | path: destination_path}
-        else
-          file
-        end
+        # Commented out because it can't be reached: `Waffle.File.new/2` writes binaries to a temp file and returns `binary: nil`, and transformations return path files. It also calls `Waffle.File.write!/2`, which doesn't exist in waffle 1.x or 2.x.
+        # if binary = file.binary do
+        #   destination_path = definition.url({file, scope}, version) |> String.trim_leading("/")
+        #   Waffle.File.write!(destination_path, binary)
+        #   %Waffle.File{file | path: destination_path}
+        # else
+        file
 
         # TODO?
         # case definition.transform(version, {file, scope}) do

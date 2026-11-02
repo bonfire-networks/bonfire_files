@@ -1,4 +1,4 @@
-waffle = "~> 1.1.3"
+waffle = "~> 2.0"
 
 entrepot = "~> 0.10.0"
 entrepot_ecto = "~> 0.10.0"
