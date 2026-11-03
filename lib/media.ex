@@ -371,6 +371,9 @@ defmodule Bonfire.Files.Media do
     # media = repo().preload(media, [:replied, activity: [:tags]])
     # context = Threads.ap_prepare(Threads.ap_prepare(uid(e(media, :replied, :thread_id, nil))))
 
+    # the interaction policy + canonical URLs below need the actor type & locality
+    subject = repo().maybe_preload(subject, [:shared_user, character: [:peered]], prune: true)
+
     {:ok, actor} = ActivityPub.Actor.get_cached(pointer: subject)
 
     # Address from the object's boundaries rather than assuming public. `publish/3` is only reached for an EXPLICIT publish carrying an intentional boundary (the GraphQL caller requires `to_boundary`/`to_circles`), so media that was never published is unaffected — it never federated.
