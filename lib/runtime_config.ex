@@ -158,6 +158,17 @@ defmodule Bonfire.Files.RuntimeConfig do
     image_media_extensions =
       image_media |> Map.values() |> List.flatten() |> Enum.uniq() |> Enum.map(&".#{&1}")
 
+    # avatars and banners refuse SVG: we can't make a raster copy of one, and other fediverse apps (eg. Mastodon) don't show an SVG avatar or banner
+    profile_image_media = Map.delete(image_media, "image/svg+xml")
+    profile_image_media_types = profile_image_media |> Map.keys()
+
+    profile_image_media_extensions =
+      profile_image_media
+      |> Map.values()
+      |> List.flatten()
+      |> Enum.uniq()
+      |> Enum.map(&".#{&1}")
+
     video_media_types = video_media |> Map.keys()
 
     video_media_extensions =
@@ -184,8 +195,12 @@ defmodule Bonfire.Files.RuntimeConfig do
       allowed_media_extensions: video_media_extensions
 
     config :bonfire_files, Bonfire.Files.IconUploader,
-      allowed_media_types: image_media_types,
-      allowed_media_extensions: image_media_extensions
+      allowed_media_types: profile_image_media_types,
+      allowed_media_extensions: profile_image_media_extensions
+
+    config :bonfire_files, Bonfire.Files.BannerUploader,
+      allowed_media_types: profile_image_media_types,
+      allowed_media_extensions: profile_image_media_extensions
 
     config :bonfire_files, Bonfire.Files.InstanceIconUploader,
       allowed_media_types: image_media_types,

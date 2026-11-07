@@ -52,7 +52,7 @@ defmodule Bonfire.Files.BannerUploader do
       # allowed types for this definition
       [__MODULE__, :allowed_media_types],
       # fallback
-      ["image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/tiff"]
+      ["image/png", "image/jpeg", "image/gif", "image/tiff"]
     )
   end
 

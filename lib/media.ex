@@ -168,6 +168,19 @@ defmodule Bonfire.Files.Media do
     Bonfire.Common.Repo.Delete.soft_delete(media)
   end
 
+  @doc "Whether an object other than `except_object` has `media` attached. A Media is shared by everything that links its URL (`maybe_fetch_and_save/3` reuses it), so it is deleted only once no other object holds it."
+  def attached_elsewhere?(media, except_object \\ nil) do
+    import Ecto.Query
+
+    query = from(f in Bonfire.Files, where: f.media_id == ^Types.uid!(media))
+
+    case Types.uid(except_object) do
+      nil -> query
+      except_id -> where(query, [f], f.id != ^except_id)
+    end
+    |> repo().exists?()
+  end
+
   @doc """
   Delete an upload, removing any associated files.
   """

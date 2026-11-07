@@ -34,11 +34,23 @@ defmodule Bonfire.Files.Acts.Delete do
         :delete ->
           maybe_debug(epic, act, media, "Delete media")
 
+          # the object being deleted still holds its own `Files` rows here (its pointer is only soft-deleted), so they don't count as someone else's
+          deleted_object = Keyword.get(epic.assigns[:options], :object)
+
           media
           |> List.wrap()
           |> Enums.filter_empty([])
           |> Enum.map(fn m ->
-            Bonfire.Files.Media.hard_delete(m)
+            if Bonfire.Files.Media.attached_elsewhere?(m, deleted_object) do
+              maybe_debug(
+                epic,
+                act,
+                Enums.id(m),
+                "Keeping media still attached to another object"
+              )
+            else
+              Bonfire.Files.Media.hard_delete(m)
+            end
           end)
 
           # 
