@@ -1126,17 +1126,7 @@ defmodule Bonfire.Files do
         else: definition_module(%{media_type: type})
       )
 
-    metadata =
-      attachment
-      |> Map.drop(["name", "summary", "type", "mediaType", "href", "url"])
-      |> ap_attachment_name(attachment)
-      |> Enums.maybe_put(:primary_image, primary_image?)
-      |> Enums.maybe_put(:source_type, "activitypub")
-
-    #  |> Enums.maybe_put(:duration, attachment["duration"])
-    #  |> Enums.maybe_put(:width, attachment["width"])
-    #  |> Enums.maybe_put(:height, attachment["height"])
-    #  |> Enums.maybe_put(:blurhash, attachment["blurhash"])
+    metadata = ap_attachment_metadata(attachment, primary_image?)
 
     with nil <- maybe_unfurl_link_attachment(creator, url, attachment, metadata),
          module when is_atom(module) and not is_nil(module) <- module,
@@ -1177,6 +1167,42 @@ defmodule Bonfire.Files do
 
   def ap_receive_attachments(_creator, _, nil) do
     nil
+  end
+
+  @doc """
+  Media for an AS2 attachment whose file we already hold, such as a picture inside an account archive: `path` is stored on our server, and the attachment gives what a remote one would (alt text, media type).
+
+  The path must come from the importer's own staged dir, never from remote data: `upload/5` reads whatever path it's given from our disk, which is why `ap_receive_attachments/3` refuses anything but an `http(s)` URL.
+  """
+  def ap_receive_local_attachment(creator_or_context, path, %{} = attachment)
+      when is_binary(path) do
+    type = attachment["mediaType"] || attachment["type"]
+
+    case definition_module(%{media_type: type}) do
+      module when is_atom(module) and not is_nil(module) ->
+        upload(module, creator_or_context, path, %{
+          media_type: type,
+          client_name: Path.basename(path),
+          metadata: ap_attachment_metadata(attachment, false)
+        })
+
+      other ->
+        error(other, "No uploader for this attachment's media type")
+    end
+  end
+
+  # what an attachment says about its file, kept on the Media whether the file is remote or one we hold
+  defp ap_attachment_metadata(attachment, primary_image?) do
+    attachment
+    |> Map.drop(["name", "summary", "type", "mediaType", "href", "url"])
+    |> ap_attachment_name(attachment)
+    |> Enums.maybe_put(:primary_image, primary_image?)
+    |> Enums.maybe_put(:source_type, "activitypub")
+
+    #  |> Enums.maybe_put(:duration, attachment["duration"])
+    #  |> Enums.maybe_put(:width, attachment["width"])
+    #  |> Enums.maybe_put(:height, attachment["height"])
+    #  |> Enums.maybe_put(:blurhash, attachment["blurhash"])
   end
 
   def ap_receive_attachments(_creator, _, attachment) do
