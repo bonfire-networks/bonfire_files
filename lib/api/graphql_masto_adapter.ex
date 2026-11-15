@@ -46,11 +46,7 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled do
       else
         case fetch_media(id) do
           {:ok, media} ->
-            if media.creator_id == id(current_user) do
-              do_update_media(media, params, conn)
-            else
-              RestAdapter.error_fn({:error, :not_found}, conn)
-            end
+            do_update_media(current_user, media, params, conn)
 
           _ ->
             RestAdapter.error_fn({:error, :not_found}, conn)
@@ -58,7 +54,7 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled do
       end
     end
 
-    defp do_update_media(media, params, conn) do
+    defp do_update_media(current_user, media, params, conn) do
       description = params["description"]
       focus = params["focus"]
       existing_metadata = media.metadata || %{}
@@ -69,9 +65,13 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled do
         |> maybe_put("label", description)
         |> maybe_put("focus", focus)
 
-      case Media.update(nil, media, %{metadata: new_metadata}) do
+      # `Media.update/4` checks the user may modify it (its creator or an admin); anyone else sees it as not found
+      case Media.update(current_user, media, %{metadata: new_metadata}) do
         {:ok, updated_media} ->
           RestAdapter.json(conn, MediaAttachment.from_media(updated_media))
+
+        {:error, :unauthorized} ->
+          RestAdapter.error_fn({:error, :not_found}, conn)
 
         {:error, reason} ->
           RestAdapter.error_fn({:error, reason}, conn)

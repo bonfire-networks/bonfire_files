@@ -121,16 +121,21 @@ defmodule Bonfire.Files.Web.UploadEmojiLive do
     current_user = current_user(socket)
     scope = e(assigns(socket), :scope, nil)
 
-    existing_emoji =
-      Bonfire.Files.EmojiUploader.delete_emoji_permanently(
-        params["id"],
-        shortcode,
-        scope || current_user
-      )
+    case Bonfire.Files.EmojiUploader.delete_emoji_permanently(
+           params["id"],
+           shortcode,
+           scope || current_user,
+           current_user: current_user
+         ) do
+      {:error, _} ->
+        Bonfire.UI.Common.OpenModalLive.close()
+        {:noreply, assign_error(socket, l("You are not allowed to delete this emoji."))}
 
-    # existing_emoji = Map.delete(assigns(socket)[:existing_emoji] || %{}, shortcode)
-    Bonfire.UI.Common.OpenModalLive.close()
-    {:noreply, assign(socket, existing_emoji: existing_emoji)}
+      existing_emoji ->
+        # existing_emoji = Map.delete(assigns(socket)[:existing_emoji] || %{}, shortcode)
+        Bonfire.UI.Common.OpenModalLive.close()
+        {:noreply, assign_generic(socket, existing_emoji: existing_emoji)}
+    end
   end
 
   # def handle_progress(

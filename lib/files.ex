@@ -517,41 +517,62 @@ defmodule Bonfire.Files do
     |> repo().update()
   end
 
-  def delete_files(module \\ nil, media, opts \\ [])
+  @doc "Deletes the files of a media (or media id). Only the media's creator or an instance admin (as `current_user` in opts) can, unless `skip_boundary_check: true`; anything that isn't a media or its id needs `skip_boundary_check: true`."
+  def delete_files(module \\ nil, media, opts \\ []) do
+    opts = Bonfire.Common.Opts.to_options(opts)
 
-  def delete_files(module, %{file: %Entrepot.Locator{id: id} = locator}, opts)
-      when is_binary(id),
-      do: entrepot_storage_apply(:delete, locator, Bonfire.Common.Opts.to_options(opts))
+    cond do
+      opts[:skip_boundary_check] == true ->
+        do_delete_files(module, media, opts)
 
-  def delete_files(_module, %Entrepot.Locator{id: id} = locator, opts) when is_binary(id),
-    do: delete_files(:delete, locator, opts)
+      is_binary(media) ->
+        with {:ok, media} <- Media.one(id: media) do
+          delete_files(module, media, opts)
+        end
 
-  def delete_files(module, %Media{} = media, _opts) when is_atom(module) and not is_nil(module),
-    #  to support old Waffle files
-    do: module.delete({media.path, media.creator_id})
+      match?(%Media{}, media) and
+          Media.may_modify?(Bonfire.Common.Utils.current_user(opts), media) ->
+        do_delete_files(module, media, opts)
 
-  def delete_files(module, media_id, opts)
-      when is_binary(media_id) and is_atom(module) do
+      true ->
+        {:error, :unauthorized}
+    end
+  end
+
+  defp do_delete_files(module, %{file: %Entrepot.Locator{id: id} = locator}, opts)
+       when is_binary(id),
+       do: entrepot_storage_apply(:delete, locator, Bonfire.Common.Opts.to_options(opts))
+
+  defp do_delete_files(_module, %Entrepot.Locator{id: id} = locator, opts) when is_binary(id),
+    do: do_delete_files(:delete, locator, opts)
+
+  defp do_delete_files(module, %Media{} = media, _opts)
+       when is_atom(module) and not is_nil(module),
+       #  to support old Waffle files
+       do: module.delete({media.path, media.creator_id})
+
+  defp do_delete_files(module, media_id, opts)
+       when is_binary(media_id) and is_atom(module) do
     case Media.one(id: media_id) do
       {:ok, media} ->
-        delete_files(module, media, opts)
+        do_delete_files(module, media, opts)
 
       _ ->
         nil
     end
   end
 
-  def delete_files(_, %Media{metadata: %{"module" => definition}} = media, opts) do
+  defp do_delete_files(_, %Media{metadata: %{"module" => definition}} = media, opts) do
     case Types.maybe_to_atom(definition) do
       module when is_atom(module) and not is_nil(module) ->
-        delete_files(module, media, opts)
+        do_delete_files(module, media, opts)
 
       _ ->
         nil
     end
   end
 
-  def delete_files(_, _, _), do: nil
+  defp do_delete_files(_, _, _), do: nil
 
   def redirect_entrepot_url(path, storage \\ nil) do
     "/files/redir/#{entrepot_storage_name(storage)}/#{path}"

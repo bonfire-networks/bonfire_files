@@ -41,15 +41,16 @@ defmodule Bonfire.Files.Acts.Delete do
           |> List.wrap()
           |> Enums.filter_empty([])
           |> Enum.map(fn m ->
-            if Bonfire.Files.Media.attached_elsewhere?(m, deleted_object) do
+            if Bonfire.Files.Media.referenced_elsewhere?(m, deleted_object) do
               maybe_debug(
                 epic,
                 act,
                 Enums.id(m),
-                "Keeping media still attached to another object"
+                "Keeping media still referenced by another object or alias"
               )
             else
-              Bonfire.Files.Media.hard_delete(m)
+              # the deleting of the parent object was already permitted, and the media is attached to nothing else (above)
+              Bonfire.Files.Media.hard_delete(nil, m, skip_boundary_check: true)
             end
           end)
 

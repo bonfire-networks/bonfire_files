@@ -233,8 +233,7 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled and
 
       if current_user do
         with {:ok, media} <- Media.one(id: id),
-             # TODO: check permissions
-             {:ok, _result} <- Media.hard_delete(nil, media) do
+             {:ok, _result} <- Media.hard_delete(nil, media, current_user: current_user) do
           {:ok, true}
         else
           {:error, _} = error -> error
@@ -250,7 +249,6 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled and
 
       if current_user do
         with {:ok, media} <- Media.one(id: id) do
-          # TODO: check permissions
           updates = %{
             metadata: Map.merge(media.metadata || %{}, args |> Map.drop([:id]))
           }

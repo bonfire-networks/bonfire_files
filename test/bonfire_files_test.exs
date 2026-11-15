@@ -187,7 +187,7 @@ defmodule Bonfire.Files.Test do
         true
       end || assert Bonfire.Common.Media.image_url(upload)
 
-      assert {:ok, _} = Media.hard_delete(ImageUploader, upload)
+      assert {:ok, _} = Media.hard_delete(ImageUploader, upload, skip_boundary_check: true)
 
       if path = Files.local_path(ImageUploader, upload) do
         refute File.exists?(path)

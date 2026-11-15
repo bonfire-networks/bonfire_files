@@ -105,20 +105,31 @@ defmodule Bonfire.Files.EmojiUploader do
     end
   end
 
-  # returns new emoji list
-  def delete_emoji_permanently(id, shortcode, user_or_scope) do
+  # returns the new emoji list, or `{:error, :unauthorized}` when the acting user may not delete the emoji's file
+  def delete_emoji_permanently(_id, shortcode, user_or_scope, opts \\ []) do
     emojis = Bonfire.Common.Settings.get(:custom_emoji, %{}, user_or_scope)
     setting = Map.get(emojis, shortcode)
+    acting_user = Utils.current_user(opts) || Utils.current_user(user_or_scope)
 
-    if id = id || (setting && setting[:id]) do
-      Bonfire.Files.delete_files(__MODULE__, id, user_or_scope)
+    # only the file of the scope's own emoji is deleted, whatever id was asked for, and only by its creator or an admin
+    result =
+      if id = setting && setting[:id] do
+        Bonfire.Files.delete_files(__MODULE__, id, current_user: acting_user)
+      end
+
+    case result do
+      # not allowed: the entry stays, and the caller is told
+      {:error, :unauthorized} ->
+        {:error, :unauthorized}
+
+      # any other error, such as the media row being gone already: nothing left to protect, so the entry is dropped
+      _ ->
+        # FIXME: actually remove the entry
+        updated_emojis = Map.update(emojis, shortcode, %{}, fn _ -> :deleted end)
+
+        Bonfire.Common.Settings.put(:custom_emoji, updated_emojis, user_or_scope)
+
+        updated_emojis
     end
-
-    # FIXME: actually remove the entry
-    updated_emojis = Map.update(emojis, shortcode, %{}, fn _ -> :deleted end)
-
-    Bonfire.Common.Settings.put(:custom_emoji, updated_emojis, user_or_scope)
-
-    updated_emojis
   end
 end
