@@ -38,4 +38,18 @@ defmodule Bonfire.Files.LocalAttachmentTest do
     assert media.media_type =~ "image/"
     assert media.metadata["alt"] == "a small photo"
   end
+
+  # an archive unzipped and zipped again keeps its folder's name, eg. "2026.10.22 @me@example.com Mastodon archive", and the thumbnailer was given the path cut at the first space
+  test "a staged file whose path has spaces in it is uploaded too", %{me: me, path: path} do
+    dir = Path.join(System.tmp_dir!(), "#{System.unique_integer([:positive])} an @archive folder")
+    spaced = Path.join(dir, "staged pic.jpg")
+    File.mkdir_p!(dir)
+    File.cp!(path, spaced)
+    on_exit(fn -> File.rm_rf(dir) end)
+
+    attachment = %{"type" => "Document", "mediaType" => "image/jpeg", "url" => "pic.jpg"}
+
+    assert {:ok, %Media{} = media} = Files.ap_receive_local_attachment(me, spaced, attachment)
+    assert media.size > 0
+  end
 end

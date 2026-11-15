@@ -52,8 +52,9 @@ defmodule Bonfire.Files.MediaEdit do
       choose_executable(:image, "vipsthumbnail") ->
         {:vipsthumbnail,
          fn input, output ->
-           "#{input} --size #{max_size} --linear --export-profile srgb -o #{output}#{vips_save_opts(ext, quality)}"
-           # |> info()
+           # a list, which `Waffle.Transformations.Convert` passes on as it is: a string would be split on spaces, cutting a path that has one
+           [input, "--size", "#{max_size}", "--linear", "--export-profile", "srgb", "-o"] ++
+             ["#{output}#{vips_save_opts(ext, quality)}"]
          end, ext}
 
       choose_executable(:image, "convert") ->
@@ -79,8 +80,9 @@ defmodule Bonfire.Files.MediaEdit do
       choose_executable(:thumbnail, "vipsthumbnail") ->
         {:vipsthumbnail,
          fn input, output ->
-           "#{input} --smartcrop attention -s #{max_size} --linear --export-profile srgb -o #{output}#{vips_save_opts(ext, quality)}"
-           # |> info()
+           # a list, so a path with a space in it stays one argument (see `image/3`)
+           [input, "--smartcrop", "attention", "-s", "#{max_size}", "--linear"] ++
+             ["--export-profile", "srgb", "-o", "#{output}#{vips_save_opts(ext, quality)}"]
          end, ext}
 
       choose_executable(:thumbnail, "convert") ->
@@ -103,7 +105,9 @@ defmodule Bonfire.Files.MediaEdit do
       choose_executable(:video, "ffmpeg") ->
         {:ffmpeg,
          fn input, output ->
-           "-hide_banner -i #{input} -frames:v 1 -vf thumbnail=150,scale=#{max_size} #{output}"
+           # a list, so a path with a space in it stays one argument (see `image/3`)
+           ["-hide_banner", "-i", input, "-frames:v", "1"] ++
+             ["-vf", "thumbnail=150,scale=#{max_size}", output]
          end, "jpg"}
 
       # -frames:v 1: number of frames
@@ -113,7 +117,19 @@ defmodule Bonfire.Files.MediaEdit do
       choose_executable(:video, "ffmpegthumbnailer") ->
         {:ffmpegthumbnailer,
          fn input, output ->
-           "-i #{input} -t #{scrub_opts[:percent]} -s #{max_size} -q 9 -o #{output}"
+           # a list, so a path with a space in it stays one argument (see `image/3`)
+           [
+             "-i",
+             input,
+             "-t",
+             "#{scrub_opts[:percent]}",
+             "-s",
+             "#{max_size}",
+             "-q",
+             "9",
+             "-o",
+             output
+           ]
          end, "jpg"}
 
       # -t: time to seek to (percentage or absolute time hh:mm:ss) (default: 10)
@@ -232,9 +248,9 @@ defmodule Bonfire.Files.MediaEdit do
       choose_executable(:thumbnail, "vipsthumbnail") ->
         {:vipsthumbnail,
          fn input, output ->
-           # `--smartcrop` fills the box, so the output is cropped to an exact 3:1 (only ever shrinking)
-           "#{input} --smartcrop attention --size #{max_size} --linear --export-profile srgb -o #{output}#{vips_save_opts(ext, quality)}"
-           # |> info()
+           # `--smartcrop` fills the box, so the output is cropped to an exact 3:1 (only ever shrinking). A list, so a path with a space in it stays one argument (see `image/3`)
+           [input, "--smartcrop", "attention", "--size", "#{max_size}", "--linear"] ++
+             ["--export-profile", "srgb", "-o", "#{output}#{vips_save_opts(ext, quality)}"]
          end, ext}
 
       choose_executable(:thumbnail, "convert") ->
