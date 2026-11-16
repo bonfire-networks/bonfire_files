@@ -98,6 +98,14 @@ defmodule Bonfire.Files.UrlUploadSSRFTest do
 
   test "an `Entrepot.Upload` of a `%URI{}` to a loopback host that is not allowlisted is refused, with no request made",
        %{url: url} do
+    # the library fetches through our client only when configured to
+    assert Application.get_env(:entrepot, :uri_fetcher) == {Bonfire.Files, :fetch_body},
+           "`:entrepot, :uri_fetcher` is #{inspect(Application.get_env(:entrepot, :uri_fetcher))}"
+
+    # the same check the fetch goes through, on its own
+    assert {:error, _} = Bonfire.Common.HTTP.SSRF.check(url),
+           "the SSRF check lets #{url} through (allowlist: #{inspect(Application.get_env(:bonfire_common, :ssrf_allow_hosts))}, ssrf config: #{inspect(Application.get_env(:bonfire_common, :ssrf))})"
+
     assert {:error, _} = Entrepot.Upload.contents(URI.parse(url))
 
     refute_receive {:hit, _}, 500
