@@ -460,6 +460,39 @@ defmodule Bonfire.Files.MediaEdit do
       nil
   end
 
+  @doc """
+  The number of pixels an image declares in its header (width times height), or `nil` if that can't be read. Nothing is decoded: a few KB of PNG can declare billions of pixels, which is what a thumbnailer would then try to allocate.
+
+  Reads it with the `Image`/vix header when that is available, else with `vipsheader`.
+  """
+  def declared_pixels(path) when is_binary(path) do
+    case dimensions(path) do
+      {width, height} -> width * height
+      nil -> vips_header_pixels(path)
+    end
+  end
+
+  def declared_pixels(_), do: nil
+
+  defp vips_header_pixels(path) do
+    with exe when is_binary(exe) <- choose_executable(:dimensions, "vipsheader"),
+         width when is_integer(width) <- vips_header_field(exe, "width", path),
+         height when is_integer(height) <- vips_header_field(exe, "height", path) do
+      width * height
+    else
+      _ -> nil
+    end
+  end
+
+  defp vips_header_field(exe, field, path) do
+    with {out, 0} <- System.cmd(exe, ["-f", field, path], stderr_to_stdout: true),
+         {number, ""} <- out |> String.trim() |> Integer.parse() do
+      number
+    else
+      _ -> nil
+    end
+  end
+
   # catch an issue when trying to blur gifs
   def blur(path, final_path) when not is_nil(path) do
     format = "jpg"

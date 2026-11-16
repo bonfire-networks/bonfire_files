@@ -28,6 +28,7 @@ defmodule Bonfire.Files do
 
   use Bonfire.Common.E
   use Bonfire.Common.Config
+  use Bonfire.Common.Localise
   import Bonfire.Common.Config, only: [repo: 0]
   require Needle.Changesets
   use Arrows
@@ -87,8 +88,9 @@ defmodule Bonfire.Files do
     do: maybe_do_upload(module, context, file, attrs, opts)
 
   defp upload_or_add_url(module, context, url, attrs, opts) do
+    # in the test env the URL is only stored, unless `skip_fetching_remote: false` is passed to really download it
     if opts[:skip_fetching_remote] == true or
-         Bonfire.Common.Config.env() == :test do
+         (opts[:skip_fetching_remote] != false and Bonfire.Common.Config.env() == :test) do
       debug("Files - skip file handling and just insert url or path in DB")
 
       insert(
@@ -99,7 +101,68 @@ defmodule Bonfire.Files do
         |> Map.put(:url, url)
       )
     else
-      maybe_do_upload(module, context, url, attrs, opts)
+      # the file is fetched through `Bonfire.Common.HTTP`, which refuses a private or loopback host (unless allowlisted in `:ssrf_allow_hosts`) on every hop, and caps the body size. Waffle then only ever gets a local file, and never fetches a remote URL itself.
+      case download_to_tmp(url) do
+        {:ok, tmp_path} ->
+          try do
+            maybe_do_upload(module, context, tmp_path, attrs, opts)
+          after
+            File.rm(tmp_path)
+          end
+
+        {:error, reason} ->
+          error(reason, l("This URL cannot be fetched."))
+      end
+    end
+  end
+
+  @max_download_redirects 3
+
+  # the temp file keeps the extension of the URL's path, which the stored file's extension comes from
+  defp download_to_tmp(url) do
+    with {:ok, body} <- fetch_body(url) do
+      tmp_path =
+        Path.join(
+          System.tmp_dir!(),
+          "bonfire_url_upload_#{Base.url_encode64(:crypto.strong_rand_bytes(12), padding: false)}#{file_extension(url)}"
+        )
+
+      with :ok <- File.write(tmp_path, body), do: {:ok, tmp_path}
+    end
+  end
+
+  @doc """
+  Fetches a URL's body through `Bonfire.Common.HTTP` (every hop checked against private and loopback hosts, body size capped), following a few redirects. Also set as the `:entrepot, :uri_fetcher`, so the library's own `%URI{}` uploads are fetched the same way. Takes a URL string or a `%URI{}`.
+  """
+  def fetch_body(url, redirects_left \\ @max_download_redirects)
+
+  def fetch_body(%URI{} = uri, redirects_left),
+    do: fetch_body(URI.to_string(uri), redirects_left)
+
+  def fetch_body(url, redirects_left) do
+    case Bonfire.Common.HTTP.get(url) do
+      {:ok, %{status: 200, body: body}} when is_binary(body) ->
+        {:ok, body}
+
+      {:ok, %{status: status, headers: headers}}
+      when status in [301, 302, 303, 307, 308] and redirects_left > 0 ->
+        case Enum.find_value(headers, fn {k, v} -> String.downcase(k) == "location" && v end) do
+          location when is_binary(location) ->
+            # the next hop is requested through the same client, so it is checked again
+            fetch_body(URI.merge(url, location) |> URI.to_string(), redirects_left - 1)
+
+          _ ->
+            {:error, :redirect_without_location}
+        end
+
+      {:ok, %{status: status}} ->
+        {:error, {:unexpected_status, status}}
+
+      {:error, _} = err ->
+        err
+
+      other ->
+        {:error, other}
     end
   end
 
@@ -125,6 +188,7 @@ defmodule Bonfire.Files do
     with {:ok, tmp_path} <- maybe_move(opts[:move_original], upload_filename, final_filename),
          {:ok, file} <- init_file(module, tmp_path),
          {:ok, file_info} <- extract_metadata(file),
+         :ok <- check_pixel_cap(file_info, file.path),
          module when is_atom(module) and not is_nil(module) <-
            module || definition_module(module, file_info),
          upload_source <- %Plug.Upload{
@@ -158,6 +222,21 @@ defmodule Bonfire.Files do
         error(other)
     end
   end
+
+  # an image can declare far more pixels than its file size suggests, and the thumbnailers allocate for all of them
+  defp check_pixel_cap(%{media_type: "image/" <> _}, path) do
+    max_pixels = Config.get([:bonfire_files, :max_image_megapixels], 100) * 1_000_000
+
+    case Bonfire.Files.MediaEdit.declared_pixels(path) do
+      pixels when is_integer(pixels) and pixels > max_pixels ->
+        {:error, l("This image has too many pixels.")}
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp check_pixel_cap(_file_info, _path), do: :ok
 
   def validate(%{file_info: %{} = file_info}, allowed_media_types, max_file_size),
     do: validate(file_info, allowed_media_types, max_file_size)
@@ -704,7 +783,8 @@ defmodule Bonfire.Files do
     file
     |> Bonfire.Common.Enums.input_to_atoms()
     # handles downloading if remote URL
-    |> Waffle.File.new(module)
+    # Waffle only reads the definition's remote file headers here; the final definition is chosen from the file's type afterwards
+    |> Waffle.File.new(module || Bonfire.Files.ImageUploader)
     |> case do
       {:error, _} = e -> e
       file -> {:ok, file}

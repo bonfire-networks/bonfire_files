@@ -984,11 +984,21 @@ defmodule Bonfire.Files.Media do
     pid = self()
     instance_meta = Bonfire.Common.TestInstanceRepo.get_parent_instance_meta()
 
+    # `require_ok_status: true`: a page its origin does not serve (any status but 2xx) is a failed fetch, not a page to preview
+    require_ok_status? = opts[:require_ok_status] == true
+
     opts =
       Keyword.put(opts, :fetch_html_fn, fn url, opts ->
         # Preserve multi-tenancy/context in spawned process
         Bonfire.Common.TestInstanceRepo.set_child_instance(pid, instance_meta)
-        ap_aware_fetch(url, opts)
+
+        case ap_aware_fetch(url, opts) do
+          {:ok, _body, status} when require_ok_status? and status not in 200..299 ->
+            {:error, {:http_status, status}}
+
+          fetched ->
+            fetched
+        end
       end)
 
     if(opts[:fetch_fn], do: opts[:fetch_fn].(url, opts), else: Unfurl.unfurl(url, opts))

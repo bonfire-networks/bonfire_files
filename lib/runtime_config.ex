@@ -140,6 +140,9 @@ defmodule Bonfire.Files.RuntimeConfig do
         asset_host: "/"
     end
 
+    # the client Waffle uses to download a file added by URL
+    config :waffle, http_client: Waffle.HTTPClient.Req
+
     image_media = Bonfire.Files.MimeTypes.image_media()
     video_media = Bonfire.Files.MimeTypes.video_media()
     extra_media = Bonfire.Files.MimeTypes.extra_media()
@@ -183,6 +186,9 @@ defmodule Bonfire.Files.RuntimeConfig do
         System.get_env("UPLOAD_LIMIT_IMAGES", "5") |> String.to_integer(),
       max_user_video_file_size:
         System.get_env("UPLOAD_LIMIT_VIDEOS", "20") |> String.to_integer(),
+      # in megapixels: an image declaring more is refused before anything decodes it
+      max_image_megapixels:
+        System.get_env("UPLOAD_LIMIT_IMAGE_MEGAPIXELS", "100") |> String.to_integer(),
       all_allowed_media_types: all_allowed_media_types,
       all_allowed_media_extensions: all_allowed_media_extensions
 
