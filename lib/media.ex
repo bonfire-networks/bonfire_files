@@ -165,7 +165,7 @@ defmodule Bonfire.Files.Media do
       opts[:skip_boundary_check] == true -> true
       is_nil(user) -> false
       Types.uid(user) == media.creator_id -> true
-      true -> Bonfire.Me.Accounts.is_admin?(user) == true
+      true -> Bonfire.Me.Accounts.is_admin!(user) == true
     end
   end
 

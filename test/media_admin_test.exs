@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 defmodule Bonfire.Files.MediaAdminTest do
   @moduledoc """
-  An instance admin may update or delete any media, also when loaded the way a LiveView or GraphQL request loads `current_user` (`Users.get_current/2`, which does not preload the account's `instance_admin`).
+  An instance admin may update or delete any media, also when loaded the way a LiveView or GraphQL request loads `current_user` (`Users.get_current/2`, which loads the account with its `instance_admin`).
   """
   use Bonfire.DataCase, async: false
   @moduletag :backend
