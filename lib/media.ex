@@ -313,6 +313,23 @@ defmodule Bonfire.Files.Media do
     end
   end
 
+  @doc "A media's metadata with the width, height and blurhash its stored file adds (only those: the file's other keys are not for API clients), the media's own keys first"
+  def metadata(%{metadata: metadata} = media) do
+    case media do
+      # atom keys on a fresh upload, strings once read back
+      %{file: %{metadata: %{} = file_metadata}} ->
+        file_metadata
+        |> Map.new(fn {key, value} -> {to_string(key), value} end)
+        |> Map.take(["width", "height", "blurhash"])
+        |> Map.merge(metadata || %{})
+
+      _ ->
+        metadata || %{}
+    end
+  end
+
+  def metadata(_), do: %{}
+
   def description(%{metadata: metadata} = _media), do: description(metadata)
 
   # see the NOTE on `media_label/2` for why `json_ld` is read with `ed` rather than `e`

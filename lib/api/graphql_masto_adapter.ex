@@ -21,7 +21,7 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled do
         case fetch_media(id) do
           {:ok, media} ->
             if media.creator_id == id(current_user) do
-              RestAdapter.json(conn, MediaAttachment.from_media(media))
+              RestAdapter.json(conn, attachment(media))
             else
               RestAdapter.error_fn({:error, :not_found}, conn)
             end
@@ -68,7 +68,7 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled do
       # `Media.update/4` checks the user may modify it (its creator or an admin); anyone else sees it as not found
       case Media.update(current_user, media, %{metadata: new_metadata}) do
         {:ok, updated_media} ->
-          RestAdapter.json(conn, MediaAttachment.from_media(updated_media))
+          RestAdapter.json(conn, attachment(updated_media))
 
         {:error, :unauthorized} ->
           RestAdapter.error_fn({:error, :not_found}, conn)
@@ -111,14 +111,35 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled do
             |> maybe_put("label", description)
             |> maybe_put("focus", focus)
 
-          case Files.upload(nil, current_user, file, %{metadata: metadata}, []) do
+          case Files.upload(
+                 nil,
+                 current_user,
+                 file,
+                 %{metadata: metadata, client_name: client_name(file)},
+                 []
+               ) do
             {:ok, media} ->
-              RestAdapter.json(conn, MediaAttachment.from_media(media))
+              RestAdapter.json(conn, attachment(media))
 
             {:error, reason} ->
               debug(reason, "Media upload failed")
               RestAdapter.error_fn({:error, reason}, conn)
           end
+      end
+    end
+
+    # with what the stored file adds to the metadata (width, height, blurhash), which `meta` and `blurhash` are built from
+    defp attachment(media),
+      do: MediaAttachment.from_media(Map.put(media, :metadata, Media.metadata(media)))
+
+    # the stored file is named after this and served by its extension, so it comes from the type detected in the bytes, not the client's name or `content_type` (`evil.html` holding an image is stored as `.png`); no extension when the type is unknown
+    defp client_name(%Plug.Upload{path: path}) do
+      with {:ok, %{media_type: media_type}} when is_binary(media_type) <-
+             Files.extract_metadata(path),
+           [ext | _] <- MIME.extensions(media_type) do
+        "file.#{ext}"
+      else
+        _ -> "file"
       end
     end
   end

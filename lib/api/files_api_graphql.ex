@@ -28,7 +28,9 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled and
 
       field :media_type, :string
 
-      field :metadata, :json
+      field :metadata, :json do
+        resolve(fn media, _, _ -> {:ok, Media.metadata(media)} end)
+      end
 
       field :creator, :any_character do
         resolve(Absinthe.Resolution.Helpers.dataloader(Needle.Pointer))

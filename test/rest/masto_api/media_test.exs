@@ -241,5 +241,46 @@ defmodule Bonfire.Files.MastoApi.MediaTest do
       assert response["type"] in ["image", "gifv", "video", "audio", "unknown"]
       assert response["description"] == "V2 upload"
     end
+
+    # as a client sends it (Ice Cubes: `filename="file"`), from a temp file with no extension
+    test "an upload named without an extension keeps its type and its metadata", %{conn: conn} do
+      account = Fake.fake_account!()
+      user = Fake.fake_user!(account)
+
+      bare_path = Path.join(System.tmp_dir!(), "multipart-#{System.unique_integer([:positive])}")
+      File.cp!(image_file().path, bare_path)
+      upload = %Plug.Upload{path: bare_path, filename: "file", content_type: "image/png"}
+
+      response =
+        conn
+        |> masto_api_conn(user: user, account: account)
+        |> put_req_header("content-type", "multipart/form-data")
+        |> post("/api/v2/media", %{"file" => upload})
+        |> json_response(200)
+
+      assert String.ends_with?(response["url"], ".png")
+      assert is_integer(response["meta"]["original"]["width"])
+      assert is_integer(response["meta"]["original"]["height"])
+      assert is_binary(response["blurhash"])
+    end
+
+    # the stored name decides how the file is served, so it follows the bytes, not what the client calls them
+    test "an image uploaded under another type's name is stored as what it is", %{conn: conn} do
+      account = Fake.fake_account!()
+      user = Fake.fake_user!(account)
+
+      bare_path = Path.join(System.tmp_dir!(), "multipart-#{System.unique_integer([:positive])}")
+      File.cp!(image_file().path, bare_path)
+      upload = %Plug.Upload{path: bare_path, filename: "evil.html", content_type: "text/html"}
+
+      response =
+        conn
+        |> masto_api_conn(user: user, account: account)
+        |> put_req_header("content-type", "multipart/form-data")
+        |> post("/api/v2/media", %{"file" => upload})
+        |> json_response(200)
+
+      assert String.ends_with?(response["url"], ".png")
+    end
   end
 end
