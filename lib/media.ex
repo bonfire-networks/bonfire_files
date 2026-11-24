@@ -169,6 +169,35 @@ defmodule Bonfire.Files.Media do
     end
   end
 
+  @doc """
+  Whether `opts[:current_user]` (or a guest, when it's nil) may see `media`: its creator, or whoever may see the `Media` itself (when it was published on its own, see `publish/3`) or one of the objects it's attached to. Two indexed queries (the objects it's attached to, then one boundarised `EXISTS` over them and the `Media`), except for its creator. Pass `skip_boundary_check: true` to skip them.
+  """
+  def visible?(media, opts) when is_list(opts) do
+    user = opts[:current_user]
+
+    cond do
+      opts[:skip_boundary_check] == true -> true
+      not is_nil(user) and Types.uid(user) == media.creator_id -> true
+      true -> visible_to?(Types.uid!(media), user)
+    end
+  end
+
+  # `bonfire_boundaries` compiles after this extension, so its checks are called at runtime
+  defp visible_to?(media_id, user) do
+    import Ecto.Query
+
+    attached_to =
+      from(f in Bonfire.Files, where: f.media_id == ^media_id, select: f.id)
+      |> repo().all()
+
+    maybe_apply(
+      Bonfire.Boundaries,
+      :pointer_permitted?,
+      [[media_id | attached_to], [current_user: user]],
+      fallback_return: false
+    ) == true
+  end
+
   def update_by(filters, updates) do
     Queries.query(Media, filters)
     |> Ecto.Query.exclude(:order_by)
