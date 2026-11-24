@@ -579,6 +579,24 @@ defmodule Bonfire.Files do
     end
   end
 
+  @doc """
+  Makes `object`'s media the ones at `urls`, eg. when the site a post was imported from changed its featured image: when the URLs differ from those of its media now, `make_media` (a function with no arguments) is called for the new media, which replace all of its files. Media are compared by URL, so the same ones are kept rather than made again, and nothing is called or written when they match. Returns `{:ok, object}`.
+  """
+  def update_object_media(%{} = object, urls, make_media) when is_function(make_media, 0) do
+    object = repo().preload(object, [files: :media], force: true)
+
+    current = object.files |> Enum.map(& &1.media.path) |> MapSet.new()
+
+    if current == urls |> List.wrap() |> Enums.filter_empty([]) |> MapSet.new() do
+      {:ok, object}
+    else
+      object
+      |> Ecto.Changeset.change()
+      |> Bonfire.Files.Acts.AttachMedia.cast(make_media.() |> List.wrap() |> List.flatten())
+      |> repo().update()
+    end
+  end
+
   defp replace_files_assoc(changeset, updated_media_list) do
     # Convert media objects to the format expected by put_assoc
     files_data =
@@ -829,6 +847,13 @@ defmodule Bonfire.Files do
     full_url(module, media, version, Keyword.put(opts, :permanent, true))
   end
 
+  @doc "The URL that places `media` in a body (see `Bonfire.Files.InlineMedia`): for an upload, its `permanent_url/4`, the same URL its `attachment` federates with; for remote media or a link, its own URL."
+  def inline_url(%{media: %Media{} = media}), do: inline_url(media)
+  def inline_url(%Media{path: "http" <> _ = url}), do: url
+  def inline_url(%Media{} = media), do: permanent_url(nil, media)
+  def inline_url(_), do: nil
+
+  # TODO: a `PrimaryMedia` mixin pointing at an object's main image (as `Bonfire.Geolocate.PrimaryGeolocation` does for its place), instead of a flag in each file's metadata and this split at render time
   def split_primary_image(files) when is_list(files) do
     case files
          |> Enum.sort_by(&Enums.id/1, :desc)
@@ -848,6 +873,22 @@ defmodule Bonfire.Files do
   end
 
   def split_primary_image(_), do: {nil, []}
+
+  @doc "Like `split_primary_image/1`, but when none is flagged as the primary image (as the banner of a remote event, sent as an attachment), the first image is the one."
+  def split_cover_image(files) do
+    case split_primary_image(files) do
+      {nil, others} ->
+        case Enum.find(List.wrap(files), &image_file?/1) do
+          nil -> {nil, others}
+          cover -> {cover, Enum.reject(others, &(&1 == cover))}
+        end
+
+      split ->
+        split
+    end
+  end
+
+  defp image_file?(file), do: match?("image" <> _, get_media_type(file))
 
   defp is_primary_image?(%{media: %{metadata: %{"primary_image" => true_val}}})
        when true_val in [true, "true"],

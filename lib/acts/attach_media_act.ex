@@ -79,9 +79,10 @@ defmodule Bonfire.Files.Acts.AttachMedia do
     # |> IO.inspect(label: "cs with media")
   end
 
-  defp resolve_media(%Files.Media{} = m, _user), do: [m]
+  @doc "The Media for an item of `uploaded_media`, as a list: a Media as is, or a map with an `href` saved as a link to that URL (by `current_user`, nothing is downloaded); else none."
+  def resolve_media(%Files.Media{} = m, _user), do: [m]
 
-  defp resolve_media(%{} = attachment, current_user) when not is_nil(current_user) do
+  def resolve_media(%{} = attachment, current_user) when not is_nil(current_user) do
     url = e(attachment, "href", nil) || e(attachment, :href, nil)
 
     if url do
@@ -96,5 +97,5 @@ defmodule Bonfire.Files.Acts.AttachMedia do
     end
   end
 
-  defp resolve_media(_, _), do: []
+  def resolve_media(_, _), do: []
 end
