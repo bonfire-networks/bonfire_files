@@ -1356,16 +1356,24 @@ defmodule Bonfire.Files do
   def link_attachment?(%{"type" => "Link"}), do: true
   def link_attachment?(_), do: false
 
-  @doc "Whether a link attachment came with text of its own: a `name`, or a FEP-8967 `preview` with a `name` or `summary`. A link that has text is shown with it rather than unfurled."
+  @doc "Whether a link attachment came with text of its own: a `name`, or a FEP-8967 `preview` with a `name` or `summary`. A link that has text is shown with it rather than unfurled. A `name` that is only a URL is not text of its own (Gancio names an online event's link with the link itself)."
   def link_text?(attachment) do
     Enum.any?(
       [
-        e(attachment, "name", nil),
+        link_name(attachment),
         e(attachment, "preview", "name", nil),
         e(attachment, "preview", "summary", nil)
       ],
       &(is_binary(&1) and String.trim(&1) != "")
     )
+  end
+
+  # a link's `name`, unless it is only a URL, which is no title
+  defp link_name(attachment) do
+    case e(attachment, "name", nil) do
+      name when is_binary(name) -> if not Bonfire.Common.URIs.url_only?(name), do: name
+      _ -> nil
+    end
   end
 
   defp maybe_put_link_preview_image(%{"type" => "Link"} = attachment, image) do
@@ -1393,7 +1401,8 @@ defmodule Bonfire.Files do
   # AS2 gives an attachment one `name`, but it means different things by type: on a `Link` (a link preview) it titles the linked page, while on media it describes what the media shows, which is what Mastodon & co. put in their alt text field. Keeping the two apart is what makes remote alt text usable as alt text.
   defp ap_attachment_name(metadata, %{"type" => "Link"} = attachment) do
     metadata
-    |> Enums.maybe_put("label", attachment["name"])
+    # not a URL-only name: the label is read before the unfurled title, so it would hide it
+    |> Enums.maybe_put("label", link_name(attachment))
     |> Enums.maybe_put("description", attachment["summary"])
   end
 

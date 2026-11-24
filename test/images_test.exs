@@ -128,6 +128,32 @@ defmodule Bonfire.Files.ImagesTest do
         end
       end
 
+      # the size is a maximum: a smaller image is stored at its own size, not scaled up to it (as with `convert`'s `>` and `Image`'s `resize: :down`)
+      test "keeps a small image at its own size when vipsthumbnail is available" do
+        vipsthumbnail = System.find_executable("vipsthumbnail")
+
+        Process.put([:bonfire_files, :choose_executable, "vipsthumbnail"], vipsthumbnail || false)
+        Process.put([:bonfire_files, :choose_executable, "convert"], false)
+        Process.put([:bonfire_files, :choose_executable, Image], false)
+
+        try do
+          if vipsthumbnail do
+            assert "150x150" == geometry(icon_file().path), "control: the fixture is 150x150"
+            assert {:ok, upload} = fake_upload(icon_file(), ImageUploader)
+
+            path =
+              Files.local_path(ImageUploader, upload) ||
+                ImageUploader.remote_url(upload) |> String.trim_leading("/")
+
+            assert "150x150" == geometry(path)
+          end
+        after
+          Process.delete([:bonfire_files, :choose_executable, Image])
+          Process.delete([:bonfire_files, :choose_executable, "vipsthumbnail"])
+          Process.delete([:bonfire_files, :choose_executable, "convert"])
+        end
+      end
+
       test "strips metadata when convert (ImageMagick) is available" do
         # Force convert present and vipsthumbnail absent to test this code path
         Process.put([:bonfire_files, :choose_executable, "convert"], true)
@@ -292,5 +318,120 @@ defmodule Bonfire.Files.ImagesTest do
         end
       end
     end
+  end
+
+  # each size is a maximum, whichever tool the server has: a smaller file keeps its size, not scaled up to it. Each tool's command runs as Waffle runs it (`tool input args output`)
+  describe "a small file isn't scaled up" do
+    @tools ["vipsthumbnail", "convert", "ffmpeg", "ffmpegthumbnailer"]
+
+    setup do
+      on_exit(fn ->
+        for tool <- @tools, do: Process.delete([:bonfire_files, :choose_executable, tool])
+      end)
+
+      :ok
+    end
+
+    for tool <- ["vipsthumbnail", "convert"] do
+      @tool tool
+
+      test "#{tool}: an avatar smaller than its size keeps its size, and a bigger one is still cropped down" do
+        if only(@tool) do
+          assert "150x150" ==
+                   run_tool(
+                     Bonfire.Files.MediaEdit.thumbnail("a.png", 1000),
+                     icon_file().path,
+                     "png"
+                   )
+
+          assert "142x142" ==
+                   run_tool(
+                     Bonfire.Files.MediaEdit.thumbnail("a.png", 142),
+                     image_file().path,
+                     "png"
+                   )
+        end
+      end
+
+      test "#{tool}: a banner smaller than its size isn't scaled up, and a bigger one is still cropped to 3:1" do
+        if only(@tool) do
+          [w, h] =
+            run_tool(Bonfire.Files.MediaEdit.banner("a.png", 3000, 1000), icon_file().path, "png")
+            |> sizes()
+
+          assert w <= 150 and h <= 150
+
+          assert "300x100" ==
+                   run_tool(
+                     Bonfire.Files.MediaEdit.banner("a.png", 300, 100),
+                     image_file().path,
+                     "png"
+                   )
+        end
+      end
+    end
+
+    for tool <- ["ffmpeg", "ffmpegthumbnailer"] do
+      @tool tool
+
+      test "#{tool}: a video's poster frame isn't scaled up past the video's size, and a bigger one is still scaled down" do
+        if only(@tool) do
+          # `WxH`, as `VideoUploader` gives it; the video is 640x360
+          assert "640x360" ==
+                   run_tool(
+                     Bonfire.Files.MediaEdit.thumbnail_video("a.mp4", "1000x1000", percent: 10),
+                     video_file().path,
+                     "jpg"
+                   )
+
+          assert "320x180" ==
+                   run_tool(
+                     Bonfire.Files.MediaEdit.thumbnail_video("a.mp4", "320x320", percent: 10),
+                     video_file().path,
+                     "jpg"
+                   )
+        end
+      end
+    end
+
+    # makes `tool` the only one `MediaEdit` finds, if it's installed
+    defp only(tool) do
+      for other <- @tools,
+          other != tool,
+          do: Process.put([:bonfire_files, :choose_executable, other], false)
+
+      path = System.find_executable(tool)
+      if path, do: Process.put([:bonfire_files, :choose_executable, tool], path)
+      path
+    end
+
+    defp run_tool(transformation, input, ext) do
+      output =
+        Path.join(System.tmp_dir!(), "media_edit_#{System.unique_integer([:positive])}.#{ext}")
+
+      case transformation do
+        # a function transformation runs its tools itself, and gives the file it made
+        {transform, _ext} when is_function(transform, 2) ->
+          {:ok, %{path: made}} =
+            transform.(:default, %Waffle.File{path: input, file_name: Path.basename(input)})
+
+          geometry(made)
+
+        transformation ->
+          {tool, args} =
+            case transformation do
+              {tool, args, _ext} when is_function(args) -> {tool, args.(input, output)}
+              {tool, args} when is_function(args) -> {tool, args.(input, output)}
+              {tool, args} -> {tool, [input | String.split(args, " ")] ++ [output]}
+            end
+
+          {_, 0} =
+            System.cmd(System.find_executable(to_string(tool)), args, stderr_to_stdout: true)
+
+          geometry(output)
+      end
+    end
+
+    defp sizes(geometry), do: geometry |> String.split("x") |> Enum.map(&String.to_integer/1)
   end
 end

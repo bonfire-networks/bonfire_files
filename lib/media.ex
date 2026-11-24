@@ -1066,7 +1066,17 @@ defmodule Bonfire.Files.Media do
         object
 
       {:ok, %{} = meta} ->
-        maybe_save(current_user, url, meta, opts)
+        # a failed fetch (an error status, or a page with nothing to preview) is not saved: the link stays a plain link, and since a saved Media is the dedup key for its URL, the next post of it fetches it again
+        if preview_worth_saving?(meta) do
+          maybe_save(current_user, url, meta, opts)
+        else
+          warn(
+            meta,
+            "No URL preview saved, since the fetch got an error or nothing to preview for #{url}"
+          )
+
+          nil
+        end
 
       other ->
         error(other, "Could not fetch URL preview")
@@ -1083,6 +1093,33 @@ defmodule Bonfire.Files.Media do
       err(e, "Could not save the URL preview")
       nil
   end
+
+  @doc """
+  Whether a link preview's metadata has something to show: its page was served (2xx, or no status known), and it has a title (other than just a URL), a description, an image or an embed.
+
+  Takes fresh unfurl output (atom keys) as well as stored metadata (string keys).
+  """
+  def preview_worth_saving?(%{} = meta) do
+    # the metadata accessors read the string keys a Media has once stored
+    meta = Enums.stringify_keys(meta, true)
+
+    case meta["status_code"] do
+      status when is_integer(status) and status not in 200..299 ->
+        false
+
+      _ ->
+        title = media_label(meta)
+
+        (not is_nil(title) and not Bonfire.Common.URIs.url_only?(title)) or
+          not is_nil(
+            description(meta) || metadata_image_url(%{metadata: meta}) ||
+              e(meta, "facebook", "video", nil) || e(meta, "twitter", "player", nil) ||
+              e(meta, "oembed", "html", nil)
+          )
+    end
+  end
+
+  def preview_worth_saving?(_), do: false
 
   # Resolve a (possibly relative) canonical url against the original fetched url, so a relative `<link rel="canonical" href="/path">` becomes an absolute url instead of being stored host-less. Absolute canonical urls are returned unchanged.
   # The canonical becomes the dedup key, so junk ones are dropped (returning nil falls back to the source url): a value shared by many pages would collapse them all into one Media. Seen in prod: YouTube serving `href="undefined"` → every YouTube link showed the first video's preview.

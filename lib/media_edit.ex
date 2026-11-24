@@ -53,7 +53,8 @@ defmodule Bonfire.Files.MediaEdit do
         {:vipsthumbnail,
          fn input, output ->
            # a list, which `Waffle.Transformations.Convert` passes on as it is: a string would be split on spaces, cutting a path that has one
-           [input, "--size", "#{max_size}", "--linear", "--export-profile", "srgb", "-o"] ++
+           # `>`: only shrink, so a smaller image keeps its size (as `convert`'s `>` and `Image`'s `resize: :down` below)
+           [input, "--size", "#{max_size}>", "--linear", "--export-profile", "srgb", "-o"] ++
              ["#{output}#{vips_save_opts(ext, quality)}"]
          end, ext}
 
@@ -80,14 +81,15 @@ defmodule Bonfire.Files.MediaEdit do
       choose_executable(:thumbnail, "vipsthumbnail") ->
         {:vipsthumbnail,
          fn input, output ->
-           # a list, so a path with a space in it stays one argument (see `image/3`)
-           [input, "--smartcrop", "attention", "-s", "#{max_size}", "--linear"] ++
+           # a list, so a path with a space in it stays one argument (see `image/3`). `>`: only shrink, so a smaller image keeps its size (cropped to the square where it's bigger)
+           [input, "--smartcrop", "attention", "-s", "#{max_size}x#{max_size}>", "--linear"] ++
              ["--export-profile", "srgb", "-o", "#{output}#{vips_save_opts(ext, quality)}"]
          end, ext}
 
       choose_executable(:thumbnail, "convert") ->
+        # `^>`: fill the square, only shrinking; `-crop` (not `-extent`) never enlarges the canvas of a smaller image
         {:convert,
-         "-strip -thumbnail #{max_size}x#{max_size}^ -gravity center -crop #{max_size}x#{max_size}+0+0 -quality #{quality} -limit area 10MB -limit disk 20MB"}
+         "-strip -thumbnail #{max_size}x#{max_size}^> -gravity center -crop #{max_size}x#{max_size}+0+0 +repage -quality #{quality} -limit area 10MB -limit disk 20MB"}
 
       true ->
         fn _version, %{path: filename} = waffle_file ->
@@ -103,34 +105,28 @@ defmodule Bonfire.Files.MediaEdit do
 
     cond do
       choose_executable(:video, "ffmpeg") ->
+        {max_width, max_height} = width_and_height(max_size)
+
         {:ffmpeg,
          fn input, output ->
            # a list, so a path with a space in it stays one argument (see `image/3`)
            ["-hide_banner", "-i", input, "-frames:v", "1"] ++
-             ["-vf", "thumbnail=150,scale=#{max_size}", output]
+             [
+               "-vf",
+               "thumbnail=150,scale=w='min(iw,#{max_width})':h='min(ih,#{max_height})':force_original_aspect_ratio=decrease",
+               output
+             ]
          end, "jpg"}
 
       # -frames:v 1: number of frames
-      # -vf thumbnail=300: analyse N frames and pick most "significant" one
-      # -vf scale=300: scale while preserving aspect ratio
+      # -vf thumbnail=150: analyse N frames and pick most "significant" one
+      # -vf scale=w='min(iw,W)':h='min(ih,H)':force_original_aspect_ratio=decrease: fit within WxH keeping the aspect ratio, only shrinking
 
-      choose_executable(:video, "ffmpegthumbnailer") ->
-        {:ffmpegthumbnailer,
-         fn input, output ->
-           # a list, so a path with a space in it stays one argument (see `image/3`)
-           [
-             "-i",
-             input,
-             "-t",
-             "#{scrub_opts[:percent]}",
-             "-s",
-             "#{max_size}",
-             "-q",
-             "9",
-             "-o",
-             output
-           ]
-         end, "jpg"}
+      # ffmpegthumbnailer can't only shrink, so the frame comes at the video's own size (`-s 0`), then is resized as an image, only shrinking
+      ffmpegthumbnailer = choose_executable(:video, "ffmpegthumbnailer") ->
+        {fn _version, %{path: input} = waffle_file ->
+           ffmpegthumbnailer_frame(ffmpegthumbnailer, input, max_size, scrub_opts, waffle_file)
+         end, fn _version, _file -> "jpg" end}
 
       # -t: time to seek to (percentage or absolute time hh:mm:ss) (default: 10)
       # -s: size of the generated thumbnail in pixels (use 0 for original size) (default value: 128)
@@ -159,6 +155,41 @@ defmodule Bonfire.Files.MediaEdit do
         nil
     end
     |> debug("thumbnail_video")
+  end
+
+  # where the image can't be resized, the frame is kept at the video's own size: never scaled up, though not shrunk either
+  defp ffmpegthumbnailer_frame(ffmpegthumbnailer, input, max_size, scrub_opts, waffle_file) do
+    frame = "#{Waffle.File.generate_temporary_path()}.jpg"
+
+    # a list, so a path with a space in it stays one argument (see `image/3`)
+    args = ["-i", input, "-t", "#{scrub_opts[:percent]}", "-s", "0", "-q", "9", "-o", frame]
+
+    with {_, 0} <- System.cmd(to_string(ffmpegthumbnailer), args, stderr_to_stdout: true) do
+      case image_resize_thumbnail(frame, max_size, waffle_file,
+             tmp_path: "#{Waffle.File.generate_temporary_path()}.jpg",
+             crop: :none,
+             resize: :down
+           ) do
+        {:ok, %Waffle.File{path: path}} = resized when path != input ->
+          File.rm(frame)
+          resized
+
+        _ ->
+          {:ok, %Waffle.File{waffle_file | path: frame, is_tempfile?: true}}
+      end
+    else
+      e ->
+        error(e, "Could not generate a video thumbnail")
+        nil
+    end
+  end
+
+  # a size given as `"WxH"` (as `VideoUploader` does) or as one number for both
+  defp width_and_height(size) do
+    case String.split(to_string(size), "x") do
+      [width, height] -> {width, height}
+      [both] -> {both, both}
+    end
   end
 
   @doc "Converts video into a browser-supported format. NOTE: in dev mode on OSX, you can install ffmpeg with maximal features using https://gist.github.com/Piasy/b5dfd5c048eb69d1b91719988c0325d8?permalink_comment_id=3812563#gistcomment-3812563"
@@ -248,16 +279,16 @@ defmodule Bonfire.Files.MediaEdit do
       choose_executable(:thumbnail, "vipsthumbnail") ->
         {:vipsthumbnail,
          fn input, output ->
-           # `--smartcrop` fills the box, so the output is cropped to an exact 3:1 (only ever shrinking). A list, so a path with a space in it stays one argument (see `image/3`)
-           [input, "--smartcrop", "attention", "--size", "#{max_size}", "--linear"] ++
+           # `--smartcrop` fills the box, so a bigger image is cropped to an exact 3:1; `>`: only shrink, so a smaller one keeps its size. A list, so a path with a space in it stays one argument (see `image/3`)
+           [input, "--smartcrop", "attention", "--size", "#{max_size}>", "--linear"] ++
              ["--export-profile", "srgb", "-o", "#{output}#{vips_save_opts(ext, quality)}"]
          end, ext}
 
       choose_executable(:thumbnail, "convert") ->
-        # `^` scales to fill then `-extent` center-crops to an exact 3:1 (matches the vips path)
-        # `-background none` stops `-extent` from flattening PNG transparency onto white
+        # `^>` scales to fill, only shrinking, then `-crop` center-crops a bigger image to an exact 3:1 (matches the vips path); unlike `-extent`, it never pads a smaller one out to the box
+        # `-background none` keeps PNG transparency rather than flattening it onto white
         {:convert,
-         "-strip -background none -resize #{max_size}^ -gravity center -extent #{max_size} -quality #{quality} -limit area 10MB -limit disk 50MB"}
+         "-strip -background none -resize #{max_size}^> -gravity center -crop #{max_size}+0+0 +repage -quality #{quality} -limit area 10MB -limit disk 50MB"}
 
       true ->
         fn _version, %{path: filename} = waffle_file ->
@@ -347,7 +378,8 @@ defmodule Bonfire.Files.MediaEdit do
   def image_resize_thumbnail(image, max_size, waffle_file \\ %Waffle.File{}, opts) do
     # TODO: return a Stream instead of creating a temp file: https://hexdocs.pm/image/Image.html#stream!/2
     with true <- !!choose_executable(:thumbnail, Image),
-         {:ok, image} <- Image.thumbnail(image, max_size, opts),
+         # `tmp_path` is where to save, not an option of `Image.thumbnail`, which refuses unknown ones
+         {:ok, image} <- Image.thumbnail(image, max_size, Keyword.delete(opts, :tmp_path)),
          {:ok, image} <- image_strip_metadata(image) do
       image_save_temp_file(image, waffle_file, opts[:tmp_path])
     else

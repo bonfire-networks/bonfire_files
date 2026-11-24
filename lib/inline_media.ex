@@ -105,6 +105,26 @@ defmodule Bonfire.Files.InlineMedia do
   end
 
   @doc """
+  The composer places a file it hasn't uploaded yet as `![](upload:<ref>)`, `<ref>` being its upload entry's. At publish, once the files are stored, each becomes the image of the stored media in `media_by_ref` (`{ref, media}` pairs, or a map), at its `Bonfire.Files.inline_url/1`. The image of a ref with no stored media (its file was removed before publishing) is dropped.
+  """
+  def swap_upload_refs(body, media_by_ref) when is_binary(body) do
+    media_by_ref = Map.new(media_by_ref)
+
+    if String.contains?(body, "upload:") do
+      Regex.replace(~r/!\[[^\]]*\]\(upload:([^)\s]+)\)/, body, fn image, ref ->
+        case media_by_ref[ref] && Files.inline_url(media_by_ref[ref]) do
+          url when is_binary(url) -> String.replace(image, "upload:" <> ref, url)
+          _ -> ""
+        end
+      end)
+    else
+      body
+    end
+  end
+
+  def swap_upload_refs(body, _), do: body
+
+  @doc """
   Turns each player in `html` (`<iframe>`, `<video>`, `<audio>`, with a `src` of their own or in a `<source>`) into a link to it, where it was, since the sanitiser drops players: the body keeps their place. Returns the HTML and the players' URLs, in order. Only web addresses: a `javascript:` or relative source leaves nothing, as before. Used for incoming remote bodies and by the WordPress import.
   """
   def embeds_as_links(html) when is_binary(html) and html != "" do
