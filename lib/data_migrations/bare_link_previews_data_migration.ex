@@ -5,6 +5,8 @@ defmodule Bonfire.Files.DataMigrations.BareLinkPreviews do
   - a fetch that failed: an error status, or a page with no title, description, image or embed. Its metadata has the `status_code` only an unfurl stores.
   - a federated `Link` attachment named with its own URL (Gancio names an online event's link that way), which skipped our fetch and showed the URL as its title. Its metadata has `source_type: "activitypub"`, and its `media_type` is a `Link`'s.
 
+  - a federated `Link` attachment our unfurl found nothing for, saved as the bare link (eg. Akkoma's stats images on libera.site). Removing it removes that link from its post, if the post doesn't also have it in its text.
+
   What has something to show is decided by `Bonfire.Files.Media.preview_worth_saving?/1`, as for a new fetch. Other Media (eg. a remote avatar, `"remote"` with empty metadata) are never selected.
 
   Safe to re-run: a removed preview is no longer selected.
@@ -17,7 +19,8 @@ defmodule Bonfire.Files.DataMigrations.BareLinkPreviews do
 
   alias Bonfire.Files.Media
 
-  # The SQL narrows the rows down to those that may have nothing to show, so only those are read: `migrate/2` then decides with `Media.preview_worth_saving?/1`. It errs towards selecting: a row it lets through that has something to show is kept by `migrate/2`, while one it leaves out stays as it is.
+  # The `WHERE` only picks the kinds of Media a preview is, which most link Media are, so each batch's scan of the id index stops after about `batch_size` rows. Narrowing it to the ones with nothing to show made a batch scan until it found that many, 6.5 s per batch on bonfire.cafe (24 November), with nothing to stop a sparse stretch passing the 15 s `statement_timeout`, which ends the run for good (the runner only survives a failing `migrate/2`).
+  # The narrowing is in the `SELECT` instead: only a row that may have nothing to show comes back with its metadata, so the others cost no transfer or decoding. `migrate/2` then decides with `Media.preview_worth_saving?/1`; the SQL errs towards sending the metadata, so a row it lets through that has something to show is still kept.
   @impl DataMigration
   def base_query do
     from(m in Media,
@@ -25,28 +28,28 @@ defmodule Bonfire.Files.DataMigrations.BareLinkPreviews do
         ilike(m.path, "http%") and is_nil(m.deleted_at) and
           (not is_nil(fragment("?->>'status_code'", m.metadata)) or
              (fragment("?->>'source_type'", m.metadata) == "activitypub" and
-                m.media_type in ["text/html", "Link", "link"])) and
-          (fragment("coalesce(?->>'status_code' !~ '^2[0-9][0-9]$', false)", m.metadata) or
-             not (fragment(
-                    # a title, the way `Media.media_label/1` mostly finds one, other than just a URL or Cloudflare's "Just a moment..." page (`(http|https)` rather than `https?`: a `?` is a parameter to `fragment`)
-                    "coalesce(coalesce(?->>'label', ?->>'title', ?->'oembed'->>'title', ?->'facebook'->>'title', ?->'twitter'->>'title', ?->'other'->>'title') !~* '^\\s*((http|https)://[^/\\s]+\\S*|just a moment.*)\\s*$', false)",
-                    m.metadata,
-                    m.metadata,
-                    m.metadata,
-                    m.metadata,
-                    m.metadata,
-                    m.metadata
-                  ) or
-                    fragment(
-                      # what `Media.description/1`, `Media.metadata_image_url/1` and the embeds read
-                      "jsonb_exists_any(?, array['description', 'image', 'icon', 'preview', 'module', 'json_ld', 'wikibase', 'crossref', 'atom', 'rss', 'orcid', 'zenodo']) OR jsonb_exists_any(coalesce(?->'facebook', '{}'::jsonb), array['description', 'image', 'video']) OR jsonb_exists_any(coalesce(?->'twitter', '{}'::jsonb), array['description', 'image', 'player']) OR jsonb_exists_any(coalesce(?->'oembed', '{}'::jsonb), array['thumbnail_url', 'html', 'abstract']) OR jsonb_exists_any(coalesce(?->'other', '{}'::jsonb), array['description', 'og:image', 'og:image:url', 'msapplication-TileImage', 'apple-touch-icon'])",
-                      m.metadata,
-                      m.metadata,
-                      m.metadata,
-                      m.metadata,
-                      m.metadata
-                    ))),
-      select: %{id: m.id, metadata: m.metadata}
+                m.media_type in ["text/html", "Link", "link"])),
+      select: %{
+        id: m.id,
+        metadata:
+          fragment(
+            # an error status, or none of: a title (the way `Media.media_label/1` mostly finds one, other than just a URL or Cloudflare's "Just a moment..." page), or a key that `Media.description/1`, `Media.metadata_image_url/1` or the embeds read. `(http|https)` rather than `https?`: a `?` is a parameter to `fragment`
+            "CASE WHEN coalesce(?->>'status_code' !~ '^2[0-9][0-9]$', false) OR NOT (coalesce(coalesce(?->>'label', ?->>'title', ?->'oembed'->>'title', ?->'facebook'->>'title', ?->'twitter'->>'title', ?->'other'->>'title') !~* '^\\s*((http|https)://[^/\\s]+\\S*|just a moment.*)\\s*$', false) OR jsonb_exists_any(?, array['description', 'image', 'icon', 'preview', 'module', 'json_ld', 'wikibase', 'crossref', 'atom', 'rss', 'orcid', 'zenodo']) OR jsonb_exists_any(coalesce(?->'facebook', '{}'::jsonb), array['description', 'image', 'video']) OR jsonb_exists_any(coalesce(?->'twitter', '{}'::jsonb), array['description', 'image', 'player']) OR jsonb_exists_any(coalesce(?->'oembed', '{}'::jsonb), array['thumbnail_url', 'html', 'abstract']) OR jsonb_exists_any(coalesce(?->'other', '{}'::jsonb), array['description', 'og:image', 'og:image:url', 'msapplication-TileImage', 'apple-touch-icon'])) THEN ? END",
+            m.metadata,
+            m.metadata,
+            m.metadata,
+            m.metadata,
+            m.metadata,
+            m.metadata,
+            m.metadata,
+            m.metadata,
+            m.metadata,
+            m.metadata,
+            m.metadata,
+            m.metadata,
+            m.metadata
+          )
+      }
     )
   end
 
@@ -70,8 +73,9 @@ defmodule Bonfire.Files.DataMigrations.BareLinkPreviews do
   def migrate(rows, opts) do
     repo = Keyword.get(opts, :repo, Bonfire.Common.Repo)
 
+    # a row with no metadata is one the query found something to show in
     case rows
-         |> Enum.reject(&Media.preview_worth_saving?(&1.metadata || %{}))
+         |> Enum.filter(&(is_map(&1.metadata) and not Media.preview_worth_saving?(&1.metadata)))
          |> Enum.map(& &1.id) do
       [] ->
         :ok

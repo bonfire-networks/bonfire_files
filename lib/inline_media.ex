@@ -78,11 +78,17 @@ defmodule Bonfire.Files.InlineMedia do
     url_map(media, e(object, :post_content, :html_body, nil))
   end
 
-  # an HTML body (a remote one) isn't split, so only an image it shows places its media: a link there would lose its card
+  # an HTML body (a remote one, an import) places its media where it shows it as an image, or links to it (as a URL in a local body does): `Bonfire.Common.Text.html_parts/3` cuts it there, and the `&` in a URL is stored as `&amp;`
   defp in_body?(m, "<" <> _ = html) do
     case Files.inline_url(e_media(m)) do
       url when is_binary(url) ->
-        String.contains?(html, Enum.map(url_forms(url), &~s(src="#{&1}")))
+        attributes =
+          for form <- url_forms(url),
+              form <- Enum.uniq([form, String.replace(form, "&", "&amp;")]),
+              attr <- ["src", "href"],
+              do: ~s(#{attr}="#{form}")
+
+        String.contains?(html, attributes)
 
       _ ->
         false

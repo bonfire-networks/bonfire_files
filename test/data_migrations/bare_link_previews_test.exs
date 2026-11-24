@@ -15,6 +15,10 @@ defmodule Bonfire.Files.DataMigrations.BareLinkPreviewsTest do
     gancio_link:
       {:federated, "https://youtube.com/live/FNqRMKlybO8", "text/html",
        %{"label" => "https://youtube.com/live/FNqRMKlybO8", "source_type" => "activitypub"}},
+    # an unnamed `Link` our unfurl found nothing for, saved as the bare link (Akkoma's stats images on libera.site)
+    unnamed_link:
+      {:federated, "https://libera.local/_stats/akkoma/statuses.png", "Link",
+       %{"source_type" => "activitypub"}},
     empty_page:
       {:unfurled, "https://example.com/empty", "link",
        %{status_code: 200, content_type: "text/html"}},
@@ -81,15 +85,15 @@ defmodule Bonfire.Files.DataMigrations.BareLinkPreviewsTest do
     selected = BareLinkPreviews.base_query() |> repo().all() |> Map.new(&{&1.id, &1.metadata})
 
     for {name, _} <- @bare do
-      assert Map.has_key?(selected, media[name]), "#{name} should be selected"
+      assert is_map(selected[media[name]]), "#{name} should be selected, with its metadata"
 
       refute Media.preview_worth_saving?(selected[media[name]]),
              "#{name} should have nothing to show: #{inspect(selected[media[name]])}"
     end
 
-    # not even read: the query leaves out what has something to show
+    # not even read: the query sends no metadata for what has something to show
     for {name, _} <- @kept do
-      refute Map.has_key?(selected, media[name]), "#{name} should not be selected"
+      assert is_nil(selected[media[name]]), "#{name}'s metadata should not be sent"
     end
 
     run()
