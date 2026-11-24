@@ -39,7 +39,7 @@ defmodule Bonfire.Files.URLPreviewHostlessURLTest do
   test "fetching a preview for a hostless URL does not raise" do
     me = fake_user!()
 
-    assert [_] = Media.maybe_fetch_and_save(me, [@hostless_url])
+    assert [%Media{}] = Media.maybe_fetch_and_save(me, [@hostless_url])
   end
 
   test "publishing a post with a hostless URL still succeeds" do
