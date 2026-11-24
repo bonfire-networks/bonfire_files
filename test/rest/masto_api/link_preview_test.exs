@@ -14,22 +14,20 @@ defmodule Bonfire.Files.MastoApi.LinkPreviewTest do
     {:ok, user: user, api_conn: masto_api_conn(conn, user: user, account: account)}
   end
 
-  test "website metadata becomes a card in creation and GraphQL status reads", context do
+  test "website metadata becomes a card in GraphQL status reads", context do
     link = create_link(context.user, %{"image" => %{"url" => "https://example.org/cover.png"}})
-    {created, read} = publish(context, [link])
+    status = publish(context, [link])
 
-    for status <- [created, read] do
-      assert status["card"]["url"] == link.path
-      assert status["card"]["title"] == "Preview title"
-      assert status["card"]["description"] == "Preview description"
-      assert status["card"]["image"] == "https://example.org/cover.png"
-      assert status["media_attachments"] == []
-    end
+    assert status["card"]["url"] == link.path
+    assert status["card"]["title"] == "Preview title"
+    assert status["card"]["description"] == "Preview description"
+    assert status["card"]["image"] == "https://example.org/cover.png"
+    assert status["media_attachments"] == []
   end
 
   test "links without cover images still produce text cards", context do
     link = create_link(context.user, %{})
-    {_created, status} = publish(context, [link])
+    status = publish(context, [link])
 
     assert status["card"]["title"] == "Preview title"
     assert status["card"]["image"] == nil
@@ -47,7 +45,7 @@ defmodule Bonfire.Files.MastoApi.LinkPreviewTest do
         %{}
       )
 
-    {_created, status} = publish(context, [link, image])
+    status = publish(context, [link, image])
 
     assert status["card"]["url"] == link.path
     assert [%{"id" => id, "type" => "image"}] = status["media_attachments"]
@@ -73,6 +71,7 @@ defmodule Bonfire.Files.MastoApi.LinkPreviewTest do
     media
   end
 
+  # read through the API: an Ecto post passed to `Status.from_post/2` has no account, as accounts come from GraphQL only
   defp publish(%{user: user, api_conn: conn}, media) do
     {:ok, post} =
       Bonfire.Posts.publish(
@@ -84,12 +83,6 @@ defmodule Bonfire.Files.MastoApi.LinkPreviewTest do
         }
       )
 
-    post =
-      Bonfire.Common.Repo.preload(post, [:post_content, :media, :replied, activity: [:subject]])
-
-    created = Bonfire.API.MastoCompat.Mappers.Status.from_post(post, current_user: user)
-
-    read = conn |> get("/api/v1/statuses/#{post.id}") |> json_response(200)
-    {created, read}
+    conn |> get("/api/v1/statuses/#{post.id}") |> json_response(200)
   end
 end

@@ -4,13 +4,17 @@ defmodule Bonfire.Files.FeedFilters do
 
   Lives here rather than in the feed loader because media are this extension's: its schema, its attachments, and the join that reaches them. `bonfire_social` holds this extension only as an optional dependency, so a feed query naming `Bonfire.Files.Media` directly was a compile-time reach into something that may not be installed. The keys are declared as fields on `Bonfire.Social.FeedFilters` from this extension's config, and this module applies them; `Bonfire.Common.FeedFilterModule` explains why the two halves live where they do.
 
-  A media type matches by prefix, so `image` covers `image/png`, and `link` stands for the kinds of thing a link preview is stored as.
+  A media type matches by prefix, so `image` covers `image/png`, and `link` stands for the kinds of thing a link preview is stored as. `"attachment"` means media a client shows as an attachment: any media that is not a link preview, by its type or by an HTML `content_type` (Mastodon's `only_media`).
   """
   use Bonfire.Common.Utils, only: []
   use Bonfire.Common.Repo
   import Untangle
 
   @behaviour Bonfire.Common.FeedFilterModule
+
+  # what Mastodon clients get as a `card`, not an attachment (`Mappers.PreviewCard.link?/1`); wider than `link` below
+  @link_preview_types ["link", "website", "article", "research", "book", "profile", "url", "URL"]
+  @link_preview_content_types ["text/html", "application/xhtml+xml"]
 
   @impl true
   def feed_filter_module, do: __MODULE__
@@ -24,6 +28,9 @@ defmodule Bonfire.Files.FeedFilters do
     case prepare_filter_media_type(types) do
       :all ->
         filter_has_media(query)
+
+      :attachments ->
+        filter_has_attachment(query)
 
       [first | rest] ->
         # one WHERE rather than one per type, as the ORs of a single condition
@@ -136,9 +143,25 @@ defmodule Bonfire.Files.FeedFilters do
     |> where([media: media], not is_nil(media.media_type))
   end
 
+  # as `filter_has_media/1`, without link previews; one stored under another type is still caught by its HTML `content_type`
+  defp filter_has_attachment(query) do
+    query
+    |> maybe_proload_media(:has_one)
+    |> where(
+      [media: media],
+      not is_nil(media.media_type) and media.media_type not in ^@link_preview_types and
+        fragment(
+          "coalesce(?->>'content_type', '') <> ALL(?)",
+          media.metadata,
+          type(^@link_preview_content_types, {:array, :string})
+        )
+    )
+  end
+
   defp prepare_filter_media_type(types) do
     cond do
       "*" in types or :* in types -> :all
+      "attachment" in types or :attachment in types -> :attachments
       :link in types or "link" in types -> ["link", "article", "profile", "website"] ++ types
       true -> types
     end

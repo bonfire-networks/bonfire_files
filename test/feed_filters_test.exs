@@ -55,6 +55,19 @@ defmodule Bonfire.Files.FeedFiltersTest do
 
   defp contains?(feed, me, post), do: FeedLoader.feed_contains?(feed, post, current_user: me)
 
+  # a link preview as `link_preview_test.exs` stores one
+  defp link_media(user, media_type) do
+    url = "https://example.org/#{Faker.UUID.v4()}"
+
+    {:ok, media} =
+      Bonfire.Files.Media.insert(user, url, %{media_type: media_type, size: 0}, %{
+        url: url,
+        metadata: %{"content_type" => "text/html"}
+      })
+
+    media
+  end
+
   # a feed of media has media for rows, with no activity for `feed_contains?/3` to read
   defp row_ids(%{edges: edges}), do: MapSet.new(edges, &id/1)
 
@@ -79,6 +92,24 @@ defmodule Bonfire.Files.FeedFiltersTest do
 
     assert id(ctx.image) in ids
     assert id(ctx.video) in ids
+  end
+
+  test "asking for attachments gives every media except link previews", ctx do
+    link = link_media(ctx.me, "website")
+    html_typed_link = link_media(ctx.me, "video.other")
+    fake_post!(ctx.me, "public", %{post_content: %{html_body: "a link"}, uploaded_media: [link]})
+
+    fake_post!(ctx.me, "public", %{
+      post_content: %{html_body: "a link stored under another type"},
+      uploaded_media: [html_typed_link]
+    })
+
+    ids = posts(ctx.me, %{media_types: ["attachment"]}) |> row_ids()
+
+    assert id(ctx.image) in ids
+    assert id(ctx.video) in ids
+    refute id(link) in ids
+    refute id(html_typed_link) in ids
   end
 
   test "excluding a media type leaves it out, and keeps what carries no media at all", ctx do
