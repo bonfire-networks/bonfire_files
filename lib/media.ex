@@ -1366,6 +1366,29 @@ defmodule Bonfire.Files.Media do
     end
   end
 
+  @doc """
+  The Media any of `urls` names, as their `path` or among the URLs recorded in their `metadata["urls"]` (eg. every size of an imported upload), in one query using both indexes. No normalising: give each form to match (eg. both schemes).
+  """
+  def many_by_urls(urls) when is_list(urls) and urls != [] do
+    import Ecto.Query
+
+    urls = Enum.uniq(urls)
+
+    # planned on its own, as in `get_by_source_url/1`, so the `metadata -> 'urls'` GIN index is used
+    matching =
+      from(m in Media,
+        where:
+          (m.path in ^urls or
+             fragment("? -> 'urls' \\?| ?", m.metadata, type(^urls, {:array, :string}))) and
+            is_nil(m.deleted_at),
+        offset: 0
+      )
+
+    repo().all(from(m in subquery(matching)))
+  end
+
+  def many_by_urls(_), do: []
+
   def get_or_add_media_by_uri(current_user, uri, to_boundary \\ nil, to_circles \\ [], opts \\ [])
 
   def get_or_add_media_by_uri(current_user, uri, to_boundary, to_circles, opts)

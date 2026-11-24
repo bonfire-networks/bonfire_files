@@ -52,8 +52,8 @@ defmodule Bonfire.Files.Web.UploadRedirectController do
     |> maybe_redirect_url(storage)
   end
 
+  # no permission check: a file's URL only reaches someone through a page or delivery that checked its object, and most media have no boundary of their own
   def maybe_redirect_url(path, storage) do
-    # TODO: check permissions?
-    Bonfire.Files.cached_entrepot_storage_url(path, storage)
+    Bonfire.Files.redir_url(path, storage)
   end
 end

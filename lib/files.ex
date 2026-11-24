@@ -675,6 +675,62 @@ defmodule Bonfire.Files do
     "/files/redir/#{entrepot_storage_name(storage)}/#{path}"
   end
 
+  @entrepot_storage_map %{
+    "s3" => Entrepot.Storages.S3,
+    "local" => Entrepot.Storages.Disk
+  }
+
+  @doc """
+  The URL a `/files/redir/<storage>/<path>` request redirects to, or nil. Besides `local` and `s3`, `storage` can be a key in `config :bonfire_files, redir_storages: %{"key" => kind}`, where `kind` is:
+
+  - `:lookup`: `path` is the usual upload path (`[data/uploads/]<creator>/<dir>/<media id>.<ext>`), and the `Media` with that id is found and redirected to wherever its file is (eg. still on a site it was imported from). Cached like the other URLs.
+  - `{:alias, "local"}` (or `"s3"`): the same as that storage, no lookup (eg. once those files are stored here, at those paths).
+
+  A path with a `..` segment gives nil.
+  """
+  def redir_url(path, storage) when is_binary(path) do
+    cond do
+      ".." in String.split(path, "/") ->
+        nil
+
+      # our own storages need no config read
+      is_map_key(@entrepot_storage_map, storage) ->
+        cached_entrepot_storage_url(path, storage)
+
+      true ->
+        case redir_storage_kind(storage) do
+          {:alias, other} -> cached_entrepot_storage_url(path, other)
+          :lookup -> cached_lookup_redir_url(path)
+          _ -> cached_entrepot_storage_url(path, storage)
+        end
+    end
+  end
+
+  # what a configured `/files/redir` storage key stands for (see `redir_url/2`), or nil
+  defp redir_storage_kind(name) when is_binary(name),
+    do: Config.get([:bonfire_files, :redir_storages], %{})[name]
+
+  defp redir_storage_kind(_), do: nil
+
+  defp cached_lookup_redir_url(path) do
+    media_id = path |> Path.basename() |> Path.rootname()
+
+    Bonfire.Common.Cache.maybe_apply_cached(
+      &lookup_redir_url/1,
+      [media_id],
+      cache_key: "redir_lookup:#{media_id}",
+      expire: url_cache_ttl()
+    )
+  end
+
+  defp lookup_redir_url(media_id) do
+    case Needle.UID.valid?(media_id) && Media.one(id: media_id) do
+      {:ok, %Media{path: "http" <> _ = url}} -> url
+      {:ok, %Media{} = media} -> remote_url(nil, media)
+      _ -> nil
+    end
+  end
+
   def cached_entrepot_storage_url(path, storage \\ nil) do
     storage =
       entrepot_storage(storage)
@@ -717,25 +773,28 @@ defmodule Bonfire.Files do
     # |> debug("rew_url")
   end
 
-  @entrepot_storage_map %{
-    "s3" => Entrepot.Storages.S3,
-    "local" => Entrepot.Storages.Disk
-  }
-  @default_storage "s3"
-  @default_storage_module @entrepot_storage_map[@default_storage]
+  # a storage name we don't know (eg. in an older URL) is the instance's own storage, as uploads use (see `Bonfire.Files.CapsuleIntegration.Attacher.storages/2`)
+  defp default_storage_name do
+    if Config.get([:bonfire_files, :storage], :local) == :s3, do: "s3", else: "local"
+  end
 
   defp entrepot_storage(str) when is_binary(str),
-    do: Map.get(@entrepot_storage_map, str) || @default_storage_module
+    do: Map.get(@entrepot_storage_map, str) || @entrepot_storage_map[default_storage_name()]
 
-  defp entrepot_storage(module) when is_atom(module), do: module || @default_storage_module
-  defp entrepot_storage(_), do: @default_storage_module
+  defp entrepot_storage(module) when is_atom(module) and not is_nil(module), do: module
+  defp entrepot_storage(_), do: @entrepot_storage_map[default_storage_name()]
 
   defp entrepot_storage_name(module) when is_atom(module) do
     Enum.find_value(@entrepot_storage_map, fn {k, v} -> if v == module, do: k end) ||
-      @default_storage
+      default_storage_name()
   end
 
-  defp entrepot_storage_name(_), do: @default_storage
+  # a configured `/files/redir` storage key names itself
+  defp entrepot_storage_name(name) when is_binary(name) do
+    if redir_storage_kind(name), do: name, else: default_storage_name()
+  end
+
+  defp entrepot_storage_name(_), do: default_storage_name()
 
   defp entrepot_storage_apply(fun, locator, version \\ nil, opts)
 
@@ -746,7 +805,10 @@ defmodule Bonfire.Files do
          |> String.replace("Capsule", "Entrepot")
          |> Types.maybe_to_module() do
       nil ->
-        error(storage, "Storage module not found")
+        case redir_storage_kind(storage) do
+          nil -> error(storage, "Storage module not found")
+          kind -> redir_storage_apply(kind, fun, locator, version, opts)
+        end
 
       storage ->
         entrepot_storage_apply(fun, Map.put(locator, :storage, storage), version, opts)
@@ -796,6 +858,23 @@ defmodule Bonfire.Files do
   def maybe_apply_or_redirect_entrepot(storage, fun, version_or_id, opts) do
     Utils.maybe_apply(storage, fun, [version_or_id, opts])
   end
+
+  # a file in a configured `/files/redir` storage (see `redir_url/2`): an alias is the storage it stands for; a lookup's file is elsewhere (eg. still on the site it was imported from), so its URL is the `/files/redir` one, and there's no file here to read or delete
+  defp redir_storage_apply({:alias, other}, fun, locator, version, opts),
+    do:
+      entrepot_storage_apply(
+        fun,
+        Map.put(locator, :storage, entrepot_storage(other)),
+        version,
+        opts
+      )
+
+  defp redir_storage_apply(:lookup, :url, %{id: id, storage: name}, version, _opts)
+       when version in [nil, :default],
+       do: redirect_entrepot_url(id, name)
+
+  defp redir_storage_apply(:lookup, :delete, _locator, _version, _opts), do: :ok
+  defp redir_storage_apply(_kind, _fun, _locator, _version, _opts), do: nil
 
   defp init_file(module, file) do
     file
@@ -849,6 +928,29 @@ defmodule Bonfire.Files do
 
   @doc "The URL that places `media` in a body (see `Bonfire.Files.InlineMedia`): for an upload, its `permanent_url/4`, the same URL its `attachment` federates with; for remote media or a link, its own URL."
   def inline_url(%{media: %Media{} = media}), do: inline_url(media)
+
+  # a file in a storage of ours (or a configured one, see `redir_url/2`, eg. an imported site's still on that site): its `/files/redir` URL, even while its `path` is elsewhere
+  def inline_url(%Media{file: %Entrepot.Locator{}} = media), do: permanent_url(nil, media)
+
+  @doc "Records that `media`'s file is in `storage` (a configured `/files/redir` storage, see `redir_url/2`) at the path an upload of its type gets (`data/uploads/<creator>/<dir>/<media id>.<ext>`), so its URL is that storage's, while its `path` stays where the file is now. Returns the updated `Media`, or it as it is when it already has a file."
+  def put_storage_locator(%Media{file: %Entrepot.Locator{}} = media, _storage), do: {:ok, media}
+
+  def put_storage_locator(%Media{} = media, storage) when is_binary(storage) do
+    dir = definition_module(nil, %{media_type: media.media_type}).prefix_dir()
+
+    media
+    |> Ecto.Changeset.cast(
+      %{
+        file: %{
+          storage: storage,
+          id: "data/uploads/#{media.creator_id}/#{dir}/#{media.id}#{file_extension(media.path)}"
+        }
+      },
+      [:file]
+    )
+    |> repo().update()
+  end
+
   def inline_url(%Media{path: "http" <> _ = url}), do: url
   def inline_url(%Media{} = media), do: permanent_url(nil, media)
   def inline_url(_), do: nil

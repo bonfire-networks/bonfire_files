@@ -54,6 +54,10 @@ defmodule Bonfire.Files.Media.Queries do
   def filter(q, {:path, path}) when is_binary(path),
     do: where(q, [content: c], c.path == ^path)
 
+  # any of several paths (eg. the sizes of one remote file), with the same index
+  def filter(q, {:path, paths}) when is_list(paths),
+    do: where(q, [content: c], c.path in ^paths)
+
   def filter(q, {:media_type, media_type}) when is_binary(media_type),
     do: where(q, [content: c], c.media_type == ^media_type)
 

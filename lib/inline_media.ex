@@ -42,16 +42,6 @@ defmodule Bonfire.Files.InlineMedia do
 
   def placed(_, _), do: []
 
-  @doc "`media` without what `placed/2` finds in `body`."
-  def reject_placed(media, body) when is_list(media) do
-    case placed(media, body) do
-      [] -> media
-      placed -> Enum.reject(media, &(&1 in placed))
-    end
-  end
-
-  def reject_placed(media, _), do: media
-
   @doc "The media `body` places (see `placed/2`) by each URL a body can have for it (absolute, and as a local path), for rendering each where it sits."
   def url_map(media, body) do
     for m <- placed(media, body),
@@ -78,29 +68,78 @@ defmodule Bonfire.Files.InlineMedia do
     url_map(media, e(object, :post_content, :html_body, nil))
   end
 
-  # an HTML body (a remote one, an import) places its media where it shows it as an image, or links to it (as a URL in a local body does): `Bonfire.Common.Text.html_parts/3` cuts it there, and the `&` in a URL is stored as `&amp;`
-  defp in_body?(m, "<" <> _ = html) do
-    case Files.inline_url(e_media(m)) do
-      url when is_binary(url) ->
-        attributes =
-          for form <- url_forms(url),
-              form <- Enum.uniq([form, String.replace(form, "&", "&amp;")]),
-              attr <- ["src", "href"],
-              do: ~s(#{attr}="#{form}")
+  @doc """
+  One pass over `media` (attachment rows or `Media`) and the `body` they're attached with, by where the body is actually cut, for rendering each placed media where it sits and listing the rest:
 
-        String.contains?(html, attributes)
+  - `parts`: the body cut at each media URL that ends a line (`Bonfire.Common.Text.markdown_parts/3`, and `html_parts/3` for an HTML body, with `opts` as the body is rendered), or nil when no media URL is in the body at all, so it isn't parsed.
+  - `inline_media`: the media the body places, by each URL a body can have for it (as `url_map/2`): each one it's cut at, and each image it shows by its source wherever it sits, since that image shows once.
+  - `unplaced`: the rest of `media`, for the attachment list. A link in the middle of a sentence isn't cut, so its card stays in the list.
 
-      _ ->
-        false
+  Each media's URLs are computed once, and the cheap string check of `placed/2` only decides whether the body is cut at all.
+  """
+  def split(media, body, opts \\ [])
+
+  def split(media, body, opts) when is_binary(body) and body != "" do
+    media = List.wrap(media)
+
+    candidates =
+      for m <- media,
+          url = Files.inline_url(e_media(m)),
+          is_binary(url),
+          forms = url_forms(url),
+          forms_in_body?(forms, body),
+          do: {m, forms}
+
+    case candidates do
+      [] ->
+        %{parts: nil, inline_media: %{}, unplaced: media}
+
+      candidates ->
+        by_form = for {m, forms} <- candidates, form <- forms, into: %{}, do: {form, m}
+        parts = Text.markdown_parts(body, Map.keys(by_form), opts)
+
+        images = Text.image_urls(body)
+        shown = for({:url, url} <- parts, do: url) ++ images ++ Enum.map(images, &absolute_url/1)
+
+        placed = for url <- shown, m = by_form[url], uniq: true, do: m
+
+        %{
+          parts: parts,
+          inline_media:
+            for(
+              {m, forms} <- candidates,
+              m in placed,
+              form <- forms,
+              into: %{},
+              do: {form, e_media(m)}
+            ),
+          unplaced: Enum.reject(media, &(&1 in placed))
+        }
     end
   end
 
+  def split(media, _body, _opts),
+    do: %{parts: nil, inline_media: %{}, unplaced: List.wrap(media)}
+
+  # an HTML body (a remote one, an import) places its media where it shows it as an image, or links to it (as a URL in a local body does): `Bonfire.Common.Text.html_parts/3` cuts it there, and the `&` in a URL is stored as `&amp;`
   defp in_body?(m, body) do
     case Files.inline_url(e_media(m)) do
-      url when is_binary(url) -> String.contains?(body, url_forms(url))
+      url when is_binary(url) -> forms_in_body?(url_forms(url), body)
       _ -> false
     end
   end
+
+  defp forms_in_body?(forms, "<" <> _ = html) do
+    attributes =
+      for form <- forms,
+          form <- Enum.uniq([form, String.replace(form, "&", "&amp;")]),
+          attr <- ["src", "href"],
+          do: ~s(#{attr}="#{form}")
+
+    String.contains?(html, attributes)
+  end
+
+  defp forms_in_body?(forms, body), do: String.contains?(body, forms)
 
   defp e_media(%{media: %Files.Media{} = media}), do: media
   defp e_media(media), do: media
