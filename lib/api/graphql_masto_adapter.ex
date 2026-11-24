@@ -136,11 +136,15 @@ if Application.compile_env(:bonfire_api_graphql, :modularity) != :disabled do
     defp client_name(%Plug.Upload{path: path}) do
       with {:ok, %{media_type: media_type}} when is_binary(media_type) <-
              Files.extract_metadata(path),
-           [ext | _] <- MIME.extensions(media_type) do
-        "file.#{ext}"
+           [_ | _] = exts <- MIME.extensions(media_type) do
+        "file.#{served_as(exts, media_type)}"
       else
         _ -> "file"
       end
     end
+
+    # an extension that maps back to this type: `audio/mpeg` lists `mpa`, which is served as `video/mpeg`
+    defp served_as(exts, media_type),
+      do: Enum.find(exts, &(MIME.type(&1) == media_type)) || List.first(exts)
   end
 end

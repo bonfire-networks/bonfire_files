@@ -282,5 +282,26 @@ defmodule Bonfire.Files.MastoApi.MediaTest do
 
       assert String.ends_with?(response["url"], ".png")
     end
+
+    # `audio/mpeg` lists `mpa`, which maps back to `video/mpeg`
+    test "an MP3 sent as `file` is stored under an extension served as audio", %{conn: conn} do
+      account = Fake.fake_account!()
+      user = Fake.fake_user!(account)
+
+      bare_path = Path.join(System.tmp_dir!(), "multipart-#{System.unique_integer([:positive])}")
+      File.cp!(audio_file().path, bare_path)
+      on_exit(fn -> File.rm(bare_path) end)
+      upload = %Plug.Upload{path: bare_path, filename: "file", content_type: "audio/mpeg"}
+
+      response =
+        conn
+        |> masto_api_conn(user: user, account: account)
+        |> put_req_header("content-type", "multipart/form-data")
+        |> post("/api/v2/media", %{"file" => upload})
+        |> json_response(200)
+
+      assert response["type"] == "audio"
+      assert "audio/" <> _ = MIME.from_path(response["url"])
+    end
   end
 end
