@@ -386,6 +386,33 @@ defmodule Bonfire.Files.Media do
   def description(_), do: nil
 
   @doc """
+  What kind of player a link's page embeds, from the metadata fetched for it: `"Audio"` for an oEmbed of type `audio`, `"Video"` for any other embeddable player (an oEmbed `video`, a `rich` one with an https iframe, an Open Graph video, a PeerTube video), else nil. What a federated link's FEP-8967 `preview` gives as its `type`, so a receiver knows to fetch the player.
+  """
+  def player_type(%{metadata: metadata}), do: player_type(metadata)
+
+  def player_type(%{} = metadata) do
+    oembed_type = e(metadata, "oembed", "type", nil)
+
+    cond do
+      oembed_type == "audio" and oembed_iframe?(metadata) -> "Audio"
+      oembed_type == "video" -> "Video"
+      oembed_type == "rich" and oembed_iframe?(metadata) -> "Video"
+      String.starts_with?(e(metadata, "facebook", "type", nil) || "", "video") -> "Video"
+      e(metadata, "json_ld", "type", nil) == "Video" -> "Video"
+      true -> nil
+    end
+  end
+
+  def player_type(_), do: nil
+
+  defp oembed_iframe?(metadata) do
+    case e(metadata, "oembed", "html", nil) do
+      html when is_binary(html) -> Regex.match?(~r/<iframe[^>]*src=["']https:\/\//i, html)
+      _ -> false
+    end
+  end
+
+  @doc """
   URL of the cover image for a media, resolved from the metadata we fetched for it.
 
   Returns nil when the only candidate is the site's favicon (see `reject_site_icon/2`).

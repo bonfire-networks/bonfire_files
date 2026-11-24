@@ -1060,7 +1060,7 @@ defmodule Bonfire.Files do
   end
 
   @doc """
-  Prepare a link-preview `Media` (one that points at a remote URL rather than an uploaded file) as an AS2 `Link` attachment, carrying the title and description we resolved for the link.
+  Prepare a link-preview `Media` (one that points at a remote URL rather than an uploaded file) as an AS2 `Link` attachment, as FEP-8967 has it: the `Link` carries its `href` and its title as `name` (as AS2's own `Link` does), and what we resolved for the link (title, description, cover image, author, and `type`, which says whether the page plays: `Video`, `Audio` or `Page`) goes in its `preview`.
 
   These are skipped by `ap_publish_activity/1`, which only handles media we host.
   """
@@ -1077,8 +1077,7 @@ defmodule Bonfire.Files do
           "mediaType" => media.media_type,
           "href" => url,
           "name" => Media.media_label(media),
-          "summary" => Media.description(media),
-          "image" => ap_image_object(Media.preview_image_url(media))
+          "preview" => ap_link_preview(media)
         }
         |> Enums.filter_empty(%{})
 
@@ -1091,6 +1090,27 @@ defmodule Bonfire.Files do
   def ap_publish_link(other) do
     debug(other, "Skip unrecognised link")
     nil
+  end
+
+  # a link's FEP-8967 `preview`: its `type` is `Video` or `Audio` when the page plays, so a receiver fetches the player from the provider, else `Page`
+  defp ap_link_preview(%Media{metadata: metadata} = media) do
+    %{
+      "type" => Media.player_type(media) || "Page",
+      "name" => Media.media_label(media),
+      "summary" => Media.description(media),
+      "image" => ap_image_object(Media.preview_image_url(media)),
+      "attributedTo" =>
+        %{
+          "name" => e(metadata, "oembed", "author_name", nil),
+          "url" =>
+            case e(metadata, "oembed", "author_url", nil) do
+              "http" <> _ = author_url -> %{"href" => author_url}
+              _ -> nil
+            end
+        }
+        |> Enums.filter_empty(nil)
+    }
+    |> Enums.filter_empty(nil)
   end
 
   @doc "Wrap a cover image URL as an AS2 `Image`, so a receiver has something to render without fetching the origin."
@@ -1376,6 +1396,14 @@ defmodule Bonfire.Files do
     end
   end
 
+  # the `name` of a link's FEP-8967 `preview`, unless it is only a URL
+  defp link_preview_name(attachment) do
+    case e(attachment, "preview", "name", nil) do
+      name when is_binary(name) -> if not Bonfire.Common.URIs.url_only?(name), do: name
+      _ -> nil
+    end
+  end
+
   defp maybe_put_link_preview_image(%{"type" => "Link"} = attachment, image) do
     Map.update(attachment, "preview", %{"image" => image}, fn
       %{} = preview -> Map.put_new(preview, "image", image)
@@ -1385,10 +1413,10 @@ defmodule Bonfire.Files do
 
   defp maybe_put_link_preview_image(attachment, _image), do: attachment
 
-  # a link that came with no text gets our own preview, with what was sent (eg. the thumbnail in `preview`) kept under it as the fallback. Returns nil when there's nothing to unfurl or the unfurl found nothing, so the caller saves the bare link instead
+  # a link that came with no text, or whose FEP-8967 `preview` says it plays (`Video` or `Audio`), gets our own preview, so a player comes from its provider and never from what was sent; what was sent (eg. the thumbnail in `preview`) is kept under it as the fallback. Returns nil when there's nothing to unfurl or the unfurl found nothing, so the caller saves the bare link instead
   defp maybe_unfurl_link_attachment(creator, url, %{"type" => "Link"} = attachment, metadata)
        when is_binary(url) do
-    if not link_text?(attachment) do
+    if not link_text?(attachment) or e(attachment, "preview", "type", nil) in ["Video", "Audio"] do
       case Media.maybe_fetch_and_save(creator, url, extra: metadata) do
         %Media{} = media -> media
         _ -> nil
@@ -1401,9 +1429,13 @@ defmodule Bonfire.Files do
   # AS2 gives an attachment one `name`, but it means different things by type: on a `Link` (a link preview) it titles the linked page, while on media it describes what the media shows, which is what Mastodon & co. put in their alt text field. Keeping the two apart is what makes remote alt text usable as alt text.
   defp ap_attachment_name(metadata, %{"type" => "Link"} = attachment) do
     metadata
-    # not a URL-only name: the label is read before the unfurled title, so it would hide it
-    |> Enums.maybe_put("label", link_name(attachment))
-    |> Enums.maybe_put("description", attachment["summary"])
+    # not a URL-only name: the label is read before the unfurled title, so it would hide it. A FEP-8967 `preview` has the card's title, description and image, and wins; the `Link`'s own `name`, `summary` and `image` (what AS2's `Link` and older senders have) are the fallback
+    |> Enums.maybe_put("label", link_preview_name(attachment) || link_name(attachment))
+    |> Enums.maybe_put(
+      "description",
+      e(attachment, "preview", "summary", nil) || attachment["summary"]
+    )
+    |> Enums.maybe_put("image", e(attachment, "preview", "image", nil) || attachment["image"])
   end
 
   defp ap_attachment_name(metadata, attachment) do
