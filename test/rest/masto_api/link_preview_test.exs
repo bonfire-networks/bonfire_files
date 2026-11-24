@@ -88,6 +88,7 @@ defmodule Bonfire.Files.MastoApi.LinkPreviewTest do
       Bonfire.Common.Repo.preload(post, [:post_content, :media, :replied, activity: [:subject]])
 
     created = Bonfire.API.MastoCompat.Mappers.Status.from_post(post, current_user: user)
+
     read = conn |> get("/api/v1/statuses/#{post.id}") |> json_response(200)
     {created, read}
   end
