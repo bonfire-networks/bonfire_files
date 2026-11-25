@@ -230,7 +230,9 @@ defmodule Bonfire.Files.RuntimeConfig do
           filters: %{creators: [:by], media_types: ["attachment"], time_limit: 0},
           parameterized: %{creators: :by},
           exclude_from_nav: true,
-          icon: "ph:images-duotone"
+          icon: "ph:images-duotone",
+          # each file as a post shows it, as the other media feeds do (see `media_feed_assigns` in `bonfire_social`'s config)
+          assigns: [custom_preview: Bonfire.UI.Social.Activity.MediaTileLive]
         }
       ]
 

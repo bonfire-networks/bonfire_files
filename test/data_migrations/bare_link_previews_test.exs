@@ -38,6 +38,15 @@ defmodule Bonfire.Files.DataMigrations.BareLinkPreviewsTest do
       {:federated, "https://social.example.local/objects/2",
        ~s(application/ld+json; profile="https://www.w3.org/ns/activitystreams"),
        %{"label" => "RE: https://social.example.local/objects/2", "source_type" => "activitypub"}},
+    # the same name with the link as an HTML anchor and `RE:` twice, as some servers send it (19 such links on bonfire.cafe)
+    anchored_quote_link:
+      {:federated, "https://social.example.local/objects/3",
+       ~s(application/ld+json; profile="https://www.w3.org/ns/activitystreams"),
+       %{
+         "label" =>
+           ~s(RE: RE: <a href="https://social.example.local/objects/3">social.example.local/objects/3…</a>),
+         "source_type" => "activitypub"
+       }},
     unsourced_quote_link:
       {:federated, "https://apgateway.local/.well-known/apgateway/did:key:z/item/1",
        "application/activity+json", %{}}

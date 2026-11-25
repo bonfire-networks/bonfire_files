@@ -29,26 +29,19 @@ defmodule Bonfire.Files.FeedFilters do
 
     case prepare_filter_media_type(types) do
       :all ->
-        filter_has_media(query)
+        query
+        |> maybe_proload_media(:has_one)
+        |> where(^media_condition({:media_types, types}))
 
       :attachments ->
-        filter_has_attachment(query)
+        query
+        |> maybe_proload_media(:has_one)
+        |> where(^media_condition({:media_types, types}))
 
-      [first | rest] ->
-        # one WHERE rather than one per type, as the ORs of a single condition
-        media_type_filter =
-          Enum.reduce(
-            rest,
-            dynamic([media: media], ilike(media.media_type, ^"#{first}%")),
-            fn type, dynamic_query ->
-              dynamic([media: media], ^dynamic_query or ilike(media.media_type, ^"#{type}%"))
-            end
-          )
-
+      [_ | _] ->
         query
         |> maybe_proload_media(per_media? || :left)
-        |> where(^media_type_filter)
-        |> maybe_exclude_link_previews(types)
+        |> where(^media_condition({:media_types, types}))
 
       other ->
         warn(other, "Unrecognised media type")
@@ -67,23 +60,10 @@ defmodule Bonfire.Files.FeedFilters do
         |> maybe_proload_media(per_media? || :left)
         |> where([media: media], is_nil(media.id))
 
-      [first | rest] ->
-        # what carries no media at all is kept, which is the `is_nil(media.id)` half
-        media_type_filter =
-          Enum.reduce(
-            rest,
-            dynamic(
-              [media: media],
-              is_nil(media.id) or not ilike(media.media_type, ^"#{first}%")
-            ),
-            fn type, dynamic_query ->
-              dynamic([media: media], ^dynamic_query and not ilike(media.media_type, ^"#{type}%"))
-            end
-          )
-
+      [_ | _] ->
         query
         |> maybe_proload_media(per_media? || :left)
-        |> where(^media_type_filter)
+        |> where(^media_condition({:exclude_media_types, types}))
 
       other ->
         warn(other, "Unrecognised media type")
@@ -101,6 +81,65 @@ defmodule Bonfire.Files.FeedFilters do
   end
 
   def maybe_filter(query, _filter, _opts), do: query
+
+  @doc """
+  The condition `media_types` or `exclude_media_types` puts on the media an activity carries, as a `dynamic` on a `media` binding, or `nil` when the types are not recognised.
+
+  Usable on the `media` binding of a feed query, or of any query rooted at `Bonfire.Files.Media` with `as: :media`, such as one picking the newest media of a type.
+  """
+  def media_condition({:media_types, types}) when is_list(types) and types != [] do
+    case prepare_filter_media_type(types) do
+      :all ->
+        dynamic([media: media], not is_nil(media.media_type))
+
+      :attachments ->
+        attachment_condition()
+
+      [first | rest] ->
+        # one condition rather than one per type, as the ORs of a single condition
+        media_type_filter =
+          Enum.reduce(
+            rest,
+            dynamic([media: media], ilike(media.media_type, ^"#{first}%")),
+            fn type, dynamic_query ->
+              dynamic([media: media], ^dynamic_query or ilike(media.media_type, ^"#{type}%"))
+            end
+          )
+
+        if link_previews_excluded?(types),
+          do: dynamic(^media_type_filter and ^document_condition()),
+          else: media_type_filter
+
+      _ ->
+        nil
+    end
+  end
+
+  def media_condition({:exclude_media_types, types}) when is_list(types) and types != [] do
+    case prepare_filter_media_type(types) do
+      # what carries no media at all: a missing media row rather than a missing type
+      :all ->
+        dynamic([media: media], is_nil(media.id))
+
+      [first | rest] ->
+        # what carries no media at all is kept, which is the `is_nil(media.id)` half
+        Enum.reduce(
+          rest,
+          dynamic(
+            [media: media],
+            is_nil(media.id) or not ilike(media.media_type, ^"#{first}%")
+          ),
+          fn type, dynamic_query ->
+            dynamic([media: media], ^dynamic_query and not ilike(media.media_type, ^"#{type}%"))
+          end
+        )
+
+      _ ->
+        nil
+    end
+  end
+
+  def media_condition(_), do: nil
 
   @doc "Joins the media an activity carries, directly or through its attachments, and loads them on the activity."
   def maybe_proload_media(query, per_media_or_join) do
@@ -149,17 +188,9 @@ defmodule Bonfire.Files.FeedFilters do
     )
   end
 
-  defp filter_has_media(query) do
-    query
-    |> maybe_proload_media(:has_one)
-    |> where([media: media], not is_nil(media.media_type))
-  end
-
-  # as `filter_has_media/1`, without link previews; one stored under another type is still caught by its HTML `content_type`
-  defp filter_has_attachment(query) do
-    query
-    |> maybe_proload_media(:has_one)
-    |> where(
+  # as any media, without link previews; one stored under another type is still caught by its HTML `content_type`
+  defp attachment_condition do
+    dynamic(
       [media: media],
       not is_nil(media.media_type) and media.media_type not in ^@link_preview_types and
         not ilike(media.media_type, "%/embed") and not ilike(media.media_type, "text/html%") and
@@ -171,28 +202,27 @@ defmodule Bonfire.Files.FeedFilters do
     )
   end
 
-  # documents match by the `application` and `text` prefixes, which a link preview stored as HTML also has: asked for documents (and not links), link previews are left out as `filter_has_attachment/1` leaves them out
-  defp maybe_exclude_link_previews(query, types) do
-    if Enum.any?(types, &(&1 in [:document, "document"])) and
-         not Enum.any?(types, &(&1 in [:link, "link"])) do
-      where(
-        query,
-        [media: media],
-        # a document embed is a link to a document on a host that shows it (its page is HTML, so it'd be left out below)
-        ilike(media.media_type, "document/%") or
-          (media.media_type not in ^@link_preview_types and
-             media.media_type not in ^@link_preview_content_types and
-             not ilike(media.media_type, "text/html%") and
-             not ilike(media.media_type, "%mpegurl") and
-             fragment(
-               "coalesce(?->>'content_type', '') <> ALL(?)",
-               media.metadata,
-               type(^@link_preview_content_types, {:array, :string})
-             ))
-      )
-    else
-      query
-    end
+  # documents match by the `application` and `text` prefixes, which a link preview stored as HTML also has: asked for documents (and not links), link previews are left out as `attachment_condition/0` leaves them out
+  defp link_previews_excluded?(types) do
+    Enum.any?(types, &(&1 in [:document, "document"])) and
+      not Enum.any?(types, &(&1 in [:link, "link"]))
+  end
+
+  defp document_condition do
+    dynamic(
+      [media: media],
+      # a document embed is a link to a document on a host that shows it (its page is HTML, so it'd be left out below)
+      ilike(media.media_type, "document/%") or
+        (media.media_type not in ^@link_preview_types and
+           media.media_type not in ^@link_preview_content_types and
+           not ilike(media.media_type, "text/html%") and
+           not ilike(media.media_type, "%mpegurl") and
+           fragment(
+             "coalesce(?->>'content_type', '') <> ALL(?)",
+             media.metadata,
+             type(^@link_preview_content_types, {:array, :string})
+           ))
+    )
   end
 
   defp prepare_filter_media_type(types) do

@@ -1205,12 +1205,15 @@ defmodule Bonfire.Files.Media do
     end
   end
 
+  defp quote_link_label?(title),
+    do: Regex.match?(~r/^\s*(RE:\s*)+(<a\s[^>]*>[^<]*<\/a>|\S+)\s*$/i, title)
+
   defp page_worth_saving?(meta) do
     title = media_label(meta)
 
-    # `RE: <url>` is how a quote's Link is named (Mastodon, Friendica): nothing but the URL
-    (not is_nil(title) and
-       not Bonfire.Common.URIs.url_only?(String.replace(title, ~r/^\s*RE:\s*/i, ""))) or
+    # `RE: <url>` is how a quote's Link is named (Mastodon, Friendica), once or twice, and the link may be an HTML anchor: nothing but the URL
+    (not is_nil(title) and not quote_link_label?(title) and
+       not Bonfire.Common.URIs.url_only?(String.replace(title, ~r/^\s*(RE:\s*)+/i, ""))) or
       not is_nil(
         description(meta) || metadata_image_url(%{metadata: meta}) ||
           e(meta, "facebook", "video", nil) || e(meta, "twitter", "player", nil) ||

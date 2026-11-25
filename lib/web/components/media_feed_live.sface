@@ -1,9 +1,9 @@
-<div id="media_list" data-id="media_grid">
+<div id="media_list" data-id="media_feed">
   {!--
       TODO: support LivePush:
       ComponentID.new(Bonfire.UI.Social.FeedLive, @feed_ids || @feed_id, __MODULE__) --}
 
-  {!-- a tile per file, in a grid: two per row from large phones, three from tablets (as the events grid); a player or document (`data-wide` on its tile) takes the whole row, set on the feed's own wrapper since that's the grid item --}
+  {!-- a tile per file, one per row at the feed's full width, as the media feed presets show them (only the composer's media picker lays them out in a grid) --}
   <StatefulComponent
     module={maybe_component(Bonfire.UI.Social.FeedLive, @__context__)}
     id={ComponentID.new(Bonfire.UI.Social.FeedLive, @feed_name, __MODULE__)}
@@ -11,7 +11,6 @@
     feed_filters={@feed_filters}
     showing_within={:media}
     custom_preview={Bonfire.UI.Social.Activity.MediaTileLive}
-    list_class="grid grid-cols-1 min-[350px]:grid-cols-2 md:grid-cols-3 gap-4 [&>.activity_wrapper:has([data-wide])]:col-span-full"
     hide_filters
   />
 </div>

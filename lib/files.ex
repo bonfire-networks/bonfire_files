@@ -261,6 +261,15 @@ defmodule Bonfire.Files do
     # |> debug("validated #{inspect media_type}?")
   end
 
+  # a file already published elsewhere and stored here by `store_at/3`: its type is checked as an upload's, its size isn't, since the instance's limit is for what people upload. Only `store_at/3` builds this scope, uploads never do
+  def validate(
+        {_file, %{file_info: %{} = file_info, skip_size_limit: true}},
+        allowed_media_types,
+        _max_file_size
+      ) do
+    validate(file_info, allowed_media_types, :all)
+  end
+
   def validate({_file, %{file_info: %{} = file_info}}, allowed_media_types, max_file_size) do
     validate(file_info, allowed_media_types, max_file_size)
   end
@@ -746,6 +755,9 @@ defmodule Bonfire.Files do
   defp lookup_redir_url(media_id) do
     case Needle.UID.valid?(media_id) && Media.one(id: media_id) do
       {:ok, %Media{path: "http" <> _ = url}} -> url
+      # its file is stored here now (see `store_at/3`), at its locator's path in this instance's storage: its locator still names the lookup, which would lead back here. Not through `cached_entrepot_url/3`, whose cache is by path, so it may hold the lookup's own URL for this path (this lookup's answer is cached already)
+      {:ok, %Media{file: %Entrepot.Locator{id: id}, path: id}} ->
+        do_entrepot_url(%Entrepot.Locator{id: id, storage: entrepot_storage(nil)}, nil)
       {:ok, %Media{} = media} -> remote_url(nil, media)
       _ -> nil
     end
@@ -793,8 +805,8 @@ defmodule Bonfire.Files do
     # |> debug("rew_url")
   end
 
-  # a storage name we don't know (eg. in an older URL) is the instance's own storage, as uploads use (see `Bonfire.Files.CapsuleIntegration.Attacher.storages/2`)
-  defp default_storage_name do
+  @doc "The name of this instance's own storage, `\"local\"` or `\"s3\"`, as uploads use it (see `Bonfire.Files.CapsuleIntegration.Attacher.storages/2`). A storage name we don't know (eg. in an older URL) is this one."
+  def default_storage_name do
     if Config.get([:bonfire_files, :storage], :local) == :s3, do: "s3", else: "local"
   end
 
@@ -952,24 +964,88 @@ defmodule Bonfire.Files do
   # a file in a storage of ours (or a configured one, see `redir_url/2`, eg. an imported site's still on that site): its `/files/redir` URL, even while its `path` is elsewhere
   def inline_url(%Media{file: %Entrepot.Locator{}} = media), do: permanent_url(nil, media)
 
-  @doc "Records that `media`'s file is in `storage` (a configured `/files/redir` storage, see `redir_url/2`) at the path an upload of its type gets (`data/uploads/<creator>/<dir>/<media id>.<ext>`), so its URL is that storage's, while its `path` stays where the file is now. Returns the updated `Media`, or it as it is when it already has a file."
+  @doc "Records that `media`'s file is in `storage` (a configured `/files/redir` storage, see `redir_url/2`) at the path an upload of its type gets (`data/uploads/<creator>/<dir>/<media id>.<ext>`), so its URL is that storage's, while its `path` stays where the file is now. Returns the updated `Media`, or it as it is when it already has a file, or an error when this instance doesn't take uploads of its type (so it can never be stored here)."
   def put_storage_locator(%Media{file: %Entrepot.Locator{}} = media, _storage), do: {:ok, media}
 
   def put_storage_locator(%Media{} = media, storage) when is_binary(storage) do
-    dir = definition_module(nil, %{media_type: media.media_type}).prefix_dir()
+    case definition_module(nil, %{media_type: media.media_type}) do
+      {:error, _} = error ->
+        error
 
-    media
-    |> Ecto.Changeset.cast(
-      %{
-        file: %{
-          storage: storage,
-          id: "data/uploads/#{media.creator_id}/#{dir}/#{media.id}#{file_extension(media.path)}"
-        }
-      },
-      [:file]
-    )
-    |> repo().update()
+      module ->
+        media
+        |> Ecto.Changeset.cast(
+          %{
+            file: %{
+              storage: storage,
+              id:
+                "data/uploads/#{media.creator_id}/#{module.prefix_dir()}/#{media.id}#{file_extension(media.path)}"
+            }
+          },
+          [:file]
+        )
+        |> repo().update()
+    end
   end
+
+  @doc """
+  Stores the file at `source_path` (a local file) for `media`, whose locator names where its file goes (see `put_storage_locator/2`) while its `path` is still elsewhere (eg. on a site it was imported from): transformed as an upload of its type is (eg. an image resized within `Bonfire.Files.ImageUploader`'s bounds), and put in this instance's storage (disk or S3) at that locator's path. Its id and locator stay, so its attachments, the bodies that place it and what was federated with it keep working; its `path` becomes the locator's path, as a stored file's is, and its metadata gets the stored file's (eg. dimensions and blurhash). The other site's URLs stay in its metadata `urls`, so `Bonfire.Files.Media.many_by_urls/1` still finds it.
+
+  A `Media` already stored is returned as it is, so this can run again over the same ones.
+  """
+  def store_at(media, source_path, opts \\ [])
+
+  def store_at(%Media{file: %Entrepot.Locator{id: id}, path: id} = media, _source_path, _opts),
+    do: {:ok, media}
+
+  def store_at(%Media{file: %Entrepot.Locator{id: id}} = media, source_path, _opts)
+      when is_binary(id) and is_binary(source_path) do
+    name = Path.basename(id)
+
+    with {:ok, file_info} <- extract_metadata(source_path),
+         module when is_atom(module) and not is_nil(module) <-
+           definition_module(nil, %{media_type: media.media_type}),
+         {:ok, versions} <-
+           module.prepare({
+             %Plug.Upload{
+               filename: name,
+               path: source_path,
+               content_type: file_info[:media_type]
+             },
+             %{creator_id: media.creator_id, file_info: file_info, skip_size_limit: true}
+           }),
+         {:ok, %{size: size}} <- File.stat(Entrepot.Upload.path(versions)),
+         storage = Bonfire.Files.CapsuleIntegration.Attacher.storages(versions, module)[:store],
+         # at the locator's own path, rather than the definition's usual prefix and a new name; a file already there (eg. from a run stopped before its `Media` was updated) is left
+         {:ok, _} <-
+           storage.put(versions,
+             prefix: Path.dirname(id),
+             name: name,
+             content_type: file_info[:media_type],
+             skip_existing: true
+           ) do
+      stored_metadata =
+        module.build_metadata(versions, :store, [])
+        |> Map.new(fn {key, value} -> {to_string(key), value} end)
+
+      media
+      |> Ecto.Changeset.change(
+        path: id,
+        size: size,
+        metadata:
+          (media.metadata || %{})
+          |> Map.merge(stored_metadata)
+          |> Map.put("module", to_string(module))
+      )
+      |> repo().update()
+    else
+      {:error, _} = e -> e
+      other -> error(other, "Could not store the file")
+    end
+  end
+
+  def store_at(media, _source_path, _opts),
+    do: error(media, "Only a media with a storage locator can be stored at it")
 
   def inline_url(%Media{path: "http" <> _ = url}), do: url
   def inline_url(%Media{} = media), do: permanent_url(nil, media)
