@@ -52,20 +52,40 @@ defmodule Bonfire.Files.MastoApi.LinkPreviewTest do
     assert id == image.id
   end
 
-  defp create_link(user, extra) do
+  test "a link with a video player (video/embed) is the card, not a video attachment", context do
+    link =
+      create_link(context.user, %{}, "video/embed", %{
+        "content_type" => nil,
+        "oembed" => %{
+          "type" => "video",
+          "html" => ~s(<iframe src="https://www.youtube.com/embed/abc"></iframe>)
+        }
+      })
+
+    status = publish(context, [link])
+
+    assert status["card"]["url"] == link.path
+    assert status["media_attachments"] == []
+  end
+
+  defp create_link(user, extra, media_type \\ "website", extra_metadata \\ %{}) do
     url = "https://example.org/#{Faker.UUID.v4()}"
 
     {:ok, media} =
-      Media.insert(user, url, %{media_type: "website", size: 0}, %{
+      Media.insert(user, url, %{media_type: media_type, size: 0}, %{
         url: url,
-        metadata: %{
-          "content_type" => "text/html",
-          "facebook" =>
-            Map.merge(
-              %{"title" => "Preview title", "description" => "Preview description"},
-              extra
-            )
-        }
+        metadata:
+          Map.merge(
+            %{
+              "content_type" => "text/html",
+              "facebook" =>
+                Map.merge(
+                  %{"title" => "Preview title", "description" => "Preview description"},
+                  extra
+                )
+            },
+            extra_metadata
+          )
       })
 
     media

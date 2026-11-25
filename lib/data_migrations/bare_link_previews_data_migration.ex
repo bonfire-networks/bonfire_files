@@ -7,6 +7,8 @@ defmodule Bonfire.Files.DataMigrations.BareLinkPreviews do
 
   - a federated `Link` attachment our unfurl found nothing for, saved as the bare link (eg. Akkoma's stats images on libera.site). Removing it removes that link from its post, if the post doesn't also have it in its text.
 
+  - a link to a fediverse object (`application/ld+json; profile=…activitystreams` or `application/activity+json`), saved as an attachment before quote Links with no quote `rel` (Bridgy Fed's, Friendica's `RE: <url>`) were recognised. The post's text has the link.
+
   What has something to show is decided by `Bonfire.Files.Media.preview_worth_saving?/1`, as for a new fetch. Other Media (eg. a remote avatar, `"remote"` with empty metadata) are never selected.
 
   Safe to re-run: a removed preview is no longer selected.
@@ -28,13 +30,14 @@ defmodule Bonfire.Files.DataMigrations.BareLinkPreviews do
         ilike(m.path, "http%") and is_nil(m.deleted_at) and
           (not is_nil(fragment("?->>'status_code'", m.metadata)) or
              (fragment("?->>'source_type'", m.metadata) == "activitypub" and
-                m.media_type in ["text/html", "Link", "link"])),
+                m.media_type in ["text/html", "Link", "link"]) or
+             ilike(m.media_type, "application/%json%")),
       select: %{
         id: m.id,
         metadata:
           fragment(
-            # an error status, or none of: a title (the way `Media.media_label/1` mostly finds one, other than just a URL or Cloudflare's "Just a moment..." page), or a key that `Media.description/1`, `Media.metadata_image_url/1` or the embeds read. `(http|https)` rather than `https?`: a `?` is a parameter to `fragment`
-            "CASE WHEN coalesce(?->>'status_code' !~ '^2[0-9][0-9]$', false) OR NOT (coalesce(coalesce(?->>'label', ?->>'title', ?->'oembed'->>'title', ?->'facebook'->>'title', ?->'twitter'->>'title', ?->'other'->>'title') !~* '^\\s*((http|https)://[^/\\s]+\\S*|just a moment.*)\\s*$', false) OR jsonb_exists_any(?, array['description', 'image', 'icon', 'preview', 'module', 'json_ld', 'wikibase', 'crossref', 'atom', 'rss', 'orcid', 'zenodo']) OR jsonb_exists_any(coalesce(?->'facebook', '{}'::jsonb), array['description', 'image', 'video']) OR jsonb_exists_any(coalesce(?->'twitter', '{}'::jsonb), array['description', 'image', 'player']) OR jsonb_exists_any(coalesce(?->'oembed', '{}'::jsonb), array['thumbnail_url', 'html', 'abstract']) OR jsonb_exists_any(coalesce(?->'other', '{}'::jsonb), array['description', 'og:image', 'og:image:url', 'msapplication-TileImage', 'apple-touch-icon'])) THEN ? END",
+            # an error status, or none of: a title (the way `Media.media_label/1` mostly finds one, other than just a URL, `RE: ` and a URL as a quote's Link is named, or Cloudflare's "Just a moment..." page), or a key that `Media.description/1`, `Media.metadata_image_url/1` or the embeds read. `(http|https)` rather than `https?`, and `{0,1}` rather than `?`: a `?` is a parameter to `fragment`
+            "CASE WHEN coalesce(?->>'status_code' !~ '^2[0-9][0-9]$', false) OR NOT (coalesce(coalesce(?->>'label', ?->>'title', ?->'oembed'->>'title', ?->'facebook'->>'title', ?->'twitter'->>'title', ?->'other'->>'title') !~* '^\\s*((re:\\s*){0,1}(http|https)://[^/\\s]+\\S*|just a moment.*)\\s*$', false) OR jsonb_exists_any(?, array['description', 'image', 'icon', 'preview', 'module', 'json_ld', 'wikibase', 'crossref', 'atom', 'rss', 'orcid', 'zenodo']) OR jsonb_exists_any(coalesce(?->'facebook', '{}'::jsonb), array['description', 'image', 'video']) OR jsonb_exists_any(coalesce(?->'twitter', '{}'::jsonb), array['description', 'image', 'player']) OR jsonb_exists_any(coalesce(?->'oembed', '{}'::jsonb), array['thumbnail_url', 'html', 'abstract']) OR jsonb_exists_any(coalesce(?->'other', '{}'::jsonb), array['description', 'og:image', 'og:image:url', 'msapplication-TileImage', 'apple-touch-icon'])) THEN ? END",
             m.metadata,
             m.metadata,
             m.metadata,

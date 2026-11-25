@@ -27,7 +27,20 @@ defmodule Bonfire.Files.DataMigrations.BareLinkPreviewsTest do
        %{status_code: 403, content_type: "text/html", other: %{"title" => "Access denied"}}},
     bot_wall:
       {:unfurled, "https://example.com/guarded", "link",
-       %{status_code: 200, content_type: "text/html", other: %{"title" => "Just a moment..."}}}
+       %{status_code: 200, content_type: "text/html", other: %{"title" => "Just a moment..."}}},
+    # a quote's FEP-e232 `tag` Link, saved as an attachment before quote Links were recognised (Bridgy Fed sends no quote `rel`); the post's text has the link
+    bridgy_quote_link:
+      {:federated, "https://bsky.brid.local/convert/ap/at://did:plc:a/app.bsky.feed.post/b",
+       ~s(application/ld+json; profile="https://www.w3.org/ns/activitystreams"),
+       %{"source_type" => "activitypub"}},
+    # named as Mastodon and Friendica name a quote's Link, which shows nothing but the URL (6,020 of 6,179 such links on bonfire.cafe)
+    re_named_quote_link:
+      {:federated, "https://social.example.local/objects/2",
+       ~s(application/ld+json; profile="https://www.w3.org/ns/activitystreams"),
+       %{"label" => "RE: https://social.example.local/objects/2", "source_type" => "activitypub"}},
+    unsourced_quote_link:
+      {:federated, "https://apgateway.local/.well-known/apgateway/did:key:z/item/1",
+       "application/activity+json", %{}}
   ]
 
   @kept [
@@ -38,7 +51,11 @@ defmodule Bonfire.Files.DataMigrations.BareLinkPreviewsTest do
       {:federated, "https://files.mastodon.local/accounts/avatars/1/original/a.png", nil, %{}},
     named_link:
       {:federated, "https://example.com/stream", "text/html",
-       %{"label" => "Watch the stream", "source_type" => "activitypub"}}
+       %{"label" => "Watch the stream", "source_type" => "activitypub"}},
+    named_quote_link:
+      {:federated, "https://social.example.local/objects/1",
+       ~s(application/ld+json; profile="https://www.w3.org/ns/activitystreams"),
+       %{"label" => "A post about cats", "source_type" => "activitypub"}}
   ]
 
   defp save(user, :federated, url, media_type, metadata) do

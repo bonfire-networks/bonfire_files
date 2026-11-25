@@ -82,4 +82,57 @@ defmodule Bonfire.Files.MediaTypeFallbackTest do
     assert media, "the transcoding video's Media should have been created"
     assert media.media_type == "remote"
   end
+
+  describe "an incoming attachment with no media type" do
+    # as `Bonfire.Files.ap_receive_attachments/3` gets each one; the unfurl of a `Link` finds nothing (404, mocked above)
+    defp receive_attachment(attachment) do
+      case Bonfire.Files.ap_receive_attachments(fake_user!(), false, attachment) do
+        [%Media{} = media] -> media
+        %Media{} = media -> media
+      end
+    end
+
+    test "an unnamed Link to a file gets its type from the file's extension" do
+      media =
+        receive_attachment(%{"type" => "Link", "href" => "https://stats.example.test/a.png"})
+
+      assert media.media_type == "image/png"
+    end
+
+    test "an unnamed Link with no extension (eg. a Bluesky blob) is a remote file of unknown type" do
+      media =
+        receive_attachment(%{
+          "type" => "Link",
+          "href" => "https://pds.example.test/xrpc/com.atproto.sync.getBlob?did=did:plc:a&cid=b"
+        })
+
+      assert media.media_type == "remote"
+    end
+
+    test "a named Link is a link" do
+      media =
+        receive_attachment(%{
+          "type" => "Link",
+          "href" => "https://example.test/stream",
+          "name" => "Watch the stream"
+        })
+
+      assert media.media_type == "link"
+    end
+
+    test "an Image with no media type gets one from its file's extension, and is saved" do
+      media =
+        receive_attachment(%{"type" => "Image", "url" => "https://example.test/a/photo.jpg"})
+
+      assert media.media_type == "image/jpeg"
+    end
+
+    test "control: a given media type is kept" do
+      assert receive_attachment(%{
+               "type" => "Document",
+               "mediaType" => "video/webm",
+               "url" => "https://example.test/v.webm"
+             }).media_type == "video/webm"
+    end
+  end
 end

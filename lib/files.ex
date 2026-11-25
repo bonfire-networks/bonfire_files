@@ -1402,7 +1402,7 @@ defmodule Bonfire.Files do
     debug(attachment, "handle attachment")
 
     url = e(attachment, "href", nil) || e(attachment, "url", nil)
-    type = attachment["mediaType"] || attachment["type"]
+    type = ap_attachment_media_type(attachment, url)
 
     module =
       if(attachment["type"] == "Link",
@@ -1452,6 +1452,34 @@ defmodule Bonfire.Files do
   def ap_receive_attachments(_creator, _, nil) do
     nil
   end
+
+  # the `media_type` of an incoming attachment: its `mediaType` when given; for a `Link` without one, `link` when it's named (a link preview), else the type its file's extension gives, else `remote` (eg. a Bluesky blob); otherwise its ActivityStreams type
+  defp ap_attachment_media_type(%{"mediaType" => media_type}, _url)
+       when is_binary(media_type) and media_type != "",
+       do: media_type
+
+  defp ap_attachment_media_type(%{"type" => "Link"} = attachment, url) do
+    if link_text?(attachment), do: "link", else: media_type_from_path(url) || "remote"
+  end
+
+  # an `Image`, `Video`, `Audio` or `Document` with no `mediaType`: the type its file's extension gives, so it gets the uploader for that type, else its ActivityStreams type (which no uploader takes, so it isn't saved)
+  defp ap_attachment_media_type(attachment, url),
+    do: media_type_from_path(url) || attachment["type"]
+
+  defp media_type_from_path(url) when is_binary(url) do
+    case URI.parse(url).path do
+      path when is_binary(path) ->
+        case MIME.from_path(path) do
+          "application/octet-stream" -> nil
+          media_type -> media_type
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp media_type_from_path(_), do: nil
 
   @doc """
   Media for an AS2 attachment whose file we already hold, such as a picture inside an account archive: `path` is stored on our server, and the attachment gives what a remote one would (alt text, media type).
@@ -1579,12 +1607,46 @@ defmodule Bonfire.Files do
     |> normalise_size(default)
   end
 
+  @doc """
+  The `media_type` of a link preview, from the metadata fetched for its `url`: `"research"` for a paper, `"audio/embed"` or `"video/embed"` for a page with a player we can embed (`Media.player_type/1`; audio when its host is in the `audio_embed_hosts` config), else `"link"`. The page's own Open Graph or oEmbed type stays in the metadata.
+  """
   def link_type(url, meta) do
-    if is_research?(url, meta) do
-      "research"
-    else
-      e(meta, :facebook, "type", nil) || e(meta, :oembed, "type", nil) ||
-        e(meta, :wikidata, "itemType", nil) || "link"
+    cond do
+      is_research?(url, meta) ->
+        "research"
+
+      player = Media.player_type(Bonfire.Common.Enums.stringify_keys(meta || %{}, true)) ->
+        if player == "Audio" or host_in?(url, :audio_embed_hosts),
+          do: "audio/embed",
+          else: "video/embed"
+
+      host_in?(url, :document_embed_hosts) ->
+        "document/embed"
+
+      # a link to a file, not a web page: what the response says it is
+      type = Media.file_content_type(meta || %{}) ->
+        type
+
+      true ->
+        "link"
+    end
+  end
+
+  # a host listed in the config under `key`, or one under it (`spotify.com` covers `open.spotify.com`); an entry without a dot (eg. `funkwhale`) matches anywhere in the host
+  defp host_in?(url, key) do
+    case URI.parse(url || "") do
+      %URI{host: host} when is_binary(host) and host != "" ->
+        host = String.downcase(host)
+
+        Config.get([__MODULE__, key], [])
+        |> Enum.any?(fn entry ->
+          if String.contains?(entry, "."),
+            do: host == entry or String.ends_with?(host, "." <> entry),
+            else: String.contains?(host, entry)
+        end)
+
+      _ ->
+        false
     end
   end
 

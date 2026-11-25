@@ -399,10 +399,10 @@ defmodule Bonfire.Files.Media do
     oembed_type = e(metadata, "oembed", "type", nil)
 
     cond do
-      oembed_type == "audio" and oembed_iframe?(metadata) -> "Audio"
-      oembed_type == "video" -> "Video"
-      oembed_type == "rich" and oembed_iframe?(metadata) -> "Video"
-      String.starts_with?(e(metadata, "facebook", "type", nil) || "", "video") -> "Video"
+      oembed_type == "audio" and embed_iframe?(metadata) -> "Audio"
+      oembed_type == "video" and embed_iframe?(metadata) -> "Video"
+      oembed_type == "rich" and embed_iframe?(metadata) -> "Video"
+      og_video_player?(metadata) -> "Video"
       e(metadata, "json_ld", "type", nil) == "Video" -> "Video"
       true -> nil
     end
@@ -410,12 +410,41 @@ defmodule Bonfire.Files.Media do
 
   def player_type(_), do: nil
 
-  defp oembed_iframe?(metadata) do
+  @doc "Whether a `media_type` (or a media's) is `video/embed` or `audio/embed`: a link preview with a player, which is never a file to play."
+  def embed_type?(%{media_type: media_type}), do: embed_type?(media_type)
+
+  def embed_type?(media_type) when is_binary(media_type),
+    do: String.ends_with?(media_type, "/embed")
+
+  def embed_type?(_), do: false
+
+  @doc """
+  Whether a link's oEmbed gives a player to put in an iframe: its `html` has an https iframe, and no `<blockquote>`. An article embed (WordPress and most news sites) is a quote of the post plus an iframe of it, and a social post (TikTok, X) is a quote plus a script: neither plays anything.
+  """
+  def embed_iframe?(%{metadata: metadata}), do: embed_iframe?(metadata)
+
+  def embed_iframe?(%{} = metadata) do
     case e(metadata, "oembed", "html", nil) do
-      html when is_binary(html) -> Regex.match?(~r/<iframe[^>]*src=["']https:\/\//i, html)
-      _ -> false
+      html when is_binary(html) ->
+        Regex.match?(~r/<iframe[^>]*src=["']https:\/\//i, html) and
+          not Regex.match?(~r/<blockquote/i, html)
+
+      _ ->
+        false
     end
   end
+
+  def embed_iframe?(_), do: false
+
+  @doc "Whether a link's page gives a video player in its Open Graph: a `video*` type and an https `og:video` URL to put in an iframe (a film's page on IMDb or archive.org is `video.movie` with nothing to play)."
+  def og_video_player?(%{metadata: metadata}), do: og_video_player?(metadata)
+
+  def og_video_player?(%{} = metadata) do
+    String.starts_with?(e(metadata, "facebook", "type", nil) || "", "video") and
+      String.starts_with?(to_string(e(metadata, "facebook", "video", nil) || ""), "https://")
+  end
+
+  def og_video_player?(_), do: false
 
   @doc """
   URL of the cover image for a media, resolved from the metadata we fetched for it.
@@ -1074,6 +1103,10 @@ defmodule Bonfire.Files.Media do
           {:ok, _body, status} when require_ok_status? and status not in 200..299 ->
             {:error, {:http_status, status}}
 
+          {:ok, _body, status, _content_type}
+          when require_ok_status? and status not in 200..299 ->
+            {:error, {:http_status, status}}
+
           fetched ->
             fetched
         end
@@ -1090,6 +1123,18 @@ defmodule Bonfire.Files.Media do
       err(e, "Could not fetch the URL preview")
   end
 
+  # a page with nothing to show whose URL ends in a file's extension (a server that sent no content type for a PDF) is that file
+  defp with_file_content_type(url, %{} = meta) do
+    with false <- preview_worth_saving?(meta),
+         %URI{path: path} when is_binary(path) <- URI.parse(url),
+         type when type not in [nil, "application/octet-stream", "text/html"] <-
+           MIME.from_path(path) do
+      meta |> Map.put(:content_type, type) |> Map.put_new(:status_code, 200)
+    else
+      _ -> meta
+    end
+  end
+
   defp do_maybe_fetch_and_save(current_user, url, opts) do
     unfurl(url, opts)
     |> case do
@@ -1098,6 +1143,8 @@ defmodule Bonfire.Files.Media do
         object
 
       {:ok, %{} = meta} ->
+        meta = with_file_content_type(url, meta)
+
         # a failed fetch (an error status, or a page with nothing to preview) is not saved: the link stays a plain link, and since a saved Media is the dedup key for its URL, the next post of it fetches it again
         if preview_worth_saving?(meta) do
           maybe_save(current_user, url, meta, opts)
@@ -1139,19 +1186,37 @@ defmodule Bonfire.Files.Media do
       status when is_integer(status) and status not in 200..299 ->
         false
 
+      # a link to a file (a PDF, an RTF) has no title or description to show, but is worth keeping as what it is
       _ ->
-        title = media_label(meta)
-
-        (not is_nil(title) and not Bonfire.Common.URIs.url_only?(title)) or
-          not is_nil(
-            description(meta) || metadata_image_url(%{metadata: meta}) ||
-              e(meta, "facebook", "video", nil) || e(meta, "twitter", "player", nil) ||
-              e(meta, "oembed", "html", nil)
-          )
+        file_content_type(meta) != nil or page_worth_saving?(meta)
     end
   end
 
   def preview_worth_saving?(_), do: false
+
+  @doc "The content type of a link to a file (not a web page), from the metadata fetched for it, or nil."
+  def file_content_type(meta) do
+    case meta |> Enums.stringify_keys(true) |> e("content_type", nil) do
+      type when is_binary(type) and type != "" ->
+        if String.contains?(type, ["html", "xml"]), do: nil, else: type
+
+      _ ->
+        nil
+    end
+  end
+
+  defp page_worth_saving?(meta) do
+    title = media_label(meta)
+
+    # `RE: <url>` is how a quote's Link is named (Mastodon, Friendica): nothing but the URL
+    (not is_nil(title) and
+       not Bonfire.Common.URIs.url_only?(String.replace(title, ~r/^\s*RE:\s*/i, ""))) or
+      not is_nil(
+        description(meta) || metadata_image_url(%{metadata: meta}) ||
+          e(meta, "facebook", "video", nil) || e(meta, "twitter", "player", nil) ||
+          e(meta, "oembed", "html", nil)
+      )
+  end
 
   # Resolve a (possibly relative) canonical url against the original fetched url, so a relative `<link rel="canonical" href="/path">` becomes an absolute url instead of being stored host-less. Absolute canonical urls are returned unchanged.
   # The canonical becomes the dedup key, so junk ones are dropped (returning nil falls back to the source url): a value shared by many pages would collapse them all into one Media. Seen in prod: YouTube serving `href="undefined"` → every YouTube link showed the first video's preview.
@@ -1495,8 +1560,8 @@ defmodule Bonfire.Files.Media do
            opts ++ [return_html_as_fallback: true, repo: Bonfire.Common.Config.repo()]
          )
          |> debug("fetched using AP within Unfurl") do
-      {:ok, %{status: status_code, body: body}} ->
-        {:ok, body, status_code}
+      {:ok, %{status: status_code, body: body} = response} ->
+        {:ok, body, status_code, Unfurl.Fetcher.content_type(response)}
 
       {:ok, object} when is_struct(object) ->
         {:ok, object, 200}
@@ -1507,7 +1572,7 @@ defmodule Bonfire.Files.Media do
 
       other ->
         debug(other, "AP fetch unavailable, falling back to plain HTTP fetch for unfurl")
-        Unfurl.Fetcher.fetch(url, opts)
+        Unfurl.Fetcher.fetch_response(url, opts)
     end
   end
 end

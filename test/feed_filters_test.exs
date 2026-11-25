@@ -68,6 +68,16 @@ defmodule Bonfire.Files.FeedFiltersTest do
     media
   end
 
+  # a remote file, as an incoming attachment stores one: its MIME type and no page metadata
+  defp file_media(user, media_type) do
+    url = "https://files.example.org/#{Faker.UUID.v4()}"
+
+    {:ok, media} =
+      Bonfire.Files.Media.insert(user, url, %{media_type: media_type, size: 0}, %{url: url})
+
+    media
+  end
+
   # a feed of media has media for rows, with no activity for `feed_contains?/3` to read
   defp row_ids(%{edges: edges}), do: MapSet.new(edges, &id/1)
 
@@ -158,6 +168,74 @@ defmodule Bonfire.Files.FeedFiltersTest do
     assert id(ctx.video) in ids
     refute id(preview) in ids
     refute id(embed) in ids
+  end
+
+  # the types media are stored with: `link`, `research`, `video/embed` and `audio/embed` for link previews (`Bonfire.Files.link_type/2`), a MIME type for files
+  describe "by the stored type" do
+    setup ctx do
+      media =
+        Map.new(
+          [
+            video_embed: "video/embed",
+            audio_embed: "audio/embed",
+            link: "link",
+            research: "research",
+            html_link: "text/html",
+            hls: "application/x-mpegURL",
+            pdf: "application/pdf",
+            rtf: "application/rtf",
+            document_embed: "document/embed"
+          ],
+          fn {name, media_type} ->
+            media =
+              if name in [:hls, :pdf, :rtf],
+                do: file_media(ctx.me, media_type),
+                else: link_media(ctx.me, media_type)
+
+            fake_post!(ctx.me, "public", %{
+              post_content: %{html_body: "a #{name}"},
+              uploaded_media: [media]
+            })
+
+            {name, id(media)}
+          end
+        )
+
+      %{media: media}
+    end
+
+    defp listed(ctx, filters), do: posts(ctx.me, filters) |> row_ids()
+
+    defp assert_lists(ctx, filters, expected) do
+      ids = listed(ctx, filters)
+      all = Map.merge(ctx.media, %{image: id(ctx.image), video: id(ctx.video)})
+
+      for {name, id} <- all do
+        if name in expected,
+          do: assert(id in ids, "#{inspect(filters)} should list #{name}"),
+          else: refute(id in ids, "#{inspect(filters)} should not list #{name}")
+      end
+    end
+
+    test "videos are video files, HLS streams and video embeds", ctx do
+      assert_lists(ctx, %{media_types: ["video"]}, [:video, :video_embed, :hls])
+    end
+
+    test "audio is audio files and audio embeds", ctx do
+      assert_lists(ctx, %{media_types: ["audio"]}, [:audio_embed])
+    end
+
+    test "links are link previews without a player", ctx do
+      assert_lists(ctx, %{media_types: [:link]}, [:link, :html_link])
+    end
+
+    test "documents are document files and document embeds, not a stream or a page", ctx do
+      assert_lists(ctx, %{media_types: [:document]}, [:pdf, :rtf, :document_embed])
+    end
+
+    test "attachments are files, not link previews, papers' pages or embeds", ctx do
+      assert_lists(ctx, %{media_types: ["attachment"]}, [:image, :video, :hls, :pdf, :rtf])
+    end
   end
 
   test "excluding a media type leaves it out, and keeps what carries no media at all", ctx do
