@@ -79,13 +79,16 @@ defmodule Bonfire.Files.LinkTypeTest do
     end
   end
 
-  test "a paper on a repository stays research, not a document" do
-    assert Files.link_type("https://zenodo.org/records/123", %{}) == "research"
+  # repositories are recognised by the open science extension, which not every flavour has
+  if Code.ensure_loaded?(Bonfire.OpenScience) do
+    test "a paper on a repository stays research, not a document" do
+      assert Files.link_type("https://zenodo.org/records/123", %{}) == "research"
+    end
   end
 
   test "control: a paper stays research" do
-    assert Files.link_type("https://doi.org/10.1234/abcd", %{
-             other: %{"citation_doi" => "10.1234/abcd"}
+    assert Files.link_type("https://example.org/a-paper", %{
+             "other" => %{"citation_doi" => "10.1234/abcd"}
            }) == "research"
   end
 end
