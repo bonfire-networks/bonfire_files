@@ -342,6 +342,11 @@ defmodule Bonfire.Files.Media do
     end
   end
 
+  @doc "A one-line caption for a media: its label and alt text (see `media_label_and_alt/1`), else its description, as plain text. Nil when it has none of these."
+  def media_caption(media) do
+    media_label_and_alt(media) || description(media) |> Bonfire.Common.Text.text_only()
+  end
+
   @doc "A media's metadata with the width, height and blurhash its stored file adds (only those: the file's other keys are not for API clients), the media's own keys first"
   def metadata(%{metadata: metadata} = media) do
     case media do
@@ -1333,16 +1338,34 @@ defmodule Bonfire.Files.Media do
     3. `get_by_source_url(strip_trailing_slash(url))` — the slash-normalized `metadata["urls"]` index
   """
   def get_by_url(url) when is_binary(url) do
-    url = Bonfire.Common.URIs.strip_tracking_params(url)
-    stripped = Bonfire.Common.URIs.strip_trailing_slash(url)
+    case local_upload_path(url) do
+      # a local upload, by the URL it's served at here (`/files/redir/<storage>/<path>`, see `Bonfire.Files.inline_url/1`): its `path` is stored with a leading `/`. A file in another configured storage (eg. an imported site's), whose `path` is elsewhere, isn't found this way.
+      path when is_binary(path) ->
+        with {:error, _} <- get_by_path("/" <> path), do: get_by_path(path)
 
-    with {:error, _} <- get_by_path(url),
-         {:error, _} <- maybe_get_by_stripped_path(stripped, url) do
-      get_by_source_url(stripped)
+      nil ->
+        url = Bonfire.Common.URIs.strip_tracking_params(url)
+        stripped = Bonfire.Common.URIs.strip_trailing_slash(url)
+
+        with {:error, _} <- get_by_path(url),
+             {:error, _} <- maybe_get_by_stripped_path(stripped, url) do
+          get_by_source_url(stripped)
+        end
     end
   end
 
   def get_by_url(_), do: {:error, :not_found}
+
+  # the stored `path` of a local upload, from its URL on this instance (or relative to it); nil for any other URL
+  defp local_upload_path(url) do
+    with %URI{host: host, path: "/files/redir/" <> _ = path} <- URI.parse(url),
+         true <- is_nil(host) or host == URI.parse(Bonfire.Common.URIs.base_url()).host,
+         [_, stored] <- Regex.run(~r{^/files/redir/[^/]+/(.+)$}, path) do
+      URI.decode(stored)
+    else
+      _ -> nil
+    end
+  end
 
   # only worth a second path query when the slash-stripped form differs from the exact one
   defp maybe_get_by_stripped_path(stripped, url) when stripped != url, do: get_by_path(stripped)

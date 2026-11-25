@@ -112,6 +112,54 @@ defmodule Bonfire.Files.FeedFiltersTest do
     refute id(html_typed_link) in ids
   end
 
+  # a document is a file that isn't an image, video or audio; a link preview stored as `text/html` isn't one
+  test "asking for documents gives a document, not a link preview stored as HTML", ctx do
+    pdf_url = "https://example.org/#{Faker.UUID.v4()}.pdf"
+
+    {:ok, pdf} =
+      Bonfire.Files.Media.insert(ctx.me, pdf_url, %{media_type: "application/pdf", size: 0}, %{
+        url: pdf_url
+      })
+
+    html_link = link_media(ctx.me, "text/html")
+
+    fake_post!(ctx.me, "public", %{post_content: %{html_body: "a pdf"}, uploaded_media: [pdf]})
+
+    fake_post!(ctx.me, "public", %{
+      post_content: %{html_body: "a page"},
+      uploaded_media: [html_link]
+    })
+
+    ids = posts(ctx.me, %{media_types: [:document]}) |> row_ids()
+
+    assert id(pdf) in ids
+    refute id(html_link) in ids
+    refute id(ctx.image) in ids
+  end
+
+  # media with a file of ours (an upload, or an imported file with its storage), not a link preview or an embed, which are only a URL
+  test "asking for media with a file gives uploads, not a link preview or an embed", ctx do
+    preview = link_media(ctx.me, "website")
+    embed = link_media(ctx.me, "video.other")
+
+    fake_post!(ctx.me, "public", %{
+      post_content: %{html_body: "a page"},
+      uploaded_media: [preview]
+    })
+
+    fake_post!(ctx.me, "public", %{
+      post_content: %{html_body: "a video page"},
+      uploaded_media: [embed]
+    })
+
+    ids = posts(ctx.me, %{media_types: ["*"], media_has_file: true}) |> row_ids()
+
+    assert id(ctx.image) in ids
+    assert id(ctx.video) in ids
+    refute id(preview) in ids
+    refute id(embed) in ids
+  end
+
   test "excluding a media type leaves it out, and keeps what carries no media at all", ctx do
     feed = posts(ctx.me, %{exclude_media_types: ["image"]})
 

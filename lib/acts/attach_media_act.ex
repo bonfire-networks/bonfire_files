@@ -35,11 +35,12 @@ defmodule Bonfire.Files.Acts.AttachMedia do
         case changeset do
           %Changeset{valid?: true} = changeset ->
             uploaded_media =
-              (e(attrs, uploads_key, []) ++
-                 e(epic.assigns, uploads_key, []) ++
-                 Keyword.get(epic.assigns[:options], uploads_key, []))
-              |> List.wrap()
-              |> Enum.flat_map(&resolve_media(&1, current_user))
+              ((e(attrs, uploads_key, []) ++
+                  e(epic.assigns, uploads_key, []) ++
+                  Keyword.get(epic.assigns[:options], uploads_key, []))
+               |> List.wrap()
+               |> Enum.flat_map(&resolve_media(&1, current_user))) ++
+                referenced_media(attrs, current_user)
 
             if uploaded_media != [] do
               smart(epic, act, uploaded_media, "attach media")
@@ -78,6 +79,14 @@ defmodule Bonfire.Files.Acts.AttachMedia do
 
     # |> IO.inspect(label: "cs with media")
   end
+
+  # existing media the body names by URL, that the author may see (eg. dragged in from a post): see `Bonfire.Files.InlineMedia.referenced_media/2`
+  defp referenced_media(attrs, current_user) when not is_nil(current_user) do
+    (e(attrs, :post_content, :html_body, nil) || e(attrs, "post_content", "html_body", nil))
+    |> Bonfire.Files.InlineMedia.referenced_media(current_user)
+  end
+
+  defp referenced_media(_, _), do: []
 
   @doc "The Media for an item of `uploaded_media`, as a list: a Media as is, or a map with an `href` saved as a link to that URL (by `current_user`, nothing is downloaded); else none."
   def resolve_media(%Files.Media{} = m, _user), do: [m]

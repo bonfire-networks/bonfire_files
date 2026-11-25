@@ -12,6 +12,7 @@ defmodule Bonfire.Files.FeedFilters do
 
   @behaviour Bonfire.Common.FeedFilterModule
 
+  # TODO: one link-preview condition for `:link`, `"attachment"` and `:document` (today `media_type_prefixes(:link)`, `filter_has_attachment/1` and `maybe_exclude_link_previews/2` each decide it differently); a link with a player counts as video or audio, not a link
   # what Mastodon clients get as a `card`, not an attachment (`Mappers.PreviewCard.link?/1`); wider than `link` below
   @link_preview_types ["link", "website", "article", "research", "book", "profile", "url", "URL"]
   @link_preview_content_types ["text/html", "application/xhtml+xml"]
@@ -46,6 +47,7 @@ defmodule Bonfire.Files.FeedFilters do
         query
         |> maybe_proload_media(per_media? || :left)
         |> where(^media_type_filter)
+        |> maybe_exclude_link_previews(types)
 
       other ->
         warn(other, "Unrecognised media type")
@@ -86,6 +88,15 @@ defmodule Bonfire.Files.FeedFilters do
         warn(other, "Unrecognised media type")
         query
     end
+  end
+
+  # media with a file of ours (an upload, or an imported file with its storage): a link preview or an embed is only a URL, with no `file`
+  def maybe_filter(query, {:media_has_file, true}, opts) do
+    per_media? = :per_media in List.wrap(opts[:preload])
+
+    query
+    |> maybe_proload_media(per_media? || :left)
+    |> where([media: media], not is_nil(media.file))
   end
 
   def maybe_filter(query, _filter, _opts), do: query
@@ -158,12 +169,39 @@ defmodule Bonfire.Files.FeedFilters do
     )
   end
 
+  # documents match by the `application` and `text` prefixes, which a link preview stored as HTML also has: asked for documents (and not links), link previews are left out as `filter_has_attachment/1` leaves them out
+  defp maybe_exclude_link_previews(query, types) do
+    if Enum.any?(types, &(&1 in [:document, "document"])) and
+         not Enum.any?(types, &(&1 in [:link, "link"])) do
+      where(
+        query,
+        [media: media],
+        media.media_type not in ^@link_preview_types and
+          media.media_type not in ^@link_preview_content_types and
+          fragment(
+            "coalesce(?->>'content_type', '') <> ALL(?)",
+            media.metadata,
+            type(^@link_preview_content_types, {:array, :string})
+          )
+      )
+    else
+      query
+    end
+  end
+
   defp prepare_filter_media_type(types) do
     cond do
       "*" in types or :* in types -> :all
       "attachment" in types or :attachment in types -> :attachments
-      :link in types or "link" in types -> ["link", "article", "profile", "website"] ++ types
-      true -> types
+      true -> Enum.flat_map(types, &media_type_prefixes/1)
     end
   end
+
+  # a type a person picks, as the prefixes of the media types it covers
+  defp media_type_prefixes(type) when type in [:link, "link"],
+    do: ["link", "article", "profile", "website", type]
+
+  # a document is any file that isn't an image, video or audio: a PDF, a text file, etc.
+  defp media_type_prefixes(type) when type in [:document, "document"], do: ["application", "text"]
+  defp media_type_prefixes(type), do: [type]
 end

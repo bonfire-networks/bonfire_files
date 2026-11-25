@@ -32,6 +32,24 @@ defmodule Bonfire.Files.InlineMedia do
   def inline_ids(_, _), do: []
 
   @doc """
+  The existing media that `body` names by its URL (alone in a paragraph, or as an image's source), which `current_user` may see (`Bonfire.Files.Media.visible?/2`): eg. an image dragged into the composer from a post. Attached to the new object (by `Bonfire.Files.Acts.AttachMedia`), it shows there as media rather than as a plain image. A URL that isn't of an existing media, or of one `current_user` may not see, stays as it is.
+  """
+  def referenced_media(body, current_user) when is_binary(body) and body != "" do
+    (Text.standalone_urls(body) ++ Text.image_urls(body))
+    |> Enum.uniq()
+    |> Enum.flat_map(fn url ->
+      case Files.Media.get_by_url(url) do
+        {:ok, media} -> [media]
+        _ -> []
+      end
+    end)
+    |> Enum.uniq_by(&Enums.id/1)
+    |> Enum.filter(&Files.Media.visible?(&1, current_user: current_user))
+  end
+
+  def referenced_media(_, _), do: []
+
+  @doc """
   Which of `media` (attachment rows or `Media`) `body` places, so they're left out of the attachment list and rendered where they sit: any whose URL is in the body, a file or a link alike. A link in a sentence then has no card (until links get previews on hover).
 
   Only compares URLs, with no parse and no query: cheap enough to run on every render.

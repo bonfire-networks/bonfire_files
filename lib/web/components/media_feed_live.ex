@@ -14,8 +14,10 @@ defmodule Bonfire.UI.Files.Web.MediaFeedLive do
     {:ok,
      socket
      |> assign(
-       feed_id: :media,
-       page_title: "Media"
+       # the local instance's media, one tile per file: the `local_media` preset, without link previews (`"attachment"`), which aren't media of their own
+       feed_name: :local_media,
+       feed_filters: %{media_types: ["attachment"]},
+       page_title: l("Media")
      )}
   end
 

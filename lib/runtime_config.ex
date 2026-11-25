@@ -1,4 +1,6 @@
 defmodule Bonfire.Files.RuntimeConfig do
+  use Bonfire.Common.Localise
+
   @behaviour Bonfire.Common.ConfigModule
   def config_module, do: true
 
@@ -217,6 +219,20 @@ defmodule Bonfire.Files.RuntimeConfig do
       allowed_media_extensions: image_media_extensions,
       max_width: System.get_env("IMAGE_MAX_W", "700"),
       max_height: System.get_env("IMAGE_MAX_H", "700")
+
+    # a person's own media, one row each (the "Media" preload rule gives a feed filtered by `media_types` the `:per_media` rows), as the composer's media picker lists them. Declared here, beside the `media_types` filter it uses, and merged key by key into `bonfire_social`'s presets. `"attachment"` leaves link previews out. A plain map, since a `%FeedFilters{}` literal can't name a field this extension declares
+    config :bonfire_social, Bonfire.Social.Feeds,
+      feed_presets: [
+        my_media: %{
+          name: l("My media"),
+          built_in: true,
+          description: l("Media you shared"),
+          filters: %{creators: [:by], media_types: ["attachment"], time_limit: 0},
+          parameterized: %{creators: :by},
+          exclude_from_nav: true,
+          icon: "ph:images-duotone"
+        }
+      ]
 
     # NOTE: this is avoid LV uploads failing with `invalid accept filter provided to allow_upload. Expected a file extension with a known MIME type.`
     # NOTE2: seems this needs to be compile-time

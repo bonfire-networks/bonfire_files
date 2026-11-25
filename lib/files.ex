@@ -333,6 +333,14 @@ defmodule Bonfire.Files do
 
   def has_extension?(_, _), do: false
 
+  @doc "How many objects `media` is attached to (one indexed count), eg. to say how many posts an alt text change also affects."
+  def attachments_count(media) do
+    import Ecto.Query, only: [from: 2]
+    media_id = Types.uid(media)
+
+    repo().aggregate(from(f in __MODULE__, where: f.media_id == ^media_id), :count)
+  end
+
   @doc """
   Attach a Media to an object.
   """
@@ -706,9 +714,21 @@ defmodule Bonfire.Files do
     end
   end
 
+  @doc """
+  The configured `/files/redir` storage keys (see `redir_url/2`), as a map of each key (a string) to what it stands for. Put as a map, they come back from the database after a restart as a keyword list with atom keys, so they're always read through this.
+  """
+  def redir_storages do
+    case Config.get([:bonfire_files, :redir_storages], %{}) do
+      storages when is_map(storages) or is_list(storages) ->
+        Map.new(storages, fn {key, kind} -> {to_string(key), kind} end)
+
+      _ ->
+        %{}
+    end
+  end
+
   # what a configured `/files/redir` storage key stands for (see `redir_url/2`), or nil
-  defp redir_storage_kind(name) when is_binary(name),
-    do: Config.get([:bonfire_files, :redir_storages], %{})[name]
+  defp redir_storage_kind(name) when is_binary(name), do: redir_storages()[name]
 
   defp redir_storage_kind(_), do: nil
 
