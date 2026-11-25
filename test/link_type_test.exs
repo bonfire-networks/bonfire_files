@@ -53,6 +53,133 @@ defmodule Bonfire.Files.LinkTypeTest do
            ) == "link"
   end
 
+  # as a news site gives it: a `rich` oEmbed whose only content is an iframe of a card of the article, no quote, on a page that says it's an article
+  @article_card ~s(<iframe src="https://news.example.com/svc/oembed/html/?url=https%3A%2F%2Fnews.example.com%2F2026%2F11%2F13%2Fa-story.html" scrolling="no" frameborder="0" allowtransparency="true" title="A story" style="border:none;max-width:500px;min-width:300px;min-height:550px;display:block;width:100%;"></iframe>)
+
+  test "a news article's oEmbed card (a rich iframe of the article) is a link" do
+    url = "https://news.example.com/2026/11/13/a-story.html"
+
+    # its Open Graph says article
+    assert Files.link_type(
+             url,
+             oembed("rich", @article_card) |> Map.put(:facebook, %{"type" => "article"})
+           ) == "link"
+
+    # or only its JSON-LD does, as a list of objects
+    assert Files.link_type(
+             url,
+             oembed("rich", @article_card)
+             |> Map.put(:json_ld, [
+               %{"@context" => "https://schema.org", "@type" => "NewsArticle", "@id" => url},
+               %{"@type" => "BreadcrumbList"}
+             ])
+           ) == "link"
+
+    # or a single JSON-LD object, of another kind of article
+    assert Files.link_type(
+             url,
+             oembed("rich", @article_card) |> Map.put(:json_ld, %{"@type" => "BlogPosting"})
+           ) == "link"
+  end
+
+  test "a page's JSON-LD type is read as one type or a list, by name or full IRI" do
+    url = "https://news.example.com/2026/11/13/a-story.html"
+
+    for type <- [
+          ["NewsArticle", "Article"],
+          "https://schema.org/NewsArticle",
+          "http://schema.org/NewsArticle"
+        ] do
+      assert Files.link_type(
+               url,
+               oembed("rich", @article_card) |> Map.put(:json_ld, %{"@type" => type})
+             ) == "link",
+             "expected #{inspect(type)} to be read as an article"
+    end
+
+    # a video page's JSON-LD, as a list of types, with no oEmbed or Open Graph player
+    assert Files.link_type("https://media.example.com/clip/1", %{
+             json_ld: [%{"@type" => ["https://schema.org/VideoObject"]}]
+           }) == "video/embed"
+
+    # a paper by full IRI
+    assert Files.link_type("https://example.org/a-paper", %{
+             json_ld: %{"@type" => "http://schema.org/ScholarlyArticle"}
+           }) == "research"
+  end
+
+  test "an article with a clip in it (its JSON-LD says article and video) is a link" do
+    assert Files.link_type(
+             "https://news.example.com/2026/11/13/a-story.html",
+             oembed("rich", @article_card)
+             |> Map.put(:json_ld, [%{"@type" => "NewsArticle"}, %{"@type" => "VideoObject"}])
+           ) == "link"
+  end
+
+  test "control: a video page saying VideoObject, with an Open Graph player, is a video embed" do
+    assert Files.link_type("https://video.example.com/v/2", %{
+             facebook: %{"type" => "video.other", "video" => "https://video.example.com/embed/2"},
+             json_ld: %{"@type" => "VideoObject"}
+           }) == "video/embed"
+  end
+
+  # a page's kind, from its JSON-LD type (by name, IRI, or in a list) or, for books and profiles, its Open Graph type
+  @kinds [
+    {"research", %{json_ld: %{"@type" => "Thesis"}}},
+    {"research", %{json_ld: [%{"@type" => "https://schema.org/Dataset"}]}},
+    {"book", %{json_ld: %{"@type" => "Book"}}},
+    {"book", %{json_ld: %{"@type" => "SequentialArt"}}},
+    {"book", %{facebook: %{"type" => "book"}}},
+    {"profile", %{json_ld: %{"@type" => "Person"}}},
+    {"profile", %{json_ld: [%{"@type" => ["Organization", "NGO"]}]}},
+    {"profile", %{json_ld: %{"@type" => "ProfilePage"}}},
+    {"profile", %{facebook: %{"type" => "profile"}}},
+    {"event", %{json_ld: %{"@type" => "Event"}}},
+    {"event", %{json_ld: %{"@type" => "http://schema.org/MusicEvent"}}},
+    {"recipe", %{json_ld: %{"@type" => "Recipe"}}},
+    {"place", %{json_ld: %{"@type" => "Place"}}},
+    {"place", %{json_ld: %{"@type" => "Museum"}}},
+    {"product", %{json_ld: %{"@type" => "Product"}}},
+    {"product", %{json_ld: %{"@type" => "Car"}}}
+  ]
+
+  test "a page is typed by the kind of thing its JSON-LD or Open Graph says it is" do
+    for {kind, meta} <- @kinds do
+      assert Files.link_type("https://example.com/page", meta) == kind,
+             "expected #{inspect(meta)} to be #{kind}"
+    end
+  end
+
+  test "a player comes first, then a paper, then an article, then the page's kind" do
+    url = "https://example.com/page"
+
+    # an audiobook with a player plays; without one it's a book
+    assert Files.link_type(
+             "https://open.spotify.com/show/1",
+             oembed("rich", @iframe) |> Map.put(:json_ld, %{"@type" => "Audiobook"})
+           ) == "audio/embed"
+
+    assert Files.link_type(url, %{json_ld: %{"@type" => "Audiobook"}}) == "book"
+
+    # an article that mentions a person is still an article
+    assert Files.link_type(url, %{
+             json_ld: [%{"@type" => "NewsArticle"}, %{"@type" => "Person"}]
+           }) == "link"
+
+    # a paper is research, though it's a kind of article
+    assert Files.link_type(url, %{json_ld: %{"@type" => "ScholarlyArticle"}}) == "research"
+
+    # a page about a film with no player is a link
+    assert Files.link_type(url, %{json_ld: %{"@type" => "Movie"}}) == "link"
+  end
+
+  test "control: a rich iframe on a page that doesn't say it's an article is still a player" do
+    assert Files.link_type(
+             "https://media.example.com/clip/1",
+             oembed("rich", @iframe) |> Map.put(:json_ld, [%{"@type" => "WebPage"}])
+           ) == "video/embed"
+  end
+
   test "a page without a player is a link, whatever its Open Graph type" do
     for og_type <- ["article", "website", "gofundme:campaign", "music.song", "video.movie"] do
       assert Files.link_type("https://example.com/page", %{facebook: %{"type" => og_type}}) ==

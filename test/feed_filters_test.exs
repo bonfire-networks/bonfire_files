@@ -180,6 +180,8 @@ defmodule Bonfire.Files.FeedFiltersTest do
             audio_embed: "audio/embed",
             link: "link",
             research: "research",
+            event: "event",
+            book: "book",
             html_link: "text/html",
             hls: "application/x-mpegURL",
             pdf: "application/pdf",

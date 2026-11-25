@@ -754,12 +754,18 @@ defmodule Bonfire.Files do
 
   defp lookup_redir_url(media_id) do
     case Needle.UID.valid?(media_id) && Media.one(id: media_id) do
-      {:ok, %Media{path: "http" <> _ = url}} -> url
+      {:ok, %Media{path: "http" <> _ = url}} ->
+        url
+
       # its file is stored here now (see `store_at/3`), at its locator's path in this instance's storage: its locator still names the lookup, which would lead back here. Not through `cached_entrepot_url/3`, whose cache is by path, so it may hold the lookup's own URL for this path (this lookup's answer is cached already)
       {:ok, %Media{file: %Entrepot.Locator{id: id}, path: id}} ->
         do_entrepot_url(%Entrepot.Locator{id: id, storage: entrepot_storage(nil)}, nil)
-      {:ok, %Media{} = media} -> remote_url(nil, media)
-      _ -> nil
+
+      {:ok, %Media{} = media} ->
+        remote_url(nil, media)
+
+      _ ->
+        nil
     end
   end
 
@@ -1683,18 +1689,31 @@ defmodule Bonfire.Files do
     |> normalise_size(default)
   end
 
+  # TODO: a page whose JSON-LD `@type` is a schema.org `Place` (or a subtype) could become a geolocation from its `geo` or `address`
   @doc """
-  The `media_type` of a link preview, from the metadata fetched for its `url`: `"research"` for a paper, `"audio/embed"` or `"video/embed"` for a page with a player we can embed (`Media.player_type/1`; audio when its host is in the `audio_embed_hosts` config), else `"link"`. The page's own Open Graph or oEmbed type stays in the metadata.
+  The `media_type` of a link preview, from the metadata fetched for its `url`, in this order:
+  - `"audio/embed"` or `"video/embed"` for a page with a player we can embed (`Media.player_type/1`; audio when its host is in the `audio_embed_hosts` config);
+  - `"research"` for a paper;
+  - `"document/embed"` for a page on one of the `document_embed_hosts`;
+  - a file's own type, for a link to a file;
+  - `"link"` for an article, whatever else it mentions;
+  - the kind of thing the page is about, from its JSON-LD type (the `link_kinds` config: `book`, `profile`, `event`, `recipe`, `place`, `product`) or else its Open Graph type (`link_kinds_open_graph`);
+  - else `"link"`.
+
+  The page's own Open Graph or oEmbed type stays in the metadata.
   """
   def link_type(url, meta) do
-    cond do
-      is_research?(url, meta) ->
-        "research"
+    # the fetch gives atom keys for each source, and a stored row string keys
+    meta_strings = Bonfire.Common.Enums.stringify_keys(meta || %{}, true)
 
-      player = Media.player_type(Bonfire.Common.Enums.stringify_keys(meta || %{}, true)) ->
+    cond do
+      player = Media.player_type(meta_strings) ->
         if player == "Audio" or host_in?(url, :audio_embed_hosts),
           do: "audio/embed",
           else: "video/embed"
+
+      is_research?(url, meta_strings) ->
+        "research"
 
       host_in?(url, :document_embed_hosts) ->
         "document/embed"
@@ -1703,9 +1722,40 @@ defmodule Bonfire.Files do
       type = Media.file_content_type(meta || %{}) ->
         type
 
+      Media.article_page?(meta_strings) ->
+        "link"
+
+      kind = link_kind(meta_strings) ->
+        kind
+
       true ->
         "link"
     end
+  end
+
+  @doc "Every `media_type` a link preview can be stored with: the kinds `link_type/2` gives a page, and the Open Graph types previews were stored with before it, for rows not yet typed again. A link preview is shown as a card, never as an attachment."
+  def link_preview_types do
+    ["link" | Keyword.keys(link_kinds()) |> Enum.map(&to_string/1)] ++
+      ["website", "article", "url", "URL"]
+  end
+
+  @doc "Whether a `media_type` is one a link preview is stored with (`link_preview_types/0`)."
+  def link_preview_type?(media_type), do: media_type in link_preview_types()
+
+  # TODO: a `LocalBusiness` (Restaurant, Museum…) is both an Organization and a Place in schema.org, so the first kind listed wins and it's a `profile`: decide whether it should be a `place`
+  defp link_kinds, do: Config.get([__MODULE__, :link_kinds], [])
+
+  # the first kind whose schema.org types list one of the page's JSON-LD types, else the first whose Open Graph types list the page's (`research` is decided before, with a paper's other signs)
+  defp link_kind(meta) do
+    json_ld = e(meta, "json_ld", nil)
+    og_type = e(meta, "facebook", "type", nil)
+
+    Enum.find_value(link_kinds(), fn {kind, types} ->
+      if kind != :research and Media.json_ld_type?(json_ld, types), do: to_string(kind)
+    end) ||
+      Enum.find_value(Config.get([__MODULE__, :link_kinds_open_graph], []), fn {kind, og_types} ->
+        if og_type in og_types, do: to_string(kind)
+      end)
   end
 
   # a host listed in the config under `key`, or one under it (`spotify.com` covers `open.spotify.com`); an entry without a dot (eg. `funkwhale`) matches anywhere in the host
@@ -1731,24 +1781,7 @@ defmodule Bonfire.Files do
     # Otherwise delegate to relevant extension if available
     e(meta, "oembed", "DOI", nil) ||
       e(meta, "other", "citation_doi", nil) ||
-      check_json_ld_type(e(meta, "json_ld", nil), [
-        "ScholarlyArticle",
-        "Dataset",
-        "https://schema.org/ScholarlyArticle",
-        "https://schema.org/Dataset"
-      ]) ||
+      Media.json_ld_type?(e(meta, "json_ld", nil), link_kinds()[:research] || []) ||
       Utils.maybe_apply(Bonfire.OpenScience, :is_research?, [url, meta], fallback_return: false)
   end
-
-  defp check_json_ld_type(json_ld, find_in) when is_list(json_ld) do
-    Enum.any?(json_ld, fn item ->
-      check_json_ld_type(item, find_in)
-    end)
-  end
-
-  defp check_json_ld_type(json_ld, find_in) when is_map(json_ld) do
-    e(json_ld, "@type", nil) in find_in
-  end
-
-  defp check_json_ld_type(_, _), do: false
 end

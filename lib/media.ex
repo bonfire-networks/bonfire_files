@@ -16,6 +16,11 @@ defmodule Bonfire.Files.Media do
   alias Bonfire.Files.Media
   alias Bonfire.Files.Media.Queries
 
+  # schema.org's `Article` and all its subtypes, from https://schema.org/version/latest/schemaorg-current-https-types.csv
+  @article_types ~w(Article APIReference AdvertiserContentArticle AnalysisNewsArticle AskPublicNewsArticle BackgroundNewsArticle BlogPosting DiscussionForumPosting LiveBlogPosting MedicalScholarlyArticle NewsArticle OpinionNewsArticle Report ReportageNewsArticle ReviewNewsArticle SatiricalArticle ScholarlyArticle SocialMediaPosting TechArticle)
+  # schema.org's `VideoObject` and its subtypes, and ActivityStreams' `Video` (a PeerTube video federated to us)
+  @video_types ~w(VideoObject VideoObjectSnapshot MusicVideoObject Video)
+
   @behaviour Bonfire.Common.QueryModule
   @behaviour Bonfire.Common.ContextModule
   @behaviour Bonfire.Common.SchemaModule
@@ -399,12 +404,24 @@ defmodule Bonfire.Files.Media do
     oembed_type = e(metadata, "oembed", "type", nil)
 
     cond do
-      oembed_type == "audio" and embed_iframe?(metadata) -> "Audio"
-      oembed_type == "video" and embed_iframe?(metadata) -> "Video"
-      oembed_type == "rich" and embed_iframe?(metadata) -> "Video"
-      og_video_player?(metadata) -> "Video"
-      e(metadata, "json_ld", "type", nil) == "Video" -> "Video"
-      true -> nil
+      oembed_type == "audio" and embed_iframe?(metadata) ->
+        "Audio"
+
+      oembed_type == "video" and embed_iframe?(metadata) ->
+        "Video"
+
+      oembed_type == "rich" and embed_iframe?(metadata) ->
+        "Video"
+
+      og_video_player?(metadata) ->
+        "Video"
+
+      # an article with a clip in it says it's both: it's an article
+      json_ld_type?(e(metadata, "json_ld", nil), @video_types) and not article_page?(metadata) ->
+        "Video"
+
+      true ->
+        nil
     end
   end
 
@@ -419,7 +436,7 @@ defmodule Bonfire.Files.Media do
   def embed_type?(_), do: false
 
   @doc """
-  Whether a link's oEmbed gives a player to put in an iframe: its `html` has an https iframe, and no `<blockquote>`. An article embed (WordPress and most news sites) is a quote of the post plus an iframe of it, and a social post (TikTok, X) is a quote plus a script: neither plays anything.
+  Whether a link's oEmbed gives a player to put in an iframe: its `html` has an https iframe, and no `<blockquote>`. An article embed (WordPress and most news sites) is a quote of the post plus an iframe of it, and a social post (TikTok, X) is a quote plus a script: neither plays anything. Some news sites give a `rich` oEmbed that is only an iframe of a card of the article, with no quote: a `rich` one on a page that says it's an article (`article_page?/1`) doesn't play anything either.
   """
   def embed_iframe?(%{metadata: metadata}), do: embed_iframe?(metadata)
 
@@ -427,7 +444,8 @@ defmodule Bonfire.Files.Media do
     case e(metadata, "oembed", "html", nil) do
       html when is_binary(html) ->
         Regex.match?(~r/<iframe[^>]*src=["']https:\/\//i, html) and
-          not Regex.match?(~r/<blockquote/i, html)
+          not Regex.match?(~r/<blockquote/i, html) and
+          not (e(metadata, "oembed", "type", nil) == "rich" and article_page?(metadata))
 
       _ ->
         false
@@ -435,6 +453,37 @@ defmodule Bonfire.Files.Media do
   end
 
   def embed_iframe?(_), do: false
+
+  @doc "Whether a link's page says it's an article: an Open Graph `article` type, or a JSON-LD object of one of the `@article_types`."
+  def article_page?(%{} = metadata) do
+    String.starts_with?(to_string(e(metadata, "facebook", "type", nil) || ""), "article") or
+      json_ld_type?(e(metadata, "json_ld", nil), @article_types)
+  end
+
+  def article_page?(_), do: false
+
+  @doc """
+  Whether a link's JSON-LD (one object, or a list of them) has an object of one of `types`. An object's type is its `@type`, as a page gives it, or its `type`, as an ActivityPub object gives it; either can be one type or a list, and a full IRI (`https://schema.org/NewsArticle`) counts as its last segment.
+  """
+  def json_ld_type?(json_ld, types) when is_list(json_ld),
+    do: Enum.any?(json_ld, &json_ld_type?(&1, types))
+
+  def json_ld_type?(%{} = json_ld, types) do
+    (e(json_ld, "@type", nil) || e(json_ld, "type", nil))
+    |> List.wrap()
+    |> Enum.any?(&(json_ld_type_name(&1) in types))
+  end
+
+  def json_ld_type?(_, _), do: false
+
+  defp json_ld_type_name(type) when is_binary(type) do
+    case Regex.run(~r{^https?://schema\.org/(.+)$}, type) do
+      [_, name] -> name
+      _ -> type
+    end
+  end
+
+  defp json_ld_type_name(type), do: to_string(type)
 
   @doc "Whether a link's page gives a video player in its Open Graph: a `video*` type and an https `og:video` URL to put in an iframe (a film's page on IMDb or archive.org is `video.movie` with nothing to play)."
   def og_video_player?(%{metadata: metadata}), do: og_video_player?(metadata)

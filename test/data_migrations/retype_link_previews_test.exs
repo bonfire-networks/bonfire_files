@@ -27,6 +27,31 @@ defmodule Bonfire.Files.DataMigrations.RetypeLinkPreviewsTest do
          "oembed" => %{"type" => "rich", "html" => @wordpress},
          "facebook" => %{"type" => "article"}
        }, "link"},
+    news_article:
+      {"https://news.example.com/2026/11/13/a-story.html", "article",
+       %{
+         "oembed" => %{
+           "type" => "rich",
+           "html" =>
+             ~s(<iframe src="https://news.example.com/svc/oembed/html/?url=https%3A%2F%2Fnews.example.com%2Fa-story.html"></iframe>)
+         },
+         "facebook" => %{"type" => "article"},
+         "json_ld" => [%{"@type" => "NewsArticle"}]
+       }, "link"},
+    book: {"https://example.org/a-book", "book", %{"facebook" => %{"type" => "book"}}, "book"},
+    person:
+      {"https://example.org/someone", "profile", %{"json_ld" => %{"@type" => "Person"}},
+       "profile"},
+    event:
+      {"https://example.org/a-gig", "website", %{"json_ld" => [%{"@type" => "MusicEvent"}]},
+       "event"},
+    recipe:
+      {"https://example.org/a-recipe", "article", %{"json_ld" => %{"@type" => "Recipe"}},
+       "recipe"},
+    place:
+      {"https://example.org/a-museum", "website", %{"json_ld" => %{"@type" => "Museum"}}, "place"},
+    product:
+      {"https://example.org/a-car", "product", %{"json_ld" => %{"@type" => "Car"}}, "product"},
     paper:
       {"https://example.org/paper", "article", %{"other" => %{"citation_doi" => "10.1/abc"}},
        "research"},
