@@ -468,12 +468,11 @@ defmodule Bonfire.Files.Media do
     # tile images are often good previews; OG images are sometimes nested; an AP `icon` can be one object or an array (eg. PeerTube); `json_ld` covers PeerTube videos and `preview` covers Mastodon ones
     # `ed`, since AS2 lets `image` be an array of Images and returning the Image object rather than its url would hand back a map where a URL string is expected
     # a received AS2 object keeps its cover under `json_ld`, since that is where the whole object is stored
+    # Unfurl nests `twitter:image:alt` / `og:image:alt` under the image, which then becomes a `%{"url", "alt"}` map (or `%{"alt"}` alone), so these go through `extract_ap_icon_url/1` too
     e(media, :metadata, "oembed", "thumbnail_url", nil) ||
-      e(media, :metadata, "twitter", "image", nil) ||
-      (e(media, :metadata, "facebook", "image", "url", nil) ||
-         e(media, :metadata, "facebook", "image", nil)) ||
-      ed(media, :metadata, "image", "url", nil) ||
-      e(media, :metadata, "image", nil) ||
+      extract_ap_icon_url(e(media, :metadata, "twitter", "image", nil)) ||
+      extract_ap_icon_url(e(media, :metadata, "facebook", "image", nil)) ||
+      extract_ap_icon_url(e(media, :metadata, "image", nil)) ||
       extract_ap_icon_url(ed(media, :metadata, "json_ld", "image", nil)) ||
       extract_ap_icon_url(e(media, :metadata, "icon", nil)) ||
       extract_ap_icon_url(ed(media, :metadata, "json_ld", "icon", nil)) ||

@@ -155,6 +155,25 @@ defmodule Bonfire.Files.MediaDescriptionTest do
       assert Media.preview_image_url(%{metadata: metadata}) == "https://example.com/og.jpg"
     end
 
+    # Unfurl nests `twitter:image:alt` under `twitter:image`, so the image becomes a map; passed through, it reached Mastodon clients as `card.image` = object and Ice Cubes failed the whole home timeline (bonfire.cafe, 2026-11-26)
+    test "reads the url out of a twitter image that carries an alt" do
+      metadata = %{
+        "twitter" => %{"image" => %{"url" => "https://example.com/tw.jpg", "alt" => "a satellite"}}
+      }
+
+      assert Media.preview_image_url(%{metadata: metadata}) == "https://example.com/tw.jpg"
+    end
+
+    test "an image with only an alt is skipped for the next source" do
+      metadata = %{
+        "twitter" => %{"image" => %{"alt" => "a logo"}},
+        "facebook" => %{"image" => %{"alt" => "a logo"}},
+        "other" => %{"og:image" => "https://example.com/og.jpg"}
+      }
+
+      assert Media.preview_image_url(%{metadata: metadata}) == "https://example.com/og.jpg"
+    end
+
     test "a favicon republished as the cover image is not treated as one" do
       metadata = %{
         "favicon" => "https://example.com/favicon.ico",
