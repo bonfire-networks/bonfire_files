@@ -1,8 +1,8 @@
 defmodule Bonfire.Files.DataMigrations.RetypeLinkPreviews do
   @moduledoc """
-  Gives each link preview saved before 25 November the `media_type` a new one gets (`Bonfire.Files.link_type/2`): `link`, `research`, `video/embed`, `audio/embed` or `document/embed`, in place of its page's own Open Graph or oEmbed type (`article`, `video`, `rich`, `music.song`…), which stays in its metadata. So the feeds filter on one stored type and never on its metadata.
+  Gives each link preview saved before 25 November the `media_type` a new one gets (`Bonfire.Files.link_type/2`): `link`, `research`, a kind (`book`, `event`, `place`…), `video/embed`, `audio/embed` or `document/embed`, in place of its page's own Open Graph or oEmbed type (`article`, `video`, `rich`, `music.song`…), which stays in its metadata. So the feeds filter on one stored type and never on its metadata.
 
-  Selects what isn't a file: a link-like `http` path, and a `media_type` with no `/` that isn't `remote` (a remote file of unknown type), `Image`, `Video`, `Audio` or `Document` (attachments), and not already one of the new kinds. Safe to re-run: a retyped preview gets the same type again.
+  Selects what isn't a file: a link-like `http` path, and a `media_type` with no `/` that isn't `remote` (a remote file of unknown type), `Image`, `Video`, `Audio` or `Document` (attachments). That includes previews already typed `link`, so they get a kind too. Safe to re-run: a retyped preview gets the same type again.
   """
 
   import Ecto.Query

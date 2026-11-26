@@ -12,10 +12,8 @@ defmodule Bonfire.Files.FeedFilters do
 
   @behaviour Bonfire.Common.FeedFilterModule
 
-  # a link preview's kind is decided once, when it's saved (`Bonfire.Files.link_type/2`: `link`, `research`, `video/embed`, `audio/embed`), so these filters only match stored types. `@link_preview_types` still lists the Open Graph types previews were stored with before, for rows not yet retyped
+  # a link preview's kind is decided once, when it's saved (`Bonfire.Files.link_type/2`: `link`, `research`, a kind like `event` or `book`, `video/embed`, `audio/embed`), so these filters only match stored types. `Bonfire.Files.link_preview_types/0` lists every type a preview without a player is stored with (also what Mastodon clients get as a `card`, not an attachment, `Mappers.PreviewCard.link?/1`), and the Open Graph types previews were stored with before, for rows not yet retyped; wider than `link` below
   # TODO: bring back the images, videos and audio feed presets (commented out in bonfire_social's runtime config), showing files and embeds together, and a documents one
-  # what Mastodon clients get as a `card`, not an attachment (`Mappers.PreviewCard.link?/1`); wider than `link` below
-  @link_preview_types ["link", "website", "article", "research", "book", "profile", "url", "URL"]
   @link_preview_content_types ["text/html", "application/xhtml+xml"]
 
   @impl true
@@ -192,7 +190,8 @@ defmodule Bonfire.Files.FeedFilters do
   defp attachment_condition do
     dynamic(
       [media: media],
-      not is_nil(media.media_type) and media.media_type not in ^@link_preview_types and
+      not is_nil(media.media_type) and
+        media.media_type not in ^Bonfire.Files.link_preview_types() and
         not ilike(media.media_type, "%/embed") and not ilike(media.media_type, "text/html%") and
         fragment(
           "coalesce(?->>'content_type', '') <> ALL(?)",
@@ -213,7 +212,7 @@ defmodule Bonfire.Files.FeedFilters do
       [media: media],
       # a document embed is a link to a document on a host that shows it (its page is HTML, so it'd be left out below)
       ilike(media.media_type, "document/%") or
-        (media.media_type not in ^@link_preview_types and
+        (media.media_type not in ^Bonfire.Files.link_preview_types() and
            media.media_type not in ^@link_preview_content_types and
            not ilike(media.media_type, "text/html%") and
            not ilike(media.media_type, "%mpegurl") and
@@ -234,6 +233,7 @@ defmodule Bonfire.Files.FeedFilters do
   end
 
   # a type a person picks, as the prefixes of the media types it covers. A link preview is stored as `link`, `research`, `video/embed` or `audio/embed` (`Bonfire.Files.link_type/2`), or as `text/html` when an incoming `Link` says so
+  # TODO: links to a page of a kind (`event`, `book`, `profile`, `recipe`, `place`, `product`) aren't matched here, so they're left out of the links feed and trending links: decide whether `link` covers every kind (`Bonfire.Files.link_preview_types/0`), which also brings in old rows typed `book` or `profile` from Open Graph
   defp media_type_prefixes(type) when type in [:link, "link"], do: ["link", "text/html"]
 
   # an HLS stream is a video, though its MIME type is an `application` one
