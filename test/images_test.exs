@@ -394,6 +394,21 @@ defmodule Bonfire.Files.ImagesTest do
       end
     end
 
+    test "ffmpegthumbnailer: without the Image library, a bigger poster frame is still scaled down by the image tools" do
+      if System.find_executable("ffmpegthumbnailer") &&
+           (System.find_executable("vipsthumbnail") || System.find_executable("convert")) do
+        Process.put([:bonfire_files, :choose_executable, "ffmpeg"], false)
+        Process.put([:bonfire_files, :choose_executable, Image], false)
+
+        assert "320x180" ==
+                 run_tool(
+                   Bonfire.Files.MediaEdit.thumbnail_video("a.mp4", "320x320", percent: 10),
+                   video_file().path,
+                   "jpg"
+                 )
+      end
+    end
+
     # makes `tool` the only one `MediaEdit` finds, if it's installed
     defp only(tool) do
       for other <- @tools,

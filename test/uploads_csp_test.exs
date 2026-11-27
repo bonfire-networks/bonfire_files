@@ -38,6 +38,9 @@ defmodule Bonfire.Files.UploadsCSPTest do
     # a sanitiser that leaves it as it is, so that what is checked is the CSP, which stays as a second layer
     Process.put([:bonfire_files, :choose_executable, SvgSanitizer], __MODULE__.PassThrough)
 
+    # the SVG type is only accepted where a sanitiser is compiled in, which is not the case on every machine
+    Bonfire.Files.TestAcceptedTypes.accept_svg([ImageUploader])
+
     path = upload!(fake_user!(), "avatar.svg", svg)
 
     served = get(build_conn(), path)

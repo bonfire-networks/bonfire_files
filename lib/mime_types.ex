@@ -55,8 +55,9 @@ defmodule Bonfire.Files.MimeTypes do
       "image/avif" => ["avif"]
     }
 
-  @doc "The capability (see `Bonfire.Files.MediaEdit.capabilities/0`) an image type needs to be accepted: `:heif` for HEIC, HEIF and AVIF, `:resize` for JPEG, PNG and WebP, `:svg` for SVG, `nil` for all else."
-  def required_capability(type) when type in ["image/heic", "image/heif", "image/avif"], do: :heif
+  @doc "The capability (see `Bonfire.Files.MediaEdit.capabilities/0`) an image type needs to be accepted: `:heic` for HEIC and HEIF, `:avif` for AVIF, `:resize` for JPEG, PNG and WebP, `:svg` for SVG, `nil` for all else."
+  def required_capability(type) when type in ["image/heic", "image/heif"], do: :heic
+  def required_capability("image/avif"), do: :avif
 
   def required_capability(type) when type in ["image/jpeg", "image/png", "image/webp"],
     do: :resize

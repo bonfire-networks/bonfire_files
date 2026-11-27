@@ -35,12 +35,12 @@ defmodule Bonfire.Files.UploadCapabilitiesTest do
 
   describe "capabilities/0" do
     test "all tools present: everything" do
-      assert %{resize: true, heif: true, svg: true} = MediaEdit.capabilities()
+      assert %{resize: true, heic: true, avif: true, svg: true} = MediaEdit.capabilities()
     end
 
     test "no resize tool: no resizing" do
       all_tools(false)
-      assert %{resize: false, heif: false} = MediaEdit.capabilities()
+      assert %{resize: false, heic: false, avif: false} = MediaEdit.capabilities()
     end
 
     test "any one resize tool is enough" do
@@ -58,19 +58,31 @@ defmodule Bonfire.Files.UploadCapabilitiesTest do
     test "no HEIF decoder: no HEIF, even with resize tools and the Image library" do
       force("vipsthumbnail_heif", false)
       force("convert_heif", false)
-      assert %{resize: true, heif: false} = MediaEdit.capabilities()
+      assert %{resize: true, heic: false, avif: false} = MediaEdit.capabilities()
     end
 
     test "either decoder is enough, with the tool that runs it" do
       force("convert_heif", false)
-      assert %{heif: true} = MediaEdit.capabilities()
+      assert %{heic: true, avif: true} = MediaEdit.capabilities()
 
       force("vipsthumbnail_heif", false)
       force("convert_heif", true)
-      assert %{heif: true} = MediaEdit.capabilities()
+      assert %{heic: true, avif: true} = MediaEdit.capabilities()
 
       force("convert", false)
-      assert %{heif: false} = MediaEdit.capabilities()
+      assert %{heic: false, avif: false} = MediaEdit.capabilities()
+    end
+
+    test "a decoder of AVIF but not of HEIC (libheif without its HEVC decoder): AVIF only" do
+      force("vipsthumbnail_heic", false)
+      force("convert_heic", false)
+      assert %{heic: false, avif: true} = MediaEdit.capabilities()
+
+      config = RuntimeConfig.media_config(MediaEdit.capabilities())
+      assert "image/avif" in config.global.all_allowed_media_types
+      refute "image/heic" in config.global.all_allowed_media_types
+      refute "image/heif" in config.global.all_allowed_media_types
+      assert config.dropped["image/heic"] == :heic
     end
 
     test "no sanitiser: no SVG, except in dev" do
@@ -87,17 +99,32 @@ defmodule Bonfire.Files.UploadCapabilitiesTest do
           do: Process.delete([:bonfire_files, :choose_executable, name])
 
       caps = MediaEdit.capabilities()
-      assert is_boolean(caps.resize) and is_boolean(caps.heif) and is_boolean(caps.svg)
 
-      if System.find_executable("vipsthumbnail") && vips_heif?(),
-        do: assert(caps.heif),
-        else: :ok
+      assert is_boolean(caps.resize) and is_boolean(caps.heic) and is_boolean(caps.avif) and
+               is_boolean(caps.svg)
+
+      # a format is reported as decoded when a tool decodes its sample (not when its loader merely exists: libheif can lack the HEVC decoder)
+      priv = Application.app_dir(:bonfire_files, "priv/heif_probe")
+
+      for {format, sample} <- [heic: "sample.heic", avif: "sample.avif"] do
+        if System.find_executable("vipsthumbnail") && vips_decodes?(Path.join(priv, sample)),
+          do: assert(Map.fetch!(caps, format), "#{format} decodes with vips")
+      end
+    end
+
+    test "the samples are tiny" do
+      for sample <- ["sample.heic", "sample.avif"] do
+        assert %{size: size} =
+                 File.stat!(Application.app_dir(:bonfire_files, "priv/heif_probe/#{sample}"))
+
+        assert size < 1_000
+      end
     end
   end
 
   describe "RuntimeConfig.media_config/1" do
     test "all present: every type, in every list" do
-      caps = %{resize: true, heif: true, svg: true}
+      caps = %{resize: true, heic: true, avif: true, svg: true}
       config = RuntimeConfig.media_config(caps)
 
       for type <- @heif ++ @raster ++ ["image/svg+xml", "image/gif", "video/mp4"],
@@ -113,7 +140,7 @@ defmodule Bonfire.Files.UploadCapabilitiesTest do
     end
 
     test "no resize tool: no JPEG, PNG, WebP or HEIF anywhere, GIF and video stay" do
-      config = RuntimeConfig.media_config(%{resize: false, heif: false, svg: true})
+      config = RuntimeConfig.media_config(%{resize: false, heic: false, avif: false, svg: true})
 
       for list <- [
             config.global.all_allowed_media_types
@@ -129,7 +156,7 @@ defmodule Bonfire.Files.UploadCapabilitiesTest do
     end
 
     test "no HEIF decoder: no HEIC, HEIF or AVIF, others stay" do
-      config = RuntimeConfig.media_config(%{resize: true, heif: false, svg: true})
+      config = RuntimeConfig.media_config(%{resize: true, heic: false, avif: false, svg: true})
 
       for type <- @heif do
         refute type in config.global.all_allowed_media_types
@@ -139,11 +166,12 @@ defmodule Bonfire.Files.UploadCapabilitiesTest do
 
       for type <- @raster, do: assert(type in config.global.all_allowed_media_types)
       refute ".heic" in config.global.all_allowed_media_extensions
-      assert config.dropped["image/avif"] == :heif
+      assert config.dropped["image/avif"] == :avif
+      assert config.dropped["image/heic"] == :heic
     end
 
     test "no sanitiser: no SVG in any uploader" do
-      config = RuntimeConfig.media_config(%{resize: true, heif: true, svg: false})
+      config = RuntimeConfig.media_config(%{resize: true, heic: true, avif: true, svg: false})
 
       refute "image/svg+xml" in config.global.all_allowed_media_types
       refute "image/svg+xml" in config.global.image_media_types
@@ -162,8 +190,8 @@ defmodule Bonfire.Files.UploadCapabilitiesTest do
     end
   end
 
-  defp vips_heif? do
-    case System.cmd("vips", ["heifload"], stderr_to_stdout: true) do
+  defp vips_decodes?(sample) do
+    case System.cmd("vips", ["avg", sample], stderr_to_stdout: true) do
       {_, 0} -> true
       _ -> false
     end

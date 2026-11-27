@@ -6,7 +6,7 @@ defmodule Bonfire.Files.HeifToWebpTest do
   What each tool reads here:
   - HEIC: vipsthumbnail and ImageMagick. Not the `Image` library: the libvips bundled with it has libheif and AV1 decoders but no HEVC one (it fails to decode the pixels, "Failed to memory copy image"), so a HEIC is refused when it is the only tool.
   - Still AVIF: all three.
-  - Animated AVIF: ImageMagick only. libvips reads it only through its ImageMagick loader, blocked as untrusted (`VIPS_BLOCK_UNTRUSTED=TRUE`, set when the `:image` application starts), so with vipsthumbnail alone it is refused.
+  - Animated AVIF: ImageMagick only. libvips reads it only through its ImageMagick loader, blocked as untrusted (`VIPS_BLOCK_UNTRUSTED=TRUE`, set at boot by `MediaEdit.block_untrusted_loaders/0` unless an admin set it), so with vipsthumbnail alone it is refused.
 
   Fixtures in `test/fixtures/formats/`: `gps.heic` (800x600), `gps.avif` (1200x900), `small_gps.heic` and `small_gps.avif` (100x75) all embed 48.8584 N, 2.2945 E; `anim.avif` is 3 frames of 64x64.
   """
@@ -134,14 +134,56 @@ defmodule Bonfire.Files.HeifToWebpTest do
     end
   end
 
+  # whether vipsthumbnail, run as the upload runs it, opens the animated AVIF here: libvips reads one only through its ImageMagick loader, which is blocked as untrusted (boot sets `VIPS_BLOCK_UNTRUSTED` unless an admin set it, so this sets it the same way first), and open where an admin set it to something else
+  vips_reads_anim? =
+    if System.find_executable("vipsthumbnail") do
+      Bonfire.Files.MediaEdit.block_untrusted_loaders()
+      out = Path.join(System.tmp_dir!(), "anim_probe_#{System.unique_integer([:positive])}.webp")
+
+      {_, status} =
+        System.cmd(
+          "vipsthumbnail",
+          [Path.join(@fixtures, "anim.avif") <> "[n=-1]", "--size", "400x400>", "-o", out],
+          stderr_to_stdout: true
+        )
+
+      File.rm(out)
+      status == 0
+    else
+      false
+    end
+
+  @vips_reads_anim vips_reads_anim?
+
   # (tools, what they can't read, fixtures to try)
   @refusals [
     {"no tool", "no tool can read it", @no_decoders, ["gps.heic", "gps.avif"]},
     {"the Image library only", "it has no HEVC decoder", @image_only,
-     ["gps.heic", "small_gps.heic"]},
-    {"vipsthumbnail only", "libvips blocks the loader of an animated AVIF", @vips_only,
-     ["anim.avif"]}
+     ["gps.heic", "small_gps.heic"]}
+    | if(@vips_reads_anim,
+        do: [],
+        else: [
+          {"vipsthumbnail only", "libvips blocks the loader of an animated AVIF", @vips_only,
+           ["anim.avif"]}
+        ]
+      )
   ]
+
+  if @vips_reads_anim do
+    for uploader <- [ImageUploader, EmojiUploader] do
+      test "#{inspect(uploader)} converts anim.avif to a WebP with vipsthumbnail only, as its loader isn't blocked here" do
+        use_tools(unquote(Macro.escape(@vips_only)))
+        set_limits()
+        creator = fake_user!()
+
+        upload = upload!(creator, unquote(uploader), "anim.avif")
+
+        [stored] = stored_files(creator)
+        assert Path.extname(stored) == ".webp"
+        assert upload.media_type == "image/webp"
+      end
+    end
+  end
 
   for {branch, why, tools, fixtures} <- @refusals,
       uploader <- [ImageUploader, EmojiUploader],

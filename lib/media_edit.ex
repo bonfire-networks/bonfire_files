@@ -15,11 +15,14 @@ defmodule Bonfire.Files.MediaEdit do
   # the tools that shrink an image, in the order the transforms try them (the `Image` library comes last)
   @resize_executables ["vipsthumbnail", "convert"]
 
-  # the tools that convert HEIC, HEIF and AVIF to WebP in `heif_to_webp/4`, in order: `{command, executable, {probe executable, probe args, coders its output must list}}`. A tool is only worth accepting these for if its probe passes (libheif is a separate package on some systems). The `Image` library is tried last by `heif_to_webp/4` but doesn't count for `capabilities/0`, as it can lack an HEVC decoder.
+  # the tools that convert HEIC, HEIF and AVIF to WebP in `heif_to_webp/4`, in order: `{command, executable, {probe executable, probe args}}`, the probe being to decode a sample file (`:sample` in the args) of each format. A tool having a HEIF loader or coder is not enough: libheif's decoders for each format are separate packages on some systems (eg. HEIC's HEVC decoder is not installed with the AV1 one). The `Image` library is tried last by `heif_to_webp/4` but doesn't count for `capabilities/0`, as it can lack an HEVC decoder.
   @heif_tools [
-    {:vipsthumbnail, "vipsthumbnail", {"vips", ["heifload"], nil}},
-    {:convert, "convert", {"convert", ["-list", "format"], ["HEIC", "AVIF"]}}
+    {:vipsthumbnail, "vipsthumbnail", {"vips", ["avg", :sample]}},
+    {:convert, "convert", {"convert", [:sample, "null:"]}}
   ]
+
+  # a few hundred bytes each, made for the probe (`priv/heif_probe/`)
+  @heif_samples %{heic: "sample.heic", avif: "sample.avif"}
 
   @doc "Use a small indirection so tests can override tool availability by setting `Process.put([:bonfire_files, :choose_executable, name], value)` where `value` can be `false` (force missing), `true` (force present), or a binary/atom to manually override the path/module.
   Falls back to `System.find_executable/1` or `Extend.module_available?/1`."
@@ -47,17 +50,27 @@ defmodule Bonfire.Files.MediaEdit do
   What this machine can do with an upload, probed from the tools found (so call it once, at boot, not per upload):
 
   - `:resize`: a tool that can shrink a JPEG, PNG or WebP (`vipsthumbnail`, ImageMagick's `convert`, or the `Image` library)
-  - `:heif`: a decoder for HEIC, HEIF and AVIF (libvips with its `heifload`, or ImageMagick with its HEIC or AVIF coder). The `Image` library alone doesn't count, as it can lack an HEVC decoder.
+  - `:heic` (also for HEIF) and `:avif`: a tool that decodes a sample of the format (libvips, or ImageMagick). The `Image` library alone doesn't count, as it can lack an HEVC decoder.
   - `:svg`: `SvgSanitizer` is loaded, or this is a dev build (which stores SVG unsanitised)
 
-  Each probe can be forced on or off like any tool, with `Process.put([:bonfire_files, :choose_executable, name], true | false)` for `"vipsthumbnail"`, `"convert"`, `Image` and `SvgSanitizer`. The HEIF decoder probe of a tool is forced with the name `"<tool>_heif"` (`"vipsthumbnail_heif"`, `"convert_heif"`). The environment is set with`Process.put([:bonfire_files, :env], :dev)`.
+  Each probe can be forced on or off like any tool, with `Process.put([:bonfire_files, :choose_executable, name], true | false)` for `"vipsthumbnail"`, `"convert"`, `Image` and `SvgSanitizer`. The decoder probe of a tool is forced with the name `"<tool>_heif"` (`"vipsthumbnail_heif"`, `"convert_heif"`) for every format, or `"<tool>_heic"` or `"<tool>_avif"` for one. The environment is set with`Process.put([:bonfire_files, :env], :dev)`.
   """
   def capabilities do
     %{
       resize: !!resize_tool(),
-      heif: Enum.any?(@heif_tools, &heif_decoder?/1),
+      heic: heif_decoder?(:heic),
+      avif: heif_decoder?(:avif),
       svg: !!svg_sanitizer() || current_env() == :dev
     }
+  end
+
+  @doc "Sets `VIPS_BLOCK_UNTRUSTED=TRUE` in the OS environment (so every `vipsthumbnail` or `vips` subprocess, and libvips loaded through vix, refuses the untrusted loaders, eg. ImageMagick's) unless an admin already set it to something. Call it at boot, before `capabilities/0`."
+  def block_untrusted_loaders do
+    # same default as the `:image` app's, but set here so it also holds where that app isn't compiled in
+    if System.get_env("VIPS_BLOCK_UNTRUSTED") == nil,
+      do: System.put_env("VIPS_BLOCK_UNTRUSTED", "TRUE")
+
+    :ok
   end
 
   @doc "The first tool that can shrink a JPEG, PNG or WebP (`@resize_executables` in order, then the `Image` library), or `nil`. The transforms (`image/4`, `thumbnail/3`, `banner/4`) try the same tools in the same order."
@@ -71,33 +84,48 @@ defmodule Bonfire.Files.MediaEdit do
 
   defp current_env, do: ProcessTree.get([:bonfire_files, :env]) || Config.env()
 
-  # a conversion tool decodes if it is there and its probe says it has a HEIF coder
-  defp heif_decoder?({_cmd, executable, {probe_executable, probe_args, coders}}) do
-    !!(choose_executable(:image, executable) &&
-         probe(executable, probe_executable, probe_args, coders))
+  # a format can be decoded if one of the conversion tools is there and decodes its sample
+  defp heif_decoder?(format) do
+    Enum.any?(@heif_tools, fn {_cmd, executable, {probe_executable, probe_args}} ->
+      !!(choose_executable(:image, executable) &&
+           probe(executable, probe_executable, probe_args, format))
+    end)
   end
 
-  # asks a tool what it can do (a failure, or no answer within 5 seconds, is "no"), unless a test forces the answer by the name of the tool
-  defp probe(name, executable, args, coders) do
-    case choose_executable_config("#{name}_heif") do
-      nil -> run_probe(choose_executable(:image, executable), args, coders)
-      forced -> forced == true
+  # asks a tool to decode the sample of a format (a failure, or no answer within 5 seconds, is "no"), unless a test forces the answer by the name of the tool
+  defp probe(name, executable, args, format) do
+    # forced for one format (`"convert_avif"`) or for all of them (`"convert_heif"`)
+    forced =
+      Enum.find_value(["#{name}_#{format}", "#{name}_heif"], fn key ->
+        case choose_executable_config(key) do
+          nil -> nil
+          value -> {value == true}
+        end
+      end)
+
+    case forced do
+      nil -> run_probe(choose_executable(:image, executable), args, format)
+      {value} -> value
     end
   end
 
-  defp run_probe(exe, args, coders) when is_binary(exe) do
-    {out, 0} =
+  defp run_probe(exe, args, format) when is_binary(exe) do
+    sample =
+      Application.app_dir(:bonfire_files, Path.join("priv/heif_probe", @heif_samples[format]))
+
+    args = Enum.map(args, &if(&1 == :sample, do: sample, else: &1))
+
+    {_out, 0} =
       Task.async(fn -> System.cmd(exe, args, stderr_to_stdout: true) end) |> Task.await(5_000)
 
-    is_nil(coders) or
-      Regex.match?(Regex.compile!("^\\s*(#{Enum.join(coders, "|")})\\s", "m"), out)
+    true
   rescue
     _ -> false
   catch
     :exit, _ -> false
   end
 
-  defp run_probe(_exe, _args, _coders), do: false
+  defp run_probe(_exe, _args, _format), do: false
 
   defp choose_executable_config(name) do
     # Config.get([:bonfire_files, :choose_executable, name])
@@ -251,12 +279,8 @@ defmodule Bonfire.Files.MediaEdit do
     args = ["-i", input, "-t", "#{scrub_opts[:percent]}", "-s", "0", "-q", "9", "-o", frame]
 
     with {_, 0} <- System.cmd(to_string(ffmpegthumbnailer), args, stderr_to_stdout: true) do
-      case image_resize_thumbnail(frame, max_size, waffle_file,
-             tmp_path: "#{Waffle.File.generate_temporary_path()}.jpg",
-             crop: :none,
-             resize: :down
-           ) do
-        {:ok, %Waffle.File{path: path}} = resized when path != input ->
+      case shrink_frame(frame, max_size, waffle_file) do
+        {:ok, %Waffle.File{path: path}} = resized when path != frame ->
           File.rm(frame)
           resized
 
@@ -269,6 +293,37 @@ defmodule Bonfire.Files.MediaEdit do
         nil
     end
   end
+
+  # shrinks a video's poster frame with the same tools `image/4` picks (vipsthumbnail, ImageMagick, then the `Image` library), so a host without the `Image` library still shrinks it
+  defp shrink_frame(frame, max_size, waffle_file) do
+    {max_width, max_height} = width_and_height(max_size)
+    file = %Waffle.File{waffle_file | path: frame, file_name: Path.basename(frame)}
+
+    apply_transform(image(frame, max_width, max_height), file)
+  end
+
+  @doc """
+  Runs a transform on a file, as the `MediaEdit` functions return them (`image/4`, `thumbnail/3`, `heif_to_webp/4`...): `{cmd, args}`, `{cmd, args, ext}`, a 2-arity function (or `{function, _}`), `:noaction` (the file as it is), `:skip` and `nil` (no file). Gives `{:ok, file}` or `{:error, reason}`.
+
+  This is the one place outside the uploaders' `transform/2` callbacks and the version processing that depends on Waffle to run a transform.
+  """
+  def apply_transform(transform, file, version \\ :default)
+
+  def apply_transform(skip, _file, _version) when skip in [:skip, nil], do: {:ok, nil}
+
+  def apply_transform(noaction, file, _version) when noaction in [:noaction, {:noaction}],
+    do: {:ok, file}
+
+  def apply_transform(fun, file, version) when is_function(fun, 2), do: fun.(version, file)
+
+  def apply_transform({fun, _}, file, version) when is_function(fun, 2),
+    do: fun.(version, file)
+
+  def apply_transform({cmd, args}, file, _version),
+    do: Waffle.Transformations.Convert.apply(cmd, file, args)
+
+  def apply_transform({cmd, args, ext}, file, _version),
+    do: Waffle.Transformations.Convert.apply(cmd, file, args, ext)
 
   # a size given as `"WxH"` (as `VideoUploader` does) or as one number for both
   defp width_and_height(size) do
@@ -638,7 +693,7 @@ defmodule Bonfire.Files.MediaEdit do
   end
 
   @doc """
-  The transformation that converts a HEIC, HEIF or AVIF image to WebP, always (even when it is small enough), shrunk to fit the given size and with its metadata removed. The file is then stored as a `.webp`. The frames of an animated AVIF are kept by ImageMagick: libvips reads an animated AVIF only through its ImageMagick loader, which is blocked as untrusted (`VIPS_BLOCK_UNTRUSTED`, set when the `:image` application starts), so `vipsthumbnail` can't open one.
+  The transformation that converts a HEIC, HEIF or AVIF image to WebP, always (even when it is small enough), shrunk to fit the given size and with its metadata removed. The file is then stored as a `.webp`. The frames of an animated AVIF are kept by ImageMagick: libvips reads an animated AVIF only through its ImageMagick loader, which is blocked as untrusted (`VIPS_BLOCK_UNTRUSTED`, set at boot by `block_untrusted_loaders/0` unless an admin set it), so `vipsthumbnail` can't open one.
 
   It tries `vipsthumbnail`, then ImageMagick, then the `Image` library, whichever is available and able to read the format (the libheif support of each is a separate package on some systems). When none can, the result is an error naming the file and its format, so the original is never stored as it was.
   """
@@ -668,7 +723,7 @@ defmodule Bonfire.Files.MediaEdit do
         Enum.find_value(@heif_tools, fn {cmd, executable, _probe} ->
           with true <- !!choose_executable(:image, executable),
                {:ok, file} <-
-                 Waffle.Transformations.Convert.apply(cmd, waffle_file, heif_args.(cmd), "webp") do
+                 apply_transform({cmd, heif_args.(cmd), "webp"}, waffle_file) do
             file
           else
             err ->

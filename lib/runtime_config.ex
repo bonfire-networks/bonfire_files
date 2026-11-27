@@ -147,6 +147,7 @@ defmodule Bonfire.Files.RuntimeConfig do
     config :waffle, http_client: Waffle.HTTPClient.Req
 
     # the types that are accepted depend on the tools this machine has (probed once, here at boot)
+    Bonfire.Files.MediaEdit.block_untrusted_loaders()
     capabilities = Bonfire.Files.MediaEdit.capabilities()
     media = media_config(capabilities)
     log_dropped_media(media.dropped)
@@ -258,7 +259,10 @@ defmodule Bonfire.Files.RuntimeConfig do
 
   defp log_dropped_media(dropped) do
     reasons = %{
-      heif: "no decoder for it (libvips with libheif, or ImageMagick with HEIC support)",
+      heic:
+        "no decoder for it (libvips with libheif and its HEVC decoder, or ImageMagick with HEIC support)",
+      avif:
+        "no decoder for it (libvips with libheif and an AV1 decoder, or ImageMagick with AVIF support)",
       resize: "no image resize tool (vips, ImageMagick or the Image library)",
       svg: "no SVG sanitiser"
     }
