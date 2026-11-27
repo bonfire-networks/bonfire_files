@@ -17,8 +17,10 @@ defmodule Bonfire.Files.BannerUploader do
     :noaction
   end
 
-  def transform(:default, {%{file_name: filename}, scope}) do
-    Bonfire.Files.MediaEdit.banner(filename, max_width(scope), max_height(scope)) ||
+  # an animated PNG is not cropped or resized (it would lose its frames): stored as it is, or refused when bigger than the banner
+  def transform(:default, {%{file_name: filename, path: path}, scope}) do
+    Bonfire.Files.MediaEdit.apng_transform(path, max_width(scope), max_height(scope)) ||
+      Bonfire.Files.MediaEdit.banner(filename, max_width(scope), max_height(scope), scope) ||
       :noaction
   end
 

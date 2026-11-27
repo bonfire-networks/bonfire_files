@@ -111,6 +111,7 @@ defmodule Bonfire.Files.FaviconStore do
 
     with {:ok, image} <- Faviconic.fetch(url),
          {:ok, extension} <- check_image(image),
+         {:ok, image} <- maybe_sanitize(image, extension),
          path <- "#{storage_dir()}/#{filename}#{extension}",
          #  {:ok, filename} <- store(%{filename: filename, binary: image}),
          :ok <- File.write(path, image) do
@@ -123,6 +124,10 @@ defmodule Bonfire.Files.FaviconStore do
     end
     |> debug()
   end
+
+  # a remote SVG goes through the same sanitising as an uploaded one
+  defp maybe_sanitize(image, ".svg"), do: Bonfire.Files.MediaEdit.sanitize_svg_binary(image)
+  defp maybe_sanitize(image, _), do: {:ok, image}
 
   # Faviconic only checks the Content-Type the remote server declares, so check the bytes themselves before storing them on our origin. Returns the file extension to store with.
   defp check_image(image) do

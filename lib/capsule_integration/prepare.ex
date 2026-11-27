@@ -143,6 +143,10 @@ defmodule Bonfire.Files.Prepare do
 
   defp process_version(definition, scope, version, file) do
     {version, Processor.process(definition, version, {file, scope})}
+  rescue
+    # a tool a transformation needs is not installed: an error for the caller to turn into a refusal, rather than a crash of the upload
+    e in Waffle.MissingExecutableError ->
+      {version, error(Exception.message(e), "A tool needed to process the file is not installed")}
   end
 
   defp async_put_version(definition, scope, result) do

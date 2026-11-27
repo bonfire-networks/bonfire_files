@@ -23,6 +23,7 @@ defmodule Bonfire.Files.MimeTypes do
   def allowed_media,
     do:
       Map.merge(image_media(), video_media())
+      |> Map.merge(heif_media())
       |> Map.merge(extra_media())
 
   def supported_media,
@@ -44,6 +45,65 @@ defmodule Bonfire.Files.MimeTypes do
       "image/webp" => ["webp"]
       # "image/tiff"=> "tiff"
     }
+
+  # TODO: JPEG XL could be accepted the same way (converted to WebP on upload) once the security of its loader is sorted: libvips marks `jxlload` as untrusted
+  @doc "Image types that are accepted by the image and emoji uploaders only because they are converted to WebP on upload (see `Bonfire.Files.MediaEdit.heif_to_webp/4`), so none is ever stored as it was uploaded."
+  def heif_media,
+    do: %{
+      "image/heic" => ["heic"],
+      "image/heif" => ["heif"],
+      "image/avif" => ["avif"]
+    }
+
+  @doc "The capability (see `Bonfire.Files.MediaEdit.capabilities/0`) an image type needs to be accepted: `:heif` for HEIC, HEIF and AVIF, `:resize` for JPEG, PNG and WebP, `:svg` for SVG, `nil` for all else."
+  def required_capability(type) when type in ["image/heic", "image/heif", "image/avif"], do: :heif
+
+  def required_capability(type) when type in ["image/jpeg", "image/png", "image/webp"],
+    do: :resize
+
+  def required_capability("image/svg+xml"), do: :svg
+  def required_capability(_), do: nil
+
+  @doc "Splits a map of media types and their extensions into `{accepted, dropped}` by the capabilities given: `dropped` is a map of each type left out to the capability it lacks."
+  def split_by_capabilities(media, capabilities) when is_map(media) do
+    {kept, dropped} =
+      Enum.split_with(media, fn {type, _exts} ->
+        case required_capability(type) do
+          nil -> true
+          needed -> Map.get(capabilities, needed, false)
+        end
+      end)
+
+    {Map.new(kept), Map.new(dropped, fn {type, _} -> {type, required_capability(type)} end)}
+  end
+
+  # the `ftyp` brand that says which of the HEIF family a file is, as the detector only knows some of them (an animated AVIF, brand `avis`, comes out as `video/quicktime`)
+  @heif_brands %{
+    "heic" => "image/heic",
+    "heix" => "image/heic",
+    "avif" => "image/avif",
+    "avis" => "image/avif",
+    "mif1" => "image/heif",
+    "msf1" => "image/heif",
+    "heim" => "image/heif",
+    "heis" => "image/heif",
+    "hevc" => "image/heif",
+    "hevx" => "image/heif"
+  }
+
+  @doc "Sets the `media_type` of the metadata of a file to the HEIC, HEIF or AVIF type its `ftyp` brand gives, where the detector found another one (or none). Other files are left as they are."
+  def put_heif_type(%{} = metadata, path) when is_binary(path) do
+    with {:ok, io} <- File.open(path, [:read, :binary]),
+         <<_::32, "ftyp", brand::binary-4>> <-
+           IO.binread(io, 12) |> tap(fn _ -> File.close(io) end),
+         type when is_binary(type) <- Map.get(@heif_brands, brand) do
+      Map.put(metadata, :media_type, type)
+    else
+      _ -> metadata
+    end
+  end
+
+  def put_heif_type(metadata, _path), do: metadata
 
   def video_media,
     do: %{
@@ -129,6 +189,25 @@ defmodule Bonfire.Files.MimeTypes do
       "application/vnd.oasis.opendocument.spreadsheet" => ["ods"],
       "application/vnd.oasis.opendocument.text" => ["odt"]
     }
+
+  @doc "The extension a file of this media type is stored under (the first one listed for it), or `nil` where the type has none listed."
+  def canonical_extension(media_type) when is_binary(media_type) do
+    case Map.get(supported_media(), media_type) do
+      [ext | _] -> ext
+      _ -> nil
+    end
+  end
+
+  def canonical_extension(_), do: nil
+
+  @doc "Whether `extension` (with or without its dot, any case) is one of those listed for the media type."
+  def extension_of_type?(media_type, extension)
+      when is_binary(media_type) and is_binary(extension) do
+    extension = extension |> String.trim_leading(".") |> String.downcase()
+    extension in List.wrap(Map.get(supported_media(), media_type))
+  end
+
+  def extension_of_type?(_, _), do: false
 
   # define which is preferred when more than one
   def unique_extension_for_mime do

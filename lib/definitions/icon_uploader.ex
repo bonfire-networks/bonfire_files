@@ -17,7 +17,7 @@ defmodule Bonfire.Files.IconUploader do
     :noaction
   end
 
-  def transform(:default, {%{file_name: filename}, _scope}) do
+  def transform(:default, {%{file_name: filename, path: path}, scope}) do
     debug(filename, "transform")
 
     max_size =
@@ -27,7 +27,9 @@ defmodule Bonfire.Files.IconUploader do
           l("Set a maximum width/height for automatically resizing avatar or icon images")
       )
 
-    Bonfire.Files.MediaEdit.thumbnail(filename, max_size)
+    # an animated PNG is not cropped or resized (it would lose its frames): stored as it is, or refused when bigger than the icon
+    (Bonfire.Files.MediaEdit.apng_transform(path, max_size, max_size) ||
+       Bonfire.Files.MediaEdit.thumbnail(filename, max_size, scope))
     |> debug() ||
       :noaction
   end

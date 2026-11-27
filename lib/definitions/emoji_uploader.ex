@@ -1,9 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 defmodule Bonfire.Files.EmojiUploader do
-  @doc """
-  Uploader for smaller image icons, usually used as avatars.
-
-  TODO: Support resizing.
+  @moduledoc """
+  Uploader for custom emoji. An image bigger than `max_size/0` is shrunk to fit it and stripped of its metadata (a GIF or WebP keeps its frames). One that fits is stripped of its metadata without being re-encoded where `gifsicle` (GIF) or `webpmux` (WebP) is available, else it is stored as it is. SVG is sanitised (see `Bonfire.Files.MediaEdit.sanitize_svg/0`).
   """
 
   use Bonfire.Files.Definition
@@ -13,9 +11,45 @@ defmodule Bonfire.Files.EmojiUploader do
   use Bonfire.Common.Config
   import Bonfire.Common.Config, only: [repo: 0]
 
+  alias Bonfire.Files.MediaEdit
+
   @versions [:default]
 
+  def transform(:default, {%{file_name: filename, path: path}, scope}) do
+    size = max_size()
+
+    fits? =
+      match?({width, height} when width <= size and height <= size, MediaEdit.dimensions(path))
+
+    cond do
+      # an animated PNG is never resized (it would lose its frames): stored as it is, or refused when too big
+      apng = MediaEdit.apng_transform(path, size, size) ->
+        apng
+
+      # already small: no re-encoding, only the metadata removed where there is a tool for that
+      fits? and MediaEdit.image_ext(filename, scope) in ["gif", "webp"] ->
+        MediaEdit.strip_metadata(filename, scope)
+
+      fits? and MediaEdit.image_ext(filename, scope) in ["jpg", "jpeg", "png"] ->
+        nil
+
+      # shrunk, or (as for the other uploaders) a type that can't be resized, such as SVG
+      true ->
+        MediaEdit.image(filename, size, size, scope)
+    end ||
+      :noaction
+  end
+
   def transform(_, _), do: :noaction
+
+  @doc "The width and height (in pixels) an emoji is shrunk to fit within."
+  def max_size do
+    Bonfire.Common.Config.get_ext(
+      :bonfire_files,
+      [__MODULE__, :max_size],
+      128
+    )
+  end
 
   def prefix_dir() do
     "emoji"
@@ -27,8 +61,18 @@ defmodule Bonfire.Files.EmojiUploader do
       :bonfire_files,
       # allowed types for this definition
       [__MODULE__, :allowed_media_types],
-      # fallback
-      ["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml", "image/apng"]
+      # fallback (HEIC, HEIF and AVIF are converted to WebP on upload, see `Bonfire.Files.MediaEdit.heif_to_webp/4`)
+      [
+        "image/png",
+        "image/jpeg",
+        "image/gif",
+        "image/webp",
+        "image/svg+xml",
+        "image/apng",
+        "image/heic",
+        "image/heif",
+        "image/avif"
+      ]
     )
   end
 
