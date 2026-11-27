@@ -16,6 +16,11 @@ defmodule Bonfire.Files.FaviconSSRFTest do
   alias Bonfire.Common.Text
   alias Bonfire.Files.FaviconStore
 
+  defmodule PassThrough do
+    @moduledoc false
+    def sanitize(svg), do: {:ok, svg}
+  end
+
   @png File.read!(Bonfire.Files.Simulation.icon_file().path)
 
   setup do
@@ -116,6 +121,9 @@ defmodule Bonfire.Files.FaviconSSRFTest do
     } do
       svg =
         ~s|<svg xmlns="http://www.w3.org/2000/svg"><script>alert(document.cookie)</script></svg>|
+
+      # a sanitiser that leaves it as it is, so what is checked here is the sandbox: the sanitising itself is tested in `svg_sanitizing_test.exs`
+      Process.put([:bonfire_files, :choose_executable, SvgSanitizer], __MODULE__.PassThrough)
 
       url = serve("image/svg+xml", svg)
       allow!(url)

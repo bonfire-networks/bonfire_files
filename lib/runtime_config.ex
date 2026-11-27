@@ -1,5 +1,6 @@
 defmodule Bonfire.Files.RuntimeConfig do
   use Bonfire.Common.Localise
+  require Untangle
 
   @behaviour Bonfire.Common.ConfigModule
   def config_module, do: true
@@ -145,44 +146,15 @@ defmodule Bonfire.Files.RuntimeConfig do
     # the client Waffle uses to download a file added by URL
     config :waffle, http_client: Waffle.HTTPClient.Req
 
-    image_media = Bonfire.Files.MimeTypes.image_media()
-    video_media = Bonfire.Files.MimeTypes.video_media()
-    extra_media = Bonfire.Files.MimeTypes.extra_media()
-
-    all_allowed_media =
-      Map.merge(image_media, video_media)
-      |> Map.merge(extra_media)
-
-    all_allowed_media_types = all_allowed_media |> Map.keys()
-
-    all_allowed_media_extensions =
-      all_allowed_media |> Map.values() |> List.flatten() |> Enum.uniq() |> Enum.map(&".#{&1}")
-
-    image_media_types = image_media |> Map.keys()
-
-    image_media_extensions =
-      image_media |> Map.values() |> List.flatten() |> Enum.uniq() |> Enum.map(&".#{&1}")
-
-    # avatars and banners refuse SVG: we can't make a raster copy of one, and other fediverse apps (eg. Mastodon) don't show an SVG avatar or banner
-    profile_image_media = Map.delete(image_media, "image/svg+xml")
-    profile_image_media_types = profile_image_media |> Map.keys()
-
-    profile_image_media_extensions =
-      profile_image_media
-      |> Map.values()
-      |> List.flatten()
-      |> Enum.uniq()
-      |> Enum.map(&".#{&1}")
-
-    video_media_types = video_media |> Map.keys()
-
-    video_media_extensions =
-      video_media |> Map.values() |> List.flatten() |> Enum.uniq() |> Enum.map(&".#{&1}")
+    # the types that are accepted depend on the tools this machine has (probed once, here at boot)
+    capabilities = Bonfire.Files.MediaEdit.capabilities()
+    media = media_config(capabilities)
+    log_dropped_media(media.dropped)
 
     config :bonfire_files,
       strip_author_metadata: System.get_env("STRIP_IMAGE_AUTHOR_METADATA") in @yes?,
-      image_media_types: image_media_types,
-      image_media_extensions: image_media_extensions,
+      image_media_types: media.global.image_media_types,
+      image_media_extensions: media.global.image_media_extensions,
       max_upload_size: System.get_env("UPLOAD_LIMIT", "20") |> String.to_integer(),
       max_user_images_file_size:
         System.get_env("UPLOAD_LIMIT_IMAGES", "5") |> String.to_integer(),
@@ -191,32 +163,14 @@ defmodule Bonfire.Files.RuntimeConfig do
       # in megapixels: an image declaring more is refused before anything decodes it
       max_image_megapixels:
         System.get_env("UPLOAD_LIMIT_IMAGE_MEGAPIXELS", "100") |> String.to_integer(),
-      all_allowed_media_types: all_allowed_media_types,
-      all_allowed_media_extensions: all_allowed_media_extensions
+      all_allowed_media_types: media.global.all_allowed_media_types,
+      all_allowed_media_extensions: media.global.all_allowed_media_extensions
 
-    config :bonfire_files, Bonfire.Files.DocumentUploader,
-      allowed_media_types: all_allowed_media_types,
-      allowed_media_extensions: all_allowed_media_extensions
-
-    config :bonfire_files, Bonfire.Files.VideoUploader,
-      allowed_media_types: video_media_types,
-      allowed_media_extensions: video_media_extensions
-
-    config :bonfire_files, Bonfire.Files.IconUploader,
-      allowed_media_types: profile_image_media_types,
-      allowed_media_extensions: profile_image_media_extensions
-
-    config :bonfire_files, Bonfire.Files.BannerUploader,
-      allowed_media_types: profile_image_media_types,
-      allowed_media_extensions: profile_image_media_extensions
-
-    config :bonfire_files, Bonfire.Files.InstanceIconUploader,
-      allowed_media_types: image_media_types,
-      allowed_media_extensions: image_media_extensions
+    for {uploader, opts} <- media.uploaders do
+      config :bonfire_files, uploader, opts
+    end
 
     config :bonfire_files, Bonfire.Files.ImageUploader,
-      allowed_media_types: image_media_types,
-      allowed_media_extensions: image_media_extensions,
       max_width: System.get_env("IMAGE_MAX_W", "700"),
       max_height: System.get_env("IMAGE_MAX_H", "700")
 
@@ -244,5 +198,77 @@ defmodule Bonfire.Files.RuntimeConfig do
     #   "application/ld+json" => ["ld+json"],
     #   "application/jrd+json" => ["jrd+json"]
     # }, all_allowed_media)
+  end
+
+  @doc """
+  The media types and extensions each uploader accepts, given what the machine can do (see `Bonfire.Files.MediaEdit.capabilities/0`): a type whose tool is missing is left out everywhere, so the composer's picker and the API's supported types don't offer what would be refused.
+
+  Returns `%{global: [...], uploaders: %{Module => [allowed_media_types: ..., allowed_media_extensions: ...]}, dropped: %{type => capability}}`.
+  """
+  def media_config(capabilities) do
+    alias Bonfire.Files.MimeTypes
+
+    split = &MimeTypes.split_by_capabilities(&1, capabilities)
+
+    {image_media, dropped_images} = split.(MimeTypes.image_media())
+    {heif_media, dropped_heif} = split.(MimeTypes.heif_media())
+    video_media = MimeTypes.video_media()
+    extra_media = MimeTypes.extra_media()
+
+    # everything a post can carry, including HEIC, HEIF and AVIF (converted to WebP on upload): what the composer lets a person pick
+    all_allowed_media =
+      image_media |> Map.merge(video_media) |> Map.merge(heif_media) |> Map.merge(extra_media)
+
+    # the same without HEIC, HEIF and AVIF, for the uploader that stores a file as it is
+    document_media = image_media |> Map.merge(video_media) |> Map.merge(extra_media)
+
+    # avatars and banners refuse SVG: we can't make a raster copy of one, and other fediverse apps (eg. Mastodon) don't show an SVG avatar or banner
+    profile_image_media = Map.delete(image_media, "image/svg+xml")
+
+    # HEIC, HEIF and AVIF are accepted for posts and emoji only: converted to WebP on upload
+    image_and_heif_media = Map.merge(image_media, heif_media)
+
+    %{
+      global: %{
+        all_allowed_media_types: Map.keys(all_allowed_media),
+        all_allowed_media_extensions: extensions(all_allowed_media),
+        image_media_types: Map.keys(image_media),
+        image_media_extensions: extensions(image_media)
+      },
+      uploaders: %{
+        Bonfire.Files.DocumentUploader => allowed(document_media),
+        Bonfire.Files.VideoUploader => allowed(video_media),
+        Bonfire.Files.IconUploader => allowed(profile_image_media),
+        Bonfire.Files.BannerUploader => allowed(profile_image_media),
+        Bonfire.Files.InstanceIconUploader => allowed(image_media),
+        Bonfire.Files.ImageUploader => allowed(image_and_heif_media),
+        Bonfire.Files.EmojiUploader => allowed(image_and_heif_media)
+      },
+      dropped: Map.merge(dropped_images, dropped_heif)
+    }
+  end
+
+  defp allowed(media),
+    do: [allowed_media_types: Map.keys(media), allowed_media_extensions: extensions(media)]
+
+  defp extensions(media),
+    do: media |> Map.values() |> List.flatten() |> Enum.uniq() |> Enum.map(&".#{&1}")
+
+  defp log_dropped_media(dropped) when dropped == %{}, do: :ok
+
+  defp log_dropped_media(dropped) do
+    reasons = %{
+      heif: "no decoder for it (libvips with libheif, or ImageMagick with HEIC support)",
+      resize: "no image resize tool (vips, ImageMagick or the Image library)",
+      svg: "no SVG sanitiser"
+    }
+
+    dropped
+    |> Enum.group_by(fn {_type, needed} -> needed end, fn {type, _} -> type end)
+    |> Enum.each(fn {needed, types} ->
+      Untangle.info(
+        "Uploads of #{types |> Enum.sort() |> Enum.join(", ")} are not accepted: #{reasons[needed]}"
+      )
+    end)
   end
 end

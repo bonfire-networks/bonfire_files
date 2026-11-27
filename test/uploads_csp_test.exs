@@ -13,6 +13,11 @@ defmodule Bonfire.Files.UploadsCSPTest do
   alias Bonfire.Files
   alias Bonfire.Files.ImageUploader
 
+  defmodule PassThrough do
+    @moduledoc false
+    def sanitize(svg), do: {:ok, svg}
+  end
+
   defp upload!(user, filename, content) do
     path = Path.join(System.tmp_dir!(), "#{System.unique_integer([:positive])}-#{filename}")
     File.write!(path, content)
@@ -29,6 +34,9 @@ defmodule Bonfire.Files.UploadsCSPTest do
   test "an uploaded SVG is served sandboxed, so its scripts can't run" do
     svg =
       ~s|<svg xmlns="http://www.w3.org/2000/svg"><script>alert(document.cookie)</script></svg>|
+
+    # a sanitiser that leaves it as it is, so that what is checked is the CSP, which stays as a second layer
+    Process.put([:bonfire_files, :choose_executable, SvgSanitizer], __MODULE__.PassThrough)
 
     path = upload!(fake_user!(), "avatar.svg", svg)
 

@@ -3,7 +3,7 @@ defmodule Bonfire.Files.InstanceIconUploader do
   @moduledoc """
   Uploader for the instance icon used in navigation, favicons, and social previews.
 
-  Raster uploads are kept large enough for high-density displays without making every avatar use the same larger payload. Vector uploads are stored unchanged and rasterised for consumers that require a bitmap.
+  Raster uploads are kept large enough for high-density displays without making every avatar use the same larger payload. Vector uploads are sanitised (see `Bonfire.Files.MediaEdit.sanitize_svg/0`) and rasterised for consumers that require a bitmap.
   """
 
   use Bonfire.Files.Definition
@@ -17,8 +17,10 @@ defmodule Bonfire.Files.InstanceIconUploader do
   end
 
   @doc false
-  def transform(:default, {%{file_name: filename}, _scope}) do
-    Bonfire.Files.MediaEdit.thumbnail(filename, max_size())
+  def transform(:default, {%{file_name: filename, path: path}, scope}) do
+    # an animated PNG is not cropped or resized (it would lose its frames): stored as it is, or refused when bigger than the icon
+    (Bonfire.Files.MediaEdit.apng_transform(path, max_size(), max_size()) ||
+       Bonfire.Files.MediaEdit.thumbnail(filename, max_size(), scope))
     |> debug() ||
       :noaction
   end

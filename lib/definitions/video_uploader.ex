@@ -10,14 +10,21 @@ defmodule Bonfire.Files.VideoUploader do
 
   @versions [:default, :thumbnail]
 
-  def transform(:default, {%{file_name: filename}, _scope}) do
+  # a video with no location is stored as it is, with its other metadata; one that has a location is stripped without encoding it again, where `ffmpeg` is available (else it is stored as it is). What is stored is checked again for a location, and the upload refused if it still has one
+  def transform(:default, {%{path: path, file_name: filename}, scope}) do
     # TODO: do the conversion async (eg. in an Oban queue)
-    # if not String.ends_with?(filename, [".mp4", ".webm", ".ogv", ".ogg"]) do 
+    # if not String.ends_with?(filename, [".mp4", ".webm", ".ogv", ".ogg"]) do
     #   # ^ just assume these are browser-supported for now
-    #   Bonfire.Files.MediaEdit.video_convert(filename) 
+    #   Bonfire.Files.MediaEdit.video_convert(filename)
     #   # TODO: change mime type of Media to match
-    # else 
-    :noaction
+    # else
+    if is_binary(path) and is_nil(Bonfire.Files.LocationMetadata.find(path)) do
+      debug(filename, "no location in the video, left as it is")
+      :noaction
+    else
+      Bonfire.Files.MediaEdit.video_strip(scope) || :noaction
+    end
+
     # end
   end
 

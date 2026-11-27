@@ -181,13 +181,14 @@ defmodule Bonfire.Files do
     debug(upload_filename, "upload_filename")
     id = Needle.UID.generate(Bonfire.Files.Media)
 
-    file_extension = file_extension(e(attrs, :client_name, nil) || upload_filename)
+    client_extension = file_extension(e(attrs, :client_name, nil) || upload_filename)
 
-    final_filename = "#{id}#{file_extension}"
-
-    with {:ok, tmp_path} <- maybe_move(opts[:move_original], upload_filename, final_filename),
+    with {:ok, tmp_path} <-
+           maybe_move(opts[:move_original], upload_filename, "#{id}#{client_extension}"),
          {:ok, file} <- init_file(module, tmp_path),
          {:ok, file_info} <- extract_metadata(file),
+         # stored under the extension of the type found in the bytes: the tools that transform the file pick their output format from it, and the client's name can claim any type
+         final_filename <- "#{id}#{stored_extension(file_info, client_extension)}",
          :ok <- check_pixel_cap(file_info, file.path),
          module when is_atom(module) and not is_nil(module) <-
            module || definition_module(module, file_info),
@@ -200,26 +201,98 @@ defmodule Bonfire.Files do
          {:ok, new_paths} <-
            module.prepare({
              upload_source,
-             %{creator_id: context_id(context), file_info: file_info}
+             %{
+               creator_id: context_id(context),
+               file_info: file_info,
+               client_name: e(attrs, :client_name, nil)
+             }
            })
-           |> debug("prepared") do
+           |> debug("prepared"),
+         # whatever the transformations left of the file (nothing for a PDF, or a video or GIF with no tool to strip it) must carry no location
+         :ok <- refuse_location_metadata(new_paths, file.path) do
       insert(
         context,
         %{file | path: Map.get(new_paths, :default)},
         # file,
         file_info
-        |> Map.put(:module, module),
+        |> Map.put(:module, module)
+        |> converted_file_info(Map.get(new_paths, :default)),
         # |> Enums.maybe_put(:preview, if File.exists?()),
         attrs
         |> Map.put(:id, id)
         |> Map.put(:file, new_paths)
       )
     else
+      # a refusal made by a transformation comes back wrapped by the task that ran it
+      {:error, [{%Task{}, _} = failed | _]} ->
+        {:error,
+         task_failure(failed, e(attrs, :client_name, nil) || Path.basename(upload_filename))}
+
       {:error, [error]} ->
         error(error)
 
       other ->
         error(other)
+    end
+  end
+
+  # a HEIC, HEIF or AVIF image is converted to WebP on upload (see `Bonfire.Files.MediaEdit.heif_to_webp/4`): what is recorded is the WebP stored, not the file uploaded
+  defp converted_file_info(%{media_type: media_type} = file_info, %{path: path})
+       when is_binary(path) and is_binary(media_type) do
+    with true <- Map.has_key?(Bonfire.Files.MimeTypes.heif_media(), media_type),
+         ".webp" <- Path.extname(path),
+         {:ok, %{size: size}} <- File.stat(path) do
+      %{file_info | media_type: "image/webp", size: size}
+    else
+      _ -> file_info
+    end
+  end
+
+  defp converted_file_info(file_info, _path), do: file_info
+
+  # the client's extension stays where it is one of the detected type's (`.jpeg` for a JPEG) or where the type has no extension listed; else the type's own
+  defp stored_extension(file_info, client_extension) do
+    media_type = e(file_info, :media_type, nil)
+
+    cond do
+      Bonfire.Files.MimeTypes.extension_of_type?(media_type, client_extension) ->
+        client_extension
+
+      ext = Bonfire.Files.MimeTypes.canonical_extension(media_type) ->
+        ".#{ext}"
+
+      true ->
+        client_extension
+    end
+  end
+
+  # refuses the upload when any version still has the location it was made at, and removes the versions made for it (not the file uploaded)
+  defp refuse_location_metadata(%{} = versions, source_path) do
+    paths =
+      versions
+      |> Map.from_struct()
+      |> Map.values()
+      |> Enum.flat_map(fn
+        %{path: path} when is_binary(path) -> [path]
+        _ -> []
+      end)
+      |> Enum.uniq()
+
+    if found = Enum.find_value(paths, &Bonfire.Files.LocationMetadata.find/1) do
+      debug(found, "refusing an upload that still has its location")
+      Enum.each(paths -- [source_path], &File.rm/1)
+
+      {:error,
+       %Bonfire.Fail{
+         code: :location_metadata,
+         message:
+           l(
+             "This file contains location data (the place where it was made). Please clean the file of its location data and upload it again, or remove it."
+           ),
+         status: 422
+       }}
+    else
+      :ok
     end
   end
 
@@ -286,6 +359,30 @@ defmodule Bonfire.Files do
 
   def validate(other, _, _) do
     error(other, "File info not available so file type and/or size could not be validated")
+  end
+
+  # what a task that ran a transformation came back with when it failed: a refusal it made is passed on as it is, and anything else (a tool's error output, a timeout (`nil`), an exit) becomes a readable error naming the file, the reason logged
+  defp task_failure({%Task{}, {:ok, {:error, %Bonfire.Fail{} = fail}}}, _name), do: fail
+
+  defp task_failure({%Task{}, result}, name) do
+    reason =
+      case result do
+        {:ok, {:error, reason}} -> reason
+        nil -> :timeout
+        other -> other
+      end
+
+    warn(reason, "Could not process #{name}")
+
+    %Bonfire.Fail{
+      code: :file_processing_failed,
+      message:
+        l(
+          "Could not process %{name}. It may be damaged, or not the type of file it claims to be.",
+          name: name
+        ),
+      status: 422
+    }
   end
 
   defp file_too_large(max_file_size) do
@@ -932,6 +1029,7 @@ defmodule Bonfire.Files do
       metadata =
         info
         |> Map.replace_lazy(:media_type, &Bonfire.Files.MimeTypes.normalize_type/1)
+        |> Bonfire.Files.MimeTypes.put_heif_type(path)
         |> Map.put(:size, stat.size)
 
       {:ok, metadata}
