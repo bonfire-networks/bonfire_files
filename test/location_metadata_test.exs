@@ -152,7 +152,8 @@ defmodule Bonfire.Files.LocationMetadataTest do
 
         log =
           capture_log(fn ->
-            for only <- [:all, nil | @all_tools] do
+            # a tool that is not installed is not forced on: it would only warn that it is missing
+            for only <- [:all, nil | Enum.filter(@all_tools, &installed?/1)] do
               use_tools(only)
 
               refute LocationMetadata.find(path),

@@ -222,20 +222,22 @@ defmodule Bonfire.Files.AnimatedEmojiUploadTest do
       assert stored_files(creator) == []
     end
 
-    # control: a still PNG of the same size is still shrunk to the emoji size
-    test "still shrinks a static PNG of the size of the too big APNG emoji with #{branch}" do
-      use_tools(unquote(Macro.escape(tools)))
-      creator = fake_user!()
-      path = static_png_copy!("anim_256.png", 256)
+    # control: a still PNG of the same size is still shrunk to the emoji size (the still is made with the `Image` library, so it needs it compiled in)
+    if Code.ensure_loaded?(Image) do
+      test "still shrinks a static PNG of the size of the too big APNG emoji with #{branch}" do
+        use_tools(unquote(Macro.escape(tools)))
+        creator = fake_user!()
+        path = static_png_copy!("anim_256.png", 256)
 
-      assert {:ok, _} =
-               Files.upload(EmojiUploader, creator, %{path: path, filename: "still_256.png"})
+        assert {:ok, _} =
+                 Files.upload(EmojiUploader, creator, %{path: path, filename: "still_256.png"})
 
-      [stored] = stored_files(creator)
-      info = apng_info(stored)
-      assert info.frames == 1
-      assert info.width <= 128 and info.height <= 128
-      assert info.width == 128 or info.height == 128
+        [stored] = stored_files(creator)
+        info = apng_info(stored)
+        assert info.frames == 1
+        assert info.width <= 128 and info.height <= 128
+        assert info.width == 128 or info.height == 128
+      end
     end
   end
 
@@ -302,19 +304,21 @@ defmodule Bonfire.Files.AnimatedEmojiUploadTest do
     end
 
     # control: a still PNG of the same size is still resized
-    test "a static PNG of the same size is still resized to the box" do
-      Process.put([:bonfire_files, ImageUploader, :max_width], 100)
-      Process.put([:bonfire_files, ImageUploader, :max_height], 100)
-      creator = fake_user!()
-      path = static_png_copy!("anim_256.png", 256)
+    if Code.ensure_loaded?(Image) do
+      test "a static PNG of the same size is still resized to the box" do
+        Process.put([:bonfire_files, ImageUploader, :max_width], 100)
+        Process.put([:bonfire_files, ImageUploader, :max_height], 100)
+        creator = fake_user!()
+        path = static_png_copy!("anim_256.png", 256)
 
-      assert {:ok, _} =
-               Files.upload(ImageUploader, creator, %{path: path, filename: "still_256.png"})
+        assert {:ok, _} =
+                 Files.upload(ImageUploader, creator, %{path: path, filename: "still_256.png"})
 
-      [stored] = stored_files(creator)
-      info = apng_info(stored)
-      assert info.frames == 1
-      assert info.width == 100 and info.height == 100
+        [stored] = stored_files(creator)
+        info = apng_info(stored)
+        assert info.frames == 1
+        assert info.width == 100 and info.height == 100
+      end
     end
   end
 

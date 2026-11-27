@@ -244,8 +244,20 @@ defmodule Bonfire.Files.LocationMetadata do
     end
   rescue
     e ->
-      warn(args, "#{name} could not be run (#{Exception.message(e)}); run with these arguments")
+      warn(
+        args,
+        "#{name} could not be run on #{subject(args)} (#{Exception.message(e)}); run with these arguments"
+      )
+
       nil
+  end
+
+  # the file a tool was run on (the last argument), as a name short enough to survive a truncated log line
+  defp subject(args) do
+    case List.last(args) do
+      path when is_binary(path) -> Path.basename(path)
+      _ -> "a file"
+    end
   end
 
   defp find_executable(name, exe) do
@@ -293,7 +305,7 @@ defmodule Bonfire.Files.LocationMetadata do
         else
           warn(
             args,
-            "#{name} exited with status #{status} (#{String.slice(out, 0, 300)}); run with these arguments"
+            "#{name} exited with status #{status} on #{subject(args)} (#{String.slice(out, 0, 300)}); run with these arguments"
           )
 
           nil
@@ -302,7 +314,7 @@ defmodule Bonfire.Files.LocationMetadata do
       left ->
         warn(
           args,
-          "#{name} ran past its timeout and was stopped, so its answer is left out; run with these arguments"
+          "#{name} ran past its timeout on #{subject(args)} and was stopped, so its answer is left out; run with these arguments"
         )
 
         System.cmd("kill", ["-9", to_string(os_pid)], stderr_to_stdout: true)

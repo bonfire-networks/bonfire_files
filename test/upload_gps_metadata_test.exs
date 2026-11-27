@@ -245,30 +245,46 @@ defmodule Bonfire.Files.UploadGpsMetadataTest do
   end
 
   describe "a video is stripped only when it has a location" do
-    test "a clean MP4 is stored as it is, and ffmpeg is not run" do
-      marker = spy_on_ffmpeg()
-      creator = fake_user!()
-      path = Path.join(@fixtures, "clean.mp4")
+    # these two run the real `ffmpeg` through a spy, so they need it installed
+    if System.find_executable("ffmpeg") do
+      test "a clean MP4 is stored as it is, and ffmpeg is not run" do
+        marker = spy_on_ffmpeg()
+        creator = fake_user!()
+        path = Path.join(@fixtures, "clean.mp4")
 
-      assert {:ok, _} = Files.upload(VideoUploader, creator, %{path: path, filename: "clean.mp4"})
+        assert {:ok, _} =
+                 Files.upload(VideoUploader, creator, %{path: path, filename: "clean.mp4"})
 
-      refute ffmpeg_stripped?(marker), "ffmpeg stripped a video with no location"
-      original = File.read!(path)
-      assert Enum.any?(stored_files(creator), &(File.read!(&1) == original))
+        refute ffmpeg_stripped?(marker), "ffmpeg stripped a video with no location"
+        original = File.read!(path)
+        assert Enum.any?(stored_files(creator), &(File.read!(&1) == original))
+      end
+
+      test "an MP4 with a location is stripped by ffmpeg and stored clean" do
+        marker = spy_on_ffmpeg()
+        creator = fake_user!()
+        path = Path.join(@fixtures, "gps.mp4")
+
+        assert {:ok, _} = Files.upload(VideoUploader, creator, %{path: path, filename: "gps.mp4"})
+
+        assert ffmpeg_stripped?(marker), "ffmpeg did not strip a video with a location"
+        stored = stored_files(creator)
+        assert stored != []
+        assert Enum.all?(stored, &is_nil(Bonfire.Files.LocationMetadata.find(&1)))
+        refute Enum.any?(stored, &(File.read!(&1) == File.read!(path)))
+      end
     end
 
-    test "an MP4 with a location is stripped by ffmpeg and stored clean" do
-      marker = spy_on_ffmpeg()
+    test "an MP4 with a location whose ffmpeg can not be run is refused, not crashed on" do
+      # chosen as present, but the executable is not there (what a missing tool looks like once a transformation runs it)
+      Process.put([:bonfire_files, :choose_executable, "ffmpeg"], "no_such_ffmpeg_here")
       creator = fake_user!()
       path = Path.join(@fixtures, "gps.mp4")
 
-      assert {:ok, _} = Files.upload(VideoUploader, creator, %{path: path, filename: "gps.mp4"})
+      assert {:error, %Bonfire.Fail{code: :file_processing_failed}} =
+               Files.upload(VideoUploader, creator, %{path: path, filename: "gps.mp4"})
 
-      assert ffmpeg_stripped?(marker), "ffmpeg did not strip a video with a location"
-      stored = stored_files(creator)
-      assert stored != []
-      assert Enum.all?(stored, &is_nil(Bonfire.Files.LocationMetadata.find(&1)))
-      refute Enum.any?(stored, &(File.read!(&1) == File.read!(path)))
+      assert stored_files(creator) == []
     end
 
     test "an MP4 with a location is refused when ffmpeg is absent" do
