@@ -384,12 +384,15 @@ defmodule Bonfire.Files.ImagesTest do
                      "jpg"
                    )
 
-          assert "320x180" ==
-                   run_tool(
-                     Bonfire.Files.MediaEdit.thumbnail_video("a.mp4", "320x320", percent: 10),
-                     video_file().path,
-                     "jpg"
-                   )
+          # ffmpegthumbnailer can't shrink: it leaves that to an image tool, so the next test covers it
+          if @tool == "ffmpeg" do
+            assert "320x180" ==
+                     run_tool(
+                       Bonfire.Files.MediaEdit.thumbnail_video("a.mp4", "320x320", percent: 10),
+                       video_file().path,
+                       "jpg"
+                     )
+          end
         end
       end
     end
@@ -409,11 +412,13 @@ defmodule Bonfire.Files.ImagesTest do
       end
     end
 
-    # makes `tool` the only one `MediaEdit` finds, if it's installed
+    # makes `tool` the only one `MediaEdit` finds, if it's installed (the `Image` library too is left out, as a host can lack it)
     defp only(tool) do
       for other <- @tools,
           other != tool,
           do: Process.put([:bonfire_files, :choose_executable, other], false)
+
+      Process.put([:bonfire_files, :choose_executable, Image], false)
 
       path = System.find_executable(tool)
       if path, do: Process.put([:bonfire_files, :choose_executable, tool], path)
